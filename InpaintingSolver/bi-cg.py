@@ -107,7 +107,6 @@ class OsmosisInpainting():
         
         return inp
     
-    
     def Osmosis(self, kmax, tau, offset, eps=1e-9):
         f = self.U.copy() 
         self.BiCGSTAB(kmax, x, b, kmax, eps)
