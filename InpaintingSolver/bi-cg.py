@@ -111,18 +111,20 @@ class OsmosisInpainting():
         f = self.U.copy() 
         self.BiCGSTAB(kmax, x, b, kmax, eps)
 
+
     def BiCGSTAB(self, x, b, kmax, eps):
         """
         solving system Ax=b
         x : old and new solution ; torch.Tensor batch*channel*nx*ny
         b : right hand side      ; torch.Tensor batch*channel*nx*ny
         """
-        restart = 1        
+        restart = torch.ones((self.batch, self.channel, 1, 1))        
         k = 0 
 
         while restart == 1:
           
             restart = 0
+            
             r_0 = r = p  = torch.sub(b, self.applyStencil(x))
             r_abs = r0_abs = torch.norm(r_0, p = 'fro')
 
@@ -162,17 +164,3 @@ class OsmosisInpainting():
                     r_abs = torch.norm(r, p = 'fro')
 
                     
-
-    def generateOsmosisWeightMatrix_A(self):
-        pass
-
-    def generateOsmosisWeightMatrix_Q(self):
-        pass
-
-    def sparseMultiply(self, v):
-        '''
-        v : vector to be multiplied with sparse matrix 
-        '''
-        pass
-
-
