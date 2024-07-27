@@ -45,8 +45,8 @@ class OsmosisInpainting:
         return pgm_T
         
 
-    def analyseImage(self, x):
-
+    def analyseImage(self, x, name):
+        print(f"analyzing {name} : size : {x.size()}")
         print(f"min  : {torch.min(x)}")
         print(f"max  : {torch.max(x)}")
         print(f"mean : {torch.mean(x)}")
@@ -106,10 +106,6 @@ class OsmosisInpainting:
         # because F.conv2d accepts only float32 
         V_padded   = V_padded.type(torch.float32)  
         
-        if verbose:
-            print(f"V shape : {self.V.size()}, V padded shape : {V_padded.size()}")
-            print(f"V_padded : \n{V_padded}")
-
         # x-direction filters
         f1 = torch.tensor([-1./self.hx, 1./self.hx]).reshape(1, 1, 2, 1)
         f2 = torch.tensor([.5, .5]).reshape(1, 1, 2, 1)
@@ -118,15 +114,19 @@ class OsmosisInpainting:
         f3 = torch.tensor([-1./self.hy, 1./self.hy]).reshape(1, 1, 1, 2)
         f4 = torch.tensor([.5, .5]).reshape(1, 1, 1, 2)
 
-        # convolution reduces dimensionality ; CORRECT THIS without affecting statistics
-        self.d1 = F.conv2d(V_padded, f1, padding='same') / F.conv2d(V_padded, f2, padding='same')
-        self.d2 = F.conv2d(V_padded, f3, padding='same') / F.conv2d(V_padded, f4, padding='same') 
-
+        d1 = F.conv2d(V_padded, f1) / F.conv2d(V_padded, f2)
+        d2 = F.conv2d(V_padded, f3) / F.conv2d(V_padded, f4) 
+        
+        # correcting for dimentionality reduced by using F.conv2d
+        # eg : 1 dimension reduced for d1  changes nx+2 -> nx+2-1
+        self.d1[:, :, :self.nx+1, :] = d1  
+        self.d2[:, :, :, :self.ny+1] = d2
+        
         if verbose:
-            print(self.d1, self.d1.size())
-            print(self.d2, self.d2.size())
-            self.analyseImage(self.d1)
-            self.analyseImage(self.d2)
+            print(f"V shape : {self.V.size()}, V padded shape : {V_padded.size()}")
+            print(f"V_padded : \n{V_padded}\n")
+            self.analyseImage(self.d1, "d1")
+            self.analyseImage(self.d2, "d2")
             
 
     def applyStencil(self, inp):
