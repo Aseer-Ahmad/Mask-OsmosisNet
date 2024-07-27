@@ -108,7 +108,7 @@ class OsmosisInpainting:
         
         if verbose:
             print(f"V shape : {self.V.size()}, V padded shape : {V_padded.size()}")
-            # print(f"V_padded : \n{V_padded}")
+            print(f"V_padded : \n{V_padded}")
 
         # x-direction filters
         f1 = torch.tensor([-1./self.hx, 1./self.hx]).reshape(1, 1, 2, 1)
@@ -118,8 +118,9 @@ class OsmosisInpainting:
         f3 = torch.tensor([-1./self.hy, 1./self.hy]).reshape(1, 1, 1, 2)
         f4 = torch.tensor([.5, .5]).reshape(1, 1, 1, 2)
 
-        self.d1 = F.conv2d(V_padded, f1) / F.conv2d(V_padded, f2)
-        self.d2 = F.conv2d(V_padded, f3) / F.conv2d(V_padded, f4) 
+        # convolution reduces dimensionality ; CORRECT THIS without affecting statistics
+        self.d1 = F.conv2d(V_padded, f1, padding='same') / F.conv2d(V_padded, f2, padding='same')
+        self.d2 = F.conv2d(V_padded, f3, padding='same') / F.conv2d(V_padded, f4, padding='same') 
 
         if verbose:
             print(self.d1, self.d1.size())

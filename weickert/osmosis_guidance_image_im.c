@@ -1019,6 +1019,7 @@ for (i=1; i<=nx; i++)
      v[i][j] = v[i][j] + offset;
      }
 
+
 /* analyse initial image */
 printf ("initial image\n");
 analyse_grey_double (u, nx, ny, &min, &max, &mean, &std);
