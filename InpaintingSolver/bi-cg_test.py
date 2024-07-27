@@ -16,10 +16,10 @@ def BiCGSTAB(A, x, b, kmax, eps=1e-9):
         
         restart = 0
         
-        r0  = torch.matmul(A, x)
-        r_0 = r = p  = torch.sub(b, r0)
+        # r0  = torch.matmul(A, x)
+        r_0 = r = p  = b - torch.matmul(A, x)
         r_abs = r0_abs = torch.norm(r_0, p = 'fro')
-        print(r_abs)
+
         while k < kmax and  \
                 r_abs > eps * nx * ny and \
                 restart == 0:
@@ -27,6 +27,7 @@ def BiCGSTAB(A, x, b, kmax, eps=1e-9):
             v = torch.matmul(A, p)
             sigma = torch.matmul(v.T, r_0)
             v_abs = torch.norm(v, p = 'fro')
+
             if sigma <= eps * v_abs * r0_abs:
 
                 restart = 1
@@ -59,37 +60,77 @@ def BiCGSTAB(A, x, b, kmax, eps=1e-9):
 
     return x
 
+def BiCGSTAB_batched(A, B, X0=None, max_iter=1000, tol=1e-6):
+    """
+    Solve AX = B using BiCGStab method without preconditioning for batched, multi-channel inputs.
+    
+    Args:
+    A: coefficient tensor of shape (batch, channel, nx, ny)
+    B: right-hand side tensor of shape (batch, channel, ny, m)
+    X0: initial guess tensor (if None, use zeros)
+    max_iter: maximum number of iterations
+    tol: tolerance for convergence
+    
+    Returns:
+    X: solution tensor of shape (batch, channel, nx, m)
+    info: convergence information (0: converged, 1: not converged)
+    """
+    A = A.to(torch.float64)
+    B = B.to(torch.float64)
+    batch, channel, nx, ny = A.shape
+    m = B.shape[-1]
+    
+    if X0 is None:
+        X = torch.zeros(batch, channel, nx, m, dtype=torch.float64, device=A.device)
+    else:
+        X = X0.clone().to(torch.float64)
+    
+    R = B - torch.matmul(A, X)
+    R_tilde = R.clone()
+    
+    rho = alpha = omega = torch.ones(batch, channel, 1, 1, dtype=torch.float64, device=A.device)
+    V = P = torch.zeros_like(X)
+    
+    for i in range(max_iter):
+        rho_new = torch.sum(R_tilde * R, dim=(-2, -1), keepdim=True)
+        beta = (rho_new / rho) * (alpha / omega)
+        P = R + beta * (P - omega * V)
+        V = torch.matmul(A, P)
+        alpha = rho_new / torch.sum(R_tilde * V, dim=(-2, -1), keepdim=True)
+        H = X + alpha * P
+        S = R - alpha * V
+        T = torch.matmul(A, S)
+        omega = torch.sum(T * S, dim=(-2, -1), keepdim=True) / torch.sum(T * T, dim=(-2, -1), keepdim=True)
+        X = H + omega * S
+        R = S - omega * T
+        
+        rho = rho_new
+        
+        residual_norm = torch.norm(R.reshape(batch, channel, -1), dim=-1)
+        if torch.all(residual_norm < tol):
+            return X, 0
+    
+    return X, 1
+
 
 if __name__ == '__main__':
-    # A = torch.tensor([[3., 2., -1.], [2., -2., 4.], [-1.,.5,-1.]])
-    # x = torch.randn((3,1))
-    # b = torch.tensor([[1.,-2.,0.]]).reshape(3,1)
-    # print(A.size(), x.size(), b.size())
 
-    # x = BiCGSTAB_1(A, x, b, 10000)
-    # print(x)
+    A = torch.tensor([[[3., 2., -1.], [2., -2., 4.], [-1.,.5,-1.]], 
+                     [[1., 3., -1.], [5., -2., 5.], [1.,.3,-4.]]]).reshape(1, 2, 3, 3)
+    B = torch.tensor([[[1.,1.],
+                      [-2.,-2.],
+                      [0.,-0.]
+                      ],
+                      [[2.,0.],
+                      [-1.,3.],
+                      [1.,1.]
+                      ]]).reshape(1, 2, 3, 2)
 
+    print(A.size(), B.size())
+    X = BiCGSTAB_batched(A, B)
+    print(X)
 
-    batch_size = 1
-    channels = 1
-    nx, ny = 5, 5  # Size of the matrix
-    A = torch.rand(batch_size, channels, nx, ny)  # Random coefficient matrix
-    x = torch.zeros(batch_size, channels, nx, ny)  # Initial guess
-    b = torch.rand(batch_size, channels, nx, ny)  # Random right-hand side
-
-    # Solve Ax = b
-    x_solution = BiCGSTAB_1(A, x, b, kmax=1000, eps=1e-6)
-    print(x_solution)
-
-
-    # b = torch.tensor([[3.,-2.,1.]])
-    # alphs = 2
-    # print(torch.mul(b, alphs))
-
-
-    # A = A.numpy()
-    # b = b.numpy()
-    # x, exitCode = bicg(A, b,maxiter = 1000,  atol=1e-9)
-    # print(exitCode, x)
-    
+# tensor([[[[ 0.1833,  0.6167],
+#           [ 0.5513, -0.2436],
+#           [-0.1628, -0.1141]]]]
 

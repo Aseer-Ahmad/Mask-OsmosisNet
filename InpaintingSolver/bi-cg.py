@@ -19,11 +19,11 @@ class OsmosisInpainting():
         self.hy      = hy
 
         # stencil matrix
-        self.boo     = None #center pixel entries [i,j]
-        self.bop     = None #neighbour entries for [i+1,j]
-        self.bpo     = None #neighbour entries for [i,j+1]
-        self.bmo     = None #neighbour entries for [i-1,j]
-        self.bom     = None #neighbour entries for [i,j-1]
+        self.boo     = None # center pixel entries [i,j]
+        self.bop     = None # neighbour entries for [i+1,j]
+        self.bpo     = None # neighbour entries for [i,j+1]
+        self.bmo     = None # neighbour entries for [i-1,j]
+        self.bom     = None # neighbour entries for [i,j-1]
 
         # drift vectors
         self.d1      = None
