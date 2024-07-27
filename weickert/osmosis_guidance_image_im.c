@@ -698,6 +698,25 @@ return;
 
 /*--------------------------------------------------------------------------*/
 
+/*--------------------------------------------------------------------------*/
+void show(
+   double **x, 
+   long nx, 
+   long ny
+){
+   long    i, j;             /* loop variables */
+
+   for (i=1; i<=nx; i++)
+    for (j=1; j<=ny; j++)
+      {
+         printf("%.3f\t", x[i][j]);
+      }
+      printf("\n \n");
+}
+
+/*--------------------------------------------------------------------------*/
+
+
 void canonical_drift_vectors 
 
      (double   **v,     /* guidance image, unchanged */
@@ -745,18 +764,39 @@ for (i=1; i<=nx; i++)
      d2[i][j] = 2.0 / hy * (v[i][j+1] - v[i][j]) / (v[i][j+1] + v[i][j]);
 
 
-char    comments[10]; 
-comments[0] = '\0';
+// show(d1, nx, ny);
+// show(d2, nx, ny);
 
-char    out[80] = "d1.pgm"; 
-write_double_to_pgm (d1, nx, ny, out, comments);
+double  max, min;             /* largest, smallest grey value */
+double  mean;                 /* average grey value */
+double  std;                  /* standard deviation */
 
-char    out1[80] = "d2.pgm"; 
-write_double_to_pgm (d2, nx, ny, out1, comments);
+analyse_grey_double (d1, nx, ny, &min, &max, &mean, &std);
+printf("d1 analyzed\n");
+printf ("minimum:              %8.6lf \n", min);
+printf ("maximum:              %8.6lf \n", max);
+printf ("mean:                 %8.6lf \n", mean);
+printf ("standard dev.:        %8.6lf \n\n", std);
+
+analyse_grey_double (d2, nx, ny, &min, &max, &mean, &std);
+printf("d2 analyzed\n");
+printf ("minimum:              %8.6lf \n", min);
+printf ("maximum:              %8.6lf \n", max);
+printf ("mean:                 %8.6lf \n", mean);
+printf ("standard dev.:        %8.6lf \n\n", std);
+
+// char    comments[10]; 
+// comments[0] = '\0';
+// char    out[80] = "d1.pgm"; 
+// write_double_to_pgm (d1, nx, ny, out, comments);
+// char    out1[80] = "d2.pgm"; 
+// write_double_to_pgm (d2, nx, ny, out1, comments);
     
 return;
 
 } /* canonical_drift_vectors */
+
+
 
 /*--------------------------------------------------------------------------*/
 

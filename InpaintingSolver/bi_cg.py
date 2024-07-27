@@ -1,9 +1,12 @@
+import cv2
 import torch
 import torch.nn.functional as F
 from torchvision.transforms import Pad
+import torchvision
 
-class OsmosisInpainting():
-    def __init__(self, U, V, mask, hx, hy):
+class OsmosisInpainting:
+
+    def initialize(self, U, V, mask, hx = 1, hy = 1):
         # (b, c, h, w)
         self.U       = U  # original image
         self.V       = V  # guidance image
@@ -29,8 +32,25 @@ class OsmosisInpainting():
         self.d1      = None
         self.d2      = None
         
-    def analyseImage(self):
-        pass
+    def readPGMImage(self, pth):
+        pgm = cv2.imread(pth, cv2.IMREAD_GRAYSCALE) 
+        pgm_T = torch.tensor(pgm, dtype = torch.float64)
+        self.nx, self.ny = pgm_T.size()
+        pgm_T = pgm_T.reshape(1, 1, self.nx, self.ny)
+        self.batch = 1
+        self.channel = 1
+        self.hx = 1
+        self.hy = 1
+        return pgm_T
+        
+
+    def analyseImage(self, x):
+
+        print(f"min  : {torch.min(x)}")
+        print(f"max  : {torch.max(x)}")
+        print(f"mean : {torch.mean(x)}")
+        print(f"std  : {torch.std(x)}")
+        print()
 
     def getStencilMatrices(self, tau):
         self.boo = torch.ones(self.batch, self.channel, self.nx+2, self.ny+2)
@@ -61,16 +81,31 @@ class OsmosisInpainting():
         self.bom[:, :, 1:, 1:] = -ryy + ry * self.d2[:, :, :self.nx+1, :self.ny+1]
  
 
-    def getDriftVectors(self):
+    def getDriftVectors(self, verbose = False):
+        """
+        # ∗ is convolution and .T is transpose
+        # compute d1 = [-1/hx 1/hx] ∗ V / [.5 .5] ∗ v 
+        # compute d2 = [-1/hy 1/hy].T ∗ V / [.5 .5].T ∗ v 
+        """
+        if self.nx is None or self.ny is None:
+            self.nx      = self.V.size(2)
+            self.ny      = self.V.size(3)
+            self.channel = self.V.size(1)
+            self.batch   = self.V.size(0)
+            self.hx      = 1
+            self.hy      = 1
+
         self.d1 = torch.zeros(self.batch, self.channel, self.nx+2, self.ny+2)
         self.d2 = torch.zeros(self.batch, self.channel, self.nx+2, self.ny+2)
 
         pad_mirror = Pad(1, padding_mode = "symmetric")
         V_padded   = pad_mirror(self.V)
-
-        # * is convolution and .T is transpose
-        # compute d1 = [-1/hx 1/hx] * V / [.5 .5] * v 
-        # compute d2 = [-1/hy 1/hy].T * V / [.5 .5].T * v 
+        # because F.conv2d accepts only float32
+        V_padded   = V_padded.type(torch.float32)  
+        
+        if verbose:
+            print(f"V shape : {self.V.size()}, V padded shape : {V_padded.size()}")
+            # print(f"V_padded : \n{V_padded}")
 
         # x-direction filters
         f1 = torch.tensor([-1./self.hx, 1./self.hx]).reshape(1, 1, 1, 2)
@@ -80,8 +115,13 @@ class OsmosisInpainting():
         f3 = torch.tensor([-1./self.hy, 1./self.hy]).reshape(1, 1, 2, 1)
         f4 = torch.tensor([.5, .5]).reshape(1, 1, 2, 1)
 
-        self.d1 = torch.div(F.conv2d(V_padded, f1), F.conv2d(V_padded, f2)) 
-        self.d2 = torch.div(F.conv2d(V_padded, f3), F.conv2d(V_padded, f4)) 
+        self.d1 = F.conv2d(V_padded, f1) / F.conv2d(V_padded, f2)
+        self.d2 = F.conv2d(V_padded, f3) / F.conv2d(V_padded, f4) 
+
+        if verbose:
+            self.analyseImage(self.d1)
+            self.analyseImage(self.d2)
+            
 
     def applyStencil(self, inp):
         """
@@ -158,6 +198,7 @@ class OsmosisInpainting():
             rho = rho_new
             
             residual_norm = torch.norm(R.reshape(batch, channel, -1), dim=-1)
+
             if torch.all(residual_norm < tol):
                 return X, 0
         
