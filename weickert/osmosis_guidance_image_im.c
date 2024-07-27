@@ -702,16 +702,18 @@ return;
 void show(
    double **x, 
    long nx, 
-   long ny
+   long ny,
+   long row
 ){
    long    i, j;             /* loop variables */
 
-   for (i=1; i<=nx; i++)
-    for (j=1; j<=ny; j++)
-      {
-         printf("%.3f\t", x[i][j]);
+   for(i=0;i<nx+2;i++){
+      for (j=0; j<ny+2;j++){
+         printf("%.6f\t", x[i][j]);
       }
-      printf("\n \n");
+      printf("\n");
+   }
+
 }
 
 /*--------------------------------------------------------------------------*/
@@ -764,8 +766,11 @@ for (i=1; i<=nx; i++)
      d2[i][j] = 2.0 / hy * (v[i][j+1] - v[i][j]) / (v[i][j+1] + v[i][j]);
 
 
-// show(d1, nx, ny);
-// show(d2, nx, ny);
+show(v, nx, ny, 3);
+printf("\n");
+show(d1, nx, ny, 3);
+printf("\n");
+show(d2, nx, ny, 3);
 
 double  max, min;             /* largest, smallest grey value */
 double  mean;                 /* average grey value */

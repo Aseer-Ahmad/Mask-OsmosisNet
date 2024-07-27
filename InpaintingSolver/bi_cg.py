@@ -6,12 +6,13 @@ import torchvision
 
 class OsmosisInpainting:
 
-    def initialize(self, U, V, mask, hx = 1, hy = 1):
+    def initialize(self, U, V, mask, offset, hx = 1, hy = 1):
         # (b, c, h, w)
         self.U       = U  # original image
         self.V       = V  # guidance image
         self.mask    = mask
-        
+        self.offset  = offset
+
         self.batch   = U.size(0) 
         self.channel = U.size(1) 
         self.nx      = U.size(2) #rows
@@ -100,7 +101,9 @@ class OsmosisInpainting:
 
         pad_mirror = Pad(1, padding_mode = "symmetric")
         V_padded   = pad_mirror(self.V)
-        # because F.conv2d accepts only float32
+        # transposed because Weickert transposed it in his code
+        V_padded   = torch.transpose(V_padded, 2, 3)
+        # because F.conv2d accepts only float32 
         V_padded   = V_padded.type(torch.float32)  
         
         if verbose:
@@ -108,17 +111,19 @@ class OsmosisInpainting:
             # print(f"V_padded : \n{V_padded}")
 
         # x-direction filters
-        f1 = torch.tensor([-1./self.hx, 1./self.hx]).reshape(1, 1, 1, 2)
-        f2 = torch.tensor([.5, .5]).reshape(1, 1, 1, 2)
+        f1 = torch.tensor([-1./self.hx, 1./self.hx]).reshape(1, 1, 2, 1)
+        f2 = torch.tensor([.5, .5]).reshape(1, 1, 2, 1)
         
         # y-direction filters
-        f3 = torch.tensor([-1./self.hy, 1./self.hy]).reshape(1, 1, 2, 1)
-        f4 = torch.tensor([.5, .5]).reshape(1, 1, 2, 1)
+        f3 = torch.tensor([-1./self.hy, 1./self.hy]).reshape(1, 1, 1, 2)
+        f4 = torch.tensor([.5, .5]).reshape(1, 1, 1, 2)
 
         self.d1 = F.conv2d(V_padded, f1) / F.conv2d(V_padded, f2)
         self.d2 = F.conv2d(V_padded, f3) / F.conv2d(V_padded, f4) 
 
         if verbose:
+            print(self.d1, self.d1.size())
+            print(self.d2, self.d2.size())
             self.analyseImage(self.d1)
             self.analyseImage(self.d2)
             
