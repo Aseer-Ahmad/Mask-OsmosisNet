@@ -112,6 +112,58 @@ class OsmosisInpainting():
         self.BiCGSTAB(kmax, x, b, kmax, eps)
 
 
+    def BiCGSTAB_batched(self, B, X0=None, max_iter=1000, tol=1e-6):
+        """
+        Solve AX = B using BiCGStab method without preconditioning for batched, multi-channel inputs.
+        
+        Args:
+        A: coefficient tensor of shape (batch, channel, nx, ny)
+        B: right-hand side tensor of shape (batch, channel, ny, m)
+        X0: initial guess tensor (if None, use zeros)
+        max_iter: maximum number of iterations
+        tol: tolerance for convergence
+        
+        Returns:
+        X: solution tensor of shape (batch, channel, nx, m)
+        info: convergence information (0: converged, 1: not converged)
+        """
+        # A = A.to(torch.float64)
+        B = B.to(torch.float64)
+        batch, channel, nx, ny = B.shape
+        
+        if X0 is None:
+            X = torch.zeros(batch, channel, nx, ny, dtype=torch.float64)
+        else:
+            X = X0.clone().to(torch.float64)
+        
+        R = B - self.applyStencil(X)#torch.matmul(A, X)
+        R_tilde = R.clone()
+        
+        rho = alpha = omega = torch.ones(batch, channel, 1, 1, dtype=torch.float64)
+        V = P = torch.zeros_like(X)
+        
+        for i in range(max_iter):
+            rho_new = torch.sum(R_tilde * R, dim=(-2, -1), keepdim=True)
+            beta = (rho_new / rho) * (alpha / omega)
+            P = R + beta * (P - omega * V)
+            V = self.applyStencil(P) # torch.matmul(A, P)
+            alpha = rho_new / torch.sum(R_tilde * V, dim=(-2, -1), keepdim=True)
+            H = X + alpha * P
+            S = R - alpha * V
+            T = self.applyStencil(S) # torch.matmul(A, S)
+            omega = torch.sum(T * S, dim=(-2, -1), keepdim=True) / torch.sum(T * T, dim=(-2, -1), keepdim=True)
+            X = H + omega * S
+            R = S - omega * T
+            
+            rho = rho_new
+            
+            residual_norm = torch.norm(R.reshape(batch, channel, -1), dim=-1)
+            if torch.all(residual_norm < tol):
+                return X, 0
+        
+        return X, 1
+
+
     def BiCGSTAB(self, x, b, kmax, eps):
         """
         solving system Ax=b

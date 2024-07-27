@@ -60,7 +60,7 @@ def BiCGSTAB(A, x, b, kmax, eps=1e-9):
 
     return x
 
-def BiCGSTAB_batched(A, B, X0=None, max_iter=1000, tol=1e-6):
+def BiCGSTAB_batched(A, B, X0=None, max_iter=1000, tol=1e-9):
     """
     Solve AX = B using BiCGStab method without preconditioning for batched, multi-channel inputs.
     
@@ -77,11 +77,10 @@ def BiCGSTAB_batched(A, B, X0=None, max_iter=1000, tol=1e-6):
     """
     A = A.to(torch.float64)
     B = B.to(torch.float64)
-    batch, channel, nx, ny = A.shape
-    m = B.shape[-1]
+    batch, channel, nx, ny = B.shape
     
     if X0 is None:
-        X = torch.zeros(batch, channel, nx, m, dtype=torch.float64, device=A.device)
+        X = torch.zeros(batch, channel, nx, ny, dtype=torch.float64, device=A.device)
     else:
         X = X0.clone().to(torch.float64)
     
@@ -107,6 +106,7 @@ def BiCGSTAB_batched(A, B, X0=None, max_iter=1000, tol=1e-6):
         rho = rho_new
         
         residual_norm = torch.norm(R.reshape(batch, channel, -1), dim=-1)
+        print(f"iteration : {i+1} , X : {X}, residual norm : {residual_norm}")
         if torch.all(residual_norm < tol):
             return X, 0
     
@@ -115,20 +115,21 @@ def BiCGSTAB_batched(A, B, X0=None, max_iter=1000, tol=1e-6):
 
 if __name__ == '__main__':
 
-    A = torch.tensor([[[3., 2., -1.], [2., -2., 4.], [-1.,.5,-1.]], 
-                     [[1., 3., -1.], [5., -2., 5.], [1.,.3,-4.]]]).reshape(1, 2, 3, 3)
-    B = torch.tensor([[[1.,1.],
-                      [-2.,-2.],
-                      [0.,-0.]
-                      ],
-                      [[2.,0.],
-                      [-1.,3.],
-                      [1.,1.]
-                      ]]).reshape(1, 2, 3, 2)
+    # A = torch.tensor([[[3., 2., -1.], [2., -2., 4.], [-1.,.5,-1.]], 
+    #                  [[1., 3., -1.], [5., -2., 5.], [1.,.3,-4.]]]).reshape(1, 2, 3, 3)
+    # B = torch.tensor([[[1.,1.],
+    #                   [-2.,-2.],
+    #                   [0.,-0.]
+    #                   ],
+    #                   [[2.,0.],
+    #                   [-1.,3.],
+    #                   [1.,1.]
+    #                   ]]).reshape(1, 2, 3, 2)
 
-    print(A.size(), B.size())
+    A = torch.randn((2, 2, 10, 10))
+    B = torch.randn((2, 2, 10, 10))
+
     X = BiCGSTAB_batched(A, B)
-    print(X)
 
 # tensor([[[[ 0.1833,  0.6167],
 #           [ 0.5513, -0.2436],

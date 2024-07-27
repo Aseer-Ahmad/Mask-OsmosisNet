@@ -744,6 +744,15 @@ for (i=1; i<=nx; i++)
  for (j=1; j<=ny-1; j++)
      d2[i][j] = 2.0 / hy * (v[i][j+1] - v[i][j]) / (v[i][j+1] + v[i][j]);
 
+
+char    comments[10]; 
+comments[0] = '\0';
+
+char    out[80] = "d1.pgm"; 
+write_double_to_pgm (d1, nx, ny, out, comments);
+
+char    out1[80] = "d2.pgm"; 
+write_double_to_pgm (d2, nx, ny, out1, comments);
     
 return;
 
@@ -984,6 +993,10 @@ for (k=1; k<=kmax; k++)
     {
     /* perform one iteration */
     osmosis (nx, ny, boo, bpo, bmo, bop, bom, u);
+
+   //  comments[0] = '\0';
+   //  out[1] = k+'0';
+   //  write_double_to_pgm (u, nx, ny, out, comments);
 
     /* check minimum, maximum, mean, standard deviation */
     analyse_grey_double (u, nx, ny, &min, &max, &mean, &std);
