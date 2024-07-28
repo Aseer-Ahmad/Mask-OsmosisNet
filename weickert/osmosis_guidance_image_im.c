@@ -870,9 +870,7 @@ for (i=1; i<=nx; i++)
      }
 
 // show(d1, nx, ny, 3);
-// printf("\n");
 // show(d2, nx, ny, 3);
-// printf("\n");
 show(boo, nx, ny, 3);
 show(bpo, nx, ny, 3);
 show(bop, nx, ny, 3);
