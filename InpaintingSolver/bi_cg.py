@@ -53,8 +53,8 @@ class OsmosisInpainting:
         print(f"std  : {torch.std(x)}")
         print()
 
-    def getStencilMatrices(self, tau):
-        self.boo = torch.ones(self.batch, self.channel, self.nx+2, self.ny+2)
+    def getStencilMatrices(self, tau, verbose = False):
+        self.boo = torch.zeros(self.batch, self.channel, self.nx+2, self.ny+2) # but weickert init. has ones
         self.bop = torch.zeros(self.batch, self.channel, self.nx+2, self.ny+2)
         self.bpo = torch.zeros(self.batch, self.channel, self.nx+2, self.ny+2)
         self.bmo = torch.zeros(self.batch, self.channel, self.nx+2, self.ny+2)
@@ -66,21 +66,30 @@ class OsmosisInpainting:
         rxx = tau / (self.hx * self.hx)
         ryy = tau / (self.hy * self.hy)
 
-        # x direction filter
-        f1 = torch.tensor([-1., 1.]).reshape(1, 1, 1, 2)
+        # x direction filter ; this is a backward kernel hence the extra 0 
+        f1 = torch.tensor([1., -1., 0]).reshape(1, 1, 3, 1)
         
-        # y direction filter
-        f2 = torch.tensor([-1., 1.]).reshape(1, 1, 2, 1)
+        # y direction filter ; this is a backward kernel hence the extra 0 
+        f2 = torch.tensor([1., -1., 0]).reshape(1, 1, 1, 3)
 
         # osmosis weights 
-        self.boo = 1. + 2. * (rxx + ryy) - rx * F.conv2d(self.d1, f1) - ry * F.conv2d(self.d2, f2)
-        
+        boo = 1. + 2. * (rxx + ryy) \
+                - rx * F.conv2d(self.d1, f1, padding='same') \
+                - ry * F.conv2d(self.d2, f2, padding='same')
+        self.boo[:, :, 1:self.nx+1, 1:self.ny+1] = boo[:, :, 1:self.nx+1, 1:self.ny+1]
+
         self.bpo = -rxx + rx * self.d1
         self.bop = -ryy + ry * self.d2
 
-        self.bmo[:, :, 1:, 1:] = -rxx + ry * self.d1[:, :, :self.nx+1, :self.ny+1]
-        self.bom[:, :, 1:, 1:] = -ryy + ry * self.d2[:, :, :self.nx+1, :self.ny+1]
+        self.bmo[:, :, 1:, :] = -rxx - rx * self.d1[:, :, :self.nx+1, :]
+        self.bom[:, :, :, 1:] = -ryy - ry * self.d2[:, :, :, :self.ny+1]
  
+        if verbose :
+            print(self.d1)
+            print(self.d2)
+            print(self.bmo)
+            print(self.bom)
+
 
     def getDriftVectors(self, verbose = False):
         """
@@ -106,7 +115,7 @@ class OsmosisInpainting:
         # because F.conv2d accepts only float32 
         V_padded   = V_padded.type(torch.float32)  
         
-        # x-direction filters
+        # x-direction filters  
         f1 = torch.tensor([-1./self.hx, 1./self.hx]).reshape(1, 1, 2, 1)
         f2 = torch.tensor([.5, .5]).reshape(1, 1, 2, 1)
         
@@ -116,7 +125,7 @@ class OsmosisInpainting:
 
         d1 = F.conv2d(V_padded, f1) / F.conv2d(V_padded, f2)
         d2 = F.conv2d(V_padded, f3) / F.conv2d(V_padded, f4) 
-        
+
         # correcting for dimentionality reduced by using F.conv2d
         # eg : 1 dimension reduced for d1  changes nx+2 -> nx+2-1
         self.d1[:, :, :self.nx+1, :] = d1  

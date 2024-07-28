@@ -766,37 +766,31 @@ for (i=1; i<=nx; i++)
      d2[i][j] = 2.0 / hy * (v[i][j+1] - v[i][j]) / (v[i][j+1] + v[i][j]);
 
 
-show(v, nx, ny, 3);
-printf("\n");
-show(d1, nx, ny, 3);
-printf("\n");
-show(d2, nx, ny, 3);
+// show(v, nx, ny, 3);
+// printf("\n");
+// show(d1, nx, ny, 3);
+// printf("\n");
+// show(d2, nx, ny, 3);
 
-double  max, min;             /* largest, smallest grey value */
-double  mean;                 /* average grey value */
-double  std;                  /* standard deviation */
+// double  max, min;             /* largest, smallest grey value */
+// double  mean;                 /* average grey value */
+// double  std;                  /* standard deviation */
 
-analyse_grey_double (d1, nx, ny, &min, &max, &mean, &std);
-printf("d1 analyzed\n");
-printf ("minimum:              %8.6lf \n", min);
-printf ("maximum:              %8.6lf \n", max);
-printf ("mean:                 %8.6lf \n", mean);
-printf ("standard dev.:        %8.6lf \n\n", std);
+// analyse_grey_double (d1, nx, ny, &min, &max, &mean, &std);
+// printf("d1 analyzed\n");
+// printf ("minimum:              %8.6lf \n", min);
+// printf ("maximum:              %8.6lf \n", max);
+// printf ("mean:                 %8.6lf \n", mean);
+// printf ("standard dev.:        %8.6lf \n\n", std);
 
-analyse_grey_double (d2, nx, ny, &min, &max, &mean, &std);
-printf("d2 analyzed\n");
-printf ("minimum:              %8.6lf \n", min);
-printf ("maximum:              %8.6lf \n", max);
-printf ("mean:                 %8.6lf \n", mean);
-printf ("standard dev.:        %8.6lf \n\n", std);
+// analyse_grey_double (d2, nx, ny, &min, &max, &mean, &std);
+// printf("d2 analyzed\n");
+// printf ("minimum:              %8.6lf \n", min);
+// printf ("maximum:              %8.6lf \n", max);
+// printf ("mean:                 %8.6lf \n", mean);
+// printf ("standard dev.:        %8.6lf \n\n", std);
 
-// char    comments[10]; 
-// comments[0] = '\0';
-// char    out[80] = "d1.pgm"; 
-// write_double_to_pgm (d1, nx, ny, out, comments);
-// char    out1[80] = "d2.pgm"; 
-// write_double_to_pgm (d2, nx, ny, out1, comments);
-    
+ 
 return;
 
 } /* canonical_drift_vectors */
@@ -869,6 +863,15 @@ for (i=1; i<=nx; i++)
      /* osmosis weight for pixel [i][j-1] */
      bom[i][j] = - ryy - ry * d2[i][j-1];
      }
+
+show(d1, nx, ny, 3);
+printf("\n");
+show(d2, nx, ny, 3);
+printf("\n");
+show(bmo, nx, ny, 3);
+printf("\n");
+show(bom, nx, ny, 3);
+printf("\n");
 
 return;  
 

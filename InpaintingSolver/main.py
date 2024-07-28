@@ -6,8 +6,9 @@ if __name__ == '__main__':
     osmosis = OsmosisInpainting()
     pth = 'InpaintingSolver/test.pgm'
     img = osmosis.readPGMImage(pth)
-    osmosis.V = img + 1
-    osmosis.getDriftVectors(verbose=True)
+    osmosis.V = img + 3.5
+    osmosis.getDriftVectors()
+    osmosis.getStencilMatrices(1, True)
 
 
     # image = np.array([[3,5,7],

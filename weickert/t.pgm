@@ -5,10 +5,10 @@ P5
 # guidance image:   test.pgm
 # tau:                1.00
 # iterations:            1
-# offset:             1.00
-# minimum:            2.00
-# maximum:           10.00
-# mean:               5.67
+# offset:             3.50
+# minimum:            4.50
+# maximum:           12.50
+# mean:               8.17
 # std. dev.:          2.71
 3 3
 255
