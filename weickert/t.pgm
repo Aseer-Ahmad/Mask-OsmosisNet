@@ -2,14 +2,15 @@ P5
 # linear osmosis
 # implicit scheme with BiCGSTAB solver
 # initial image:    test.pgm
-# guidance image:   test.pgm
+# guidance image:   test1.pgm
 # tau:                1.00
 # iterations:            1
-# offset:             3.50
-# minimum:            4.50
-# maximum:           12.50
-# mean:               8.17
-# std. dev.:          2.71
+# offset:             1.00
+# minimum:            1.92
+# maximum:           10.76
+# mean:               5.67
+# std. dev.:          2.58
 3 3
 255
-	
+
+

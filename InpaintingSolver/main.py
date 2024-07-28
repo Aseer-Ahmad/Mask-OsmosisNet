@@ -5,18 +5,21 @@ import numpy as np
 if __name__ == '__main__':
     osmosis = OsmosisInpainting()
     pth = 'InpaintingSolver/test.pgm'
-    img = osmosis.readPGMImage(pth)
-    osmosis.V = img + 3.5
+    V = osmosis.readPGMImage(pth)
+    osmosis.V = V + 1
     osmosis.getDriftVectors()
-    osmosis.getStencilMatrices(1, True)
+    osmosis.getStencilMatrices(1)
+    pth = 'InpaintingSolver/test1.pgm'
+    U = osmosis.readPGMImage(pth)
+    U = U + 1
+    x = osmosis.applyStencil(U, True)
 
-
-    # image = np.array([[3,5,7],
-    #                   [5,2,9],
-    #                   [1,8,2]])
+    # image = np.array([[3,8,0],
+    #                   [6,0,1],
+    #                   [3,1,4]])
     # image = np.clip(image, 0, 255).astype(np.uint8)
 
-    # with open('test.pgm', 'wb') as f:
+    # with open('test1.pgm', 'wb') as f:
     #     # Write the PGM header
     #     f.write(b'P5\n')
     #     f.write(f'{image.shape[1]} {image.shape[0]}\n'.encode())

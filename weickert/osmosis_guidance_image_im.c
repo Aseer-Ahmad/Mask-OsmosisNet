@@ -489,6 +489,27 @@ return (aux);
 }  /* inner_product */
 
 /*--------------------------------------------------------------------------*/
+void show(
+   double **x, 
+   long nx, 
+   long ny,
+   long row
+){
+   long    i, j;             /* loop variables */
+
+   for(i=0;i<nx+2;i++){
+      for (j=0; j<ny+2;j++){
+         printf("%.6f\t", x[i][j]);
+      }
+      printf("\n");
+   }
+      printf("\n");
+
+}
+
+/*--------------------------------------------------------------------------*/
+
+/*--------------------------------------------------------------------------*/
 
 void matrix_times_vector
 
@@ -582,9 +603,11 @@ restart = 0;
 
 
 /* ---- INITIALISATIONS ---- */
-
+printf("init BiCGSTAB\n");
 /* r_0 = p_0 = b - A * x_0 */
 matrix_times_vector (nx, ny, aoo, apo, amo, aop, aom, x, r0);
+
+
 for (i=1; i<=nx; i++)
  for (j=1; j<=ny; j++)
      r[i][j] = r0[i][j] = p[i][j] = b[i][j] - r0[i][j];
@@ -600,6 +623,7 @@ while ((k < kmax) && (r_abs > eps * nx * ny) && (restart == 0))
 
       /* v_k = A p_k */
       matrix_times_vector (nx, ny, aoo, apo, amo, aop, aom, p, v);
+      // show(v, nx, ny, 1);
 
       /* sigma_k = <v_k, r_0> */
       sigma = inner_product (nx, ny, v, r0);
@@ -640,6 +664,7 @@ while ((k < kmax) && (r_abs > eps * nx * ny) && (restart == 0))
       {
       /* t_k = A s_k */
       matrix_times_vector (nx, ny, aoo, apo, amo, aop, aom, s, t);
+      // show(t, nx, ny, 1);
 
       /* omega_k = <t_k, s_k> / <t_k, t_k> */
       omega = inner_product (nx, ny, t, s) / inner_product (nx, ny, t, t);
@@ -695,26 +720,6 @@ free_double_matrix (t,     nx+2, ny+2);
 return;
 
 }  /* BiCGSTAB */
-
-/*--------------------------------------------------------------------------*/
-
-/*--------------------------------------------------------------------------*/
-void show(
-   double **x, 
-   long nx, 
-   long ny,
-   long row
-){
-   long    i, j;             /* loop variables */
-
-   for(i=0;i<nx+2;i++){
-      for (j=0; j<ny+2;j++){
-         printf("%.6f\t", x[i][j]);
-      }
-      printf("\n");
-   }
-
-}
 
 /*--------------------------------------------------------------------------*/
 
@@ -864,14 +869,14 @@ for (i=1; i<=nx; i++)
      bom[i][j] = - ryy - ry * d2[i][j-1];
      }
 
-show(d1, nx, ny, 3);
-printf("\n");
-show(d2, nx, ny, 3);
-printf("\n");
-show(bmo, nx, ny, 3);
-printf("\n");
-show(bom, nx, ny, 3);
-printf("\n");
+// show(d1, nx, ny, 3);
+// printf("\n");
+// show(d2, nx, ny, 3);
+// printf("\n");
+// show(bmo, nx, ny, 3);
+// printf("\n");
+// show(bom, nx, ny, 3);
+// printf("\n");
 
 return;  
 
@@ -914,7 +919,6 @@ for (i=1; i<=nx; i++)
 /* ---- dummy boundaries for f ---- */
 
 dummies_double (f, nx, ny);
-
 
 /* ---- compute implicit osmosis step ---- */
 

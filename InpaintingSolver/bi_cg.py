@@ -43,7 +43,7 @@ class OsmosisInpainting:
         self.hx = 1
         self.hy = 1
         return pgm_T
-        
+       
 
     def analyseImage(self, x, name):
         print(f"analyzing {name} : size : {x.size()}")
@@ -66,10 +66,10 @@ class OsmosisInpainting:
         rxx = tau / (self.hx * self.hx)
         ryy = tau / (self.hy * self.hy)
 
-        # x direction filter ; this is a backward kernel hence the extra 0 
+        # x direction filter ; this is a backward difference kernel hence the extra 0 
         f1 = torch.tensor([1., -1., 0]).reshape(1, 1, 3, 1)
         
-        # y direction filter ; this is a backward kernel hence the extra 0 
+        # y direction filter ; this is a backward difference kernel hence the extra 0 
         f2 = torch.tensor([1., -1., 0]).reshape(1, 1, 1, 3)
 
         # osmosis weights 
@@ -85,8 +85,9 @@ class OsmosisInpainting:
         self.bom[:, :, :, 1:] = -ryy - ry * self.d2[:, :, :, :self.ny+1]
  
         if verbose :
-            print(self.d1)
-            print(self.d2)
+            print(self.boo)
+            print(self.bpo)
+            print(self.bop)
             print(self.bmo)
             print(self.bom)
 
@@ -138,11 +139,17 @@ class OsmosisInpainting:
             self.analyseImage(self.d2, "d2")
             
 
-    def applyStencil(self, inp):
+    def applyStencil(self, inp, verbose = False):
         """
         inp : (batch, channel, nx, ny)
+        This input should be padded and trasnposed along with offset added to it.
         """
-    
+        # pad_mirror = Pad(1, padding_mode = "symmetric")
+        # inp   = pad_mirror(inp)
+        # inp   = torch.transpose(inp, 2, 3)
+
+        r = torch.zeros_like(inp)
+
         center = torch.mul(self.boo[:, :, 1:self.nx+1, 1:self.ny+1],
                             inp[:, :, 1:self.nx+1, 1:self.ny+1])    
          
@@ -158,9 +165,12 @@ class OsmosisInpainting:
         right  = torch.mul(self.bpo[:, :, 1:self.nx+1, 1:self.ny+1],
                             inp[:, :, 2:self.nx+2, 1:self.ny+1])
         
-        inp    = center + left + right + up + down
+        r[:, :, 1:self.nx+1, 1:self.ny+1 ] = center + left + right + up + down
         
-        return inp
+        if verbose :
+            self.analyseImage(r, "X")
+
+        return r
     
     def Osmosis(self, kmax, tau, offset, eps=1e-9):
         f = self.U.copy() 
