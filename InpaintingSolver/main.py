@@ -7,8 +7,8 @@ if __name__ == '__main__':
     pth = 'InpaintingSolver/test.pgm'
     V = osmosis.readPGMImage(pth)
     osmosis.V = V + 1
-    osmosis.getDriftVectors()
-    osmosis.getStencilMatrices(1)
+    osmosis.getDriftVectors(True)
+    osmosis.getStencilMatrices(1,True)
     pth = 'InpaintingSolver/test1.pgm'
     U = osmosis.readPGMImage(pth)
     U = U + 1

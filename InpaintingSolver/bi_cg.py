@@ -78,8 +78,9 @@ class OsmosisInpainting:
                 - ry * F.conv2d(self.d2, f2, padding='same')
         self.boo[:, :, 1:self.nx+1, 1:self.ny+1] = boo[:, :, 1:self.nx+1, 1:self.ny+1]
 
-        self.bpo = -rxx + rx * self.d1
-        self.bop = -ryy + ry * self.d2
+        # unclean indexing to avoid boundaries being affected
+        self.bpo[:, :, 1:self.nx+1, 1:self.ny+1] = -rxx + rx * self.d1[:, :, 1:self.nx+1, 1:self.ny+1]
+        self.bop[:, :, 1:self.nx+1, 1:self.ny+1] = -ryy + ry * self.d2[:, :, 1:self.nx+1, 1:self.ny+1]
 
         self.bmo[:, :, 1:, :] = -rxx - rx * self.d1[:, :, :self.nx+1, :]
         self.bom[:, :, :, 1:] = -ryy - ry * self.d2[:, :, :, :self.ny+1]
@@ -135,6 +136,7 @@ class OsmosisInpainting:
         if verbose:
             print(f"V shape : {self.V.size()}, V padded shape : {V_padded.size()}")
             print(f"V_padded : \n{V_padded}\n")
+            print(f"d1 : {self.d1}")
             self.analyseImage(self.d1, "d1")
             self.analyseImage(self.d2, "d2")
             
@@ -144,9 +146,9 @@ class OsmosisInpainting:
         inp : (batch, channel, nx, ny)
         This input should be padded and trasnposed along with offset added to it.
         """
-        # pad_mirror = Pad(1, padding_mode = "symmetric")
-        # inp   = pad_mirror(inp)
-        # inp   = torch.transpose(inp, 2, 3)
+        pad_mirror = Pad(1, padding_mode = "symmetric")
+        inp   = pad_mirror(inp)
+        inp   = torch.transpose(inp, 2, 3)
 
         r = torch.zeros_like(inp)
 

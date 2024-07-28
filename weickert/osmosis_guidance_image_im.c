@@ -873,10 +873,12 @@ for (i=1; i<=nx; i++)
 // printf("\n");
 // show(d2, nx, ny, 3);
 // printf("\n");
-// show(bmo, nx, ny, 3);
-// printf("\n");
-// show(bom, nx, ny, 3);
-// printf("\n");
+show(boo, nx, ny, 3);
+show(bpo, nx, ny, 3);
+show(bop, nx, ny, 3);
+show(bmo, nx, ny, 3);
+show(bom, nx, ny, 3);
+
 
 return;  
 
