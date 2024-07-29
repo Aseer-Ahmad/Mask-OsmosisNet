@@ -16,7 +16,6 @@ def BiCGSTAB(A, x, b, kmax, eps=1e-9):
         
         restart = 0
         
-        # r0  = torch.matmul(A, x)
         r_0 = r = p  = b - torch.matmul(A, x)
         r_abs = r0_abs = torch.norm(r_0, p = 'fro')
 
@@ -25,38 +24,37 @@ def BiCGSTAB(A, x, b, kmax, eps=1e-9):
                 restart == 0:
             
             v = torch.matmul(A, p)
-            sigma = torch.matmul(v.T, r_0)
+            sigma = torch.sum((torch.mul(v, r_0)))
             v_abs = torch.norm(v, p = 'fro')
 
             if sigma <= eps * v_abs * r0_abs:
 
                 restart = 1
-                print(f"restarting ... k : {k}")
+                print(f"restarting ... k : {k} , sigma : {sigma} , vabs : {v_abs}")
+
             else :
 
-                alpha = torch.div(torch.matmul(r.T, r_0), sigma)
-                s     = torch.sub(r, torch.mul(v, alpha))
+                alpha = torch.sum((torch.mul(r, r_0))) / sigma
+                s     = r - alpha * v
+
                 if torch.norm(s, p = 'fro') <= eps * nx * ny:
 
-                    x = torch.add(x, torch.mul(v, alpha))
-                    r = torch.Tensor(s)
+                    x = x + alpha * p 
+                    r = s.detach().clone()
                 
                 else :
 
                     t = torch.matmul(A, s)
-                    omega = torch.div(torch.matmul(t.T, s), torch.norm(t, p = 'fro')) #scalar
-                    x = torch.add(torch.add(x, torch.mul(p, alpha)), torch.mul(s, omega))
-                    r_old = torch.Tensor(r)
-                    r = torch.sub(s, torch.mul(t, omega))
-                    beta = (alpha/omega) * torch.div(torch.matmul(r.T, r_0),torch.matmul(r_old.T, r_0))
-                    p = torch.add(r, torch.mul(torch.sub(p, torch.mul(v, omega)), beta))
+                    omega = torch.sum((torch.mul(t, s))) / torch.sum((torch.mul(t, t))) 
+                    x = x + alpha * p + omega * s
+                    r_old = r.detach().clone()
+                    r = s - omega * t 
+                    beta = (alpha / omega) * torch.sum((torch.mul(r, r_0))) / torch.sum((torch.mul(r_old, r_0))) 
+                    p = r + beta * (p - omega * v)
 
                 k += 1
                 r_abs = torch.norm(r, p = 'fro')
-
-            # print(x)
-            # print(r_abs)
-            # print()
+                print(f"iteration : {k} , residual : {r_abs}")
 
     return x
 
@@ -106,12 +104,11 @@ def BiCGSTAB_batched(A, B, X0=None, max_iter=1000, tol=1e-9):
         rho = rho_new
         
         residual_norm = torch.norm(R.reshape(batch, channel, -1), dim=-1)
-        print(f"iteration : {i+1} , X : {X}, residual norm : {residual_norm}")
+        print(f"iteration : {i+1} , residual norm : {residual_norm}")
         if torch.all(residual_norm < tol):
             return X, 0
     
     return X, 1
-
 
 if __name__ == '__main__':
 
@@ -126,12 +123,19 @@ if __name__ == '__main__':
     #                   [1.,1.]
     #                   ]]).reshape(1, 2, 3, 2)
 
-    A = torch.randn((2, 2, 10, 10))
-    B = torch.randn((2, 2, 10, 10))
+    # A = torch.randn((1, 1, 600, 600), dtype = torch.float64) 
+    # B = torch.randn((1, 1, 600, 600), dtype = torch.float64) 
 
-    X = BiCGSTAB_batched(A, B)
+    # X = BiCGSTAB_batched1(A, B)
 
-# tensor([[[[ 0.1833,  0.6167],
-#           [ 0.5513, -0.2436],
-#           [-0.1628, -0.1141]]]]
+
+    # A = torch.tensor([[3., 2., -1.], [2., -2., 4.], [-1.,.5,-1.]])
+    # B = torch.tensor([1., -2., 0.]).reshape(3, 1)
+
+    A = torch.randn((50, 50), dtype = torch.float64)
+    B = torch.randn((50, 50), dtype = torch.float64)
+    X = B.detach().clone()
+
+    print(A.size(), B.size())
+    BiCGSTAB(A, X, B, 1000)
 
