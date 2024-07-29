@@ -3,6 +3,17 @@ import torch
 import numpy as np
 import cv2
 
+def write_tensor_to_pgm(filename, tensor):
+    tensor = torch.clamp(tensor, 0, 255).byte()
+    image = tensor.numpy()
+    height, width = image.shape
+
+    with open(filename, 'wb') as f:
+        f.write(b'P5\n')
+        f.write(f'{width} {height}\n'.encode())
+        f.write(b'255\n')
+        f.write(image.tobytes())
+
 
 def readPGMImage( pth):
     pgm = cv2.imread(pth, cv2.IMREAD_GRAYSCALE) 
@@ -12,14 +23,20 @@ def readPGMImage( pth):
     return pgm_T
 
 if __name__ == '__main__':
-    u_pth = 'InpaintingSolver/svalbard-init.pgm'
-    v_pth = 'InpaintingSolver/svalbard.pgm'
+    u_pth = 'InpaintingSolver/sc-init.pgm'
+    v_pth = 'InpaintingSolver/sc.pgm'
     
     U = readPGMImage(u_pth)
     V = readPGMImage(v_pth)
-    osmosis = OsmosisInpainting(U, V, None, 10, 1)
+
+    # Um = U[0][0][190:200, 215:230]
+    # write_tensor_to_pgm('sc-init.pgm', Um)
+    # Vm = V[0][0][190:200, 215:230]
+    # write_tensor_to_pgm('sc.pgm', Vm)
+
+    osmosis = OsmosisInpainting(U, V, None, 1, 1)
     osmosis.calculateWeights()
-    osmosis.solve()
+    # osmosis.solve()
 
 
     # pth = 'InpaintingSolver/test.pgm'

@@ -497,9 +497,10 @@ void show(
 ){
    long    i, j;             /* loop variables */
 
+   printf("%ld , %ld\n", nx, ny);
    for(i=0;i<nx+2;i++){
       for (j=0; j<ny+2;j++){
-         printf("%.6f\t", x[i][j]);
+         printf("%.4f ,", x[i][j]);
       }
       printf("\n");
    }
@@ -632,9 +633,10 @@ while ((k < kmax) && (r_abs > eps * nx * ny) && (restart == 0))
       v_abs = sqrt (inner_product (nx, ny, v, v));
 
       /* check if restart is necessary */
-      if (sigma <= 1.0e-9 * v_abs * r0_abs)
+      if (sigma <= 1.0e-9 * v_abs * r0_abs){
          restart = 1;
-
+         printf("restarting with sigma %lf \n", sigma);
+      }
       else
 
       {
@@ -699,6 +701,7 @@ while ((k < kmax) && (r_abs > eps * nx * ny) && (restart == 0))
 
       /* r_abs = |r| */
       r_abs = sqrt (inner_product (nx, ny, r, r));
+      printf("iteration : %ld , residual : %lf \n", k, r_abs);
 
       }  /* else (if sigma) */
 
@@ -869,8 +872,6 @@ for (i=1; i<=nx; i++)
      bom[i][j] = - ryy - ry * d2[i][j-1];
      }
 
-// show(d1, nx, ny, 3);
-// show(d2, nx, ny, 3);
 show(boo, nx, ny, 3);
 show(bpo, nx, ny, 3);
 show(bop, nx, ny, 3);

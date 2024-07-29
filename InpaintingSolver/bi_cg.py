@@ -4,6 +4,9 @@ import torch.nn.functional as F
 from torchvision.transforms import Pad
 import torchvision
 
+
+torch.set_printoptions(linewidth=2000)
+
 class OsmosisInpainting:
 
     def __init__(self, U, V, mask, offset, tau, hx = 1, hy = 1):
@@ -59,11 +62,14 @@ class OsmosisInpainting:
         pad_mirror = Pad(1, padding_mode = "symmetric")
 
         self.U     = pad_mirror(self.U)
-        # self.U     = torch.transpose(self.U, 2, 3)
+        self.U     = torch.transpose(self.U, 2, 3)
 
         self.V     = pad_mirror(self.V)
-        # self.V     = torch.transpose(self.V, 2, 3)
+        self.V     = torch.transpose(self.V, 2, 3)
         self.V     = self.V.type(torch.float32)  
+
+        # since we transposed 
+        self.nx, self.ny = self.ny, self.nx
 
     def analyseImage(self, x, name):
         print(f"analyzing {name} : size : {x.size()}")
@@ -74,11 +80,17 @@ class OsmosisInpainting:
         print()
 
     def getStencilMatrices(self, verbose = False):
-        self.boo = torch.zeros(self.batch, self.channel, self.nx+2, self.ny+2) # but weickert init. has ones
-        self.bop = torch.zeros(self.batch, self.channel, self.nx+2, self.ny+2) # neighbour entries for [i+1,j]
-        self.bpo = torch.zeros(self.batch, self.channel, self.nx+2, self.ny+2) # neighbour entries for [i,j+1]
-        self.bmo = torch.zeros(self.batch, self.channel, self.nx+2, self.ny+2) # neighbour entries for [i-1,j]
-        self.bom = torch.zeros(self.batch, self.channel, self.nx+2, self.ny+2) # neighbour entries for [i,j-1]
+        # self.boo = torch.zeros(self.batch, self.channel, self.nx+2, self.ny+2) # but weickert init. has ones
+        # self.bop = torch.zeros(self.batch, self.channel, self.nx+2, self.ny+2) # neighbour entries for [i+1,j]
+        # self.bpo = torch.zeros(self.batch, self.channel, self.nx+2, self.ny+2) # neighbour entries for [i,j+1]
+        # self.bmo = torch.zeros(self.batch, self.channel, self.nx+2, self.ny+2) # neighbour entries for [i-1,j]
+        # self.bom = torch.zeros(self.batch, self.channel, self.nx+2, self.ny+2) # neighbour entries for [i,j-1]
+
+        self.boo  = torch.zeros_like(self.V)
+        self.bop  = torch.zeros_like(self.V)
+        self.bpo  = torch.zeros_like(self.V)
+        self.bmo  = torch.zeros_like(self.V)
+        self.bom  = torch.zeros_like(self.V)
 
         #time savers
         rx  = self.tau / (2.0 * self.hx)
@@ -120,19 +132,16 @@ class OsmosisInpainting:
         # compute d1 = [-1/hx 1/hx] ∗ V / [.5 .5] ∗ v 
         # compute d2 = [-1/hy 1/hy].T ∗ V / [.5 .5].T ∗ v 
         """
-        self.d1 = torch.zeros(self.batch, self.channel, self.nx+2, self.ny+2)
-        self.d2 = torch.zeros(self.batch, self.channel, self.nx+2, self.ny+2)
-
-        # pad_mirror = Pad(1, padding_mode = "symmetric")
-        # V_padded   = pad_mirror(self.V)
-        # V_padded   = torch.transpose(V_padded, 2, 3)
-        # V_padded   = V_padded.type(torch.float32)  
-        
-        # x-direction filters  
+        # self.d1 = torch.zeros(self.batch, self.channel, self.nx+2, self.ny+2)
+        # self.d2 = torch.zeros(self.batch, self.channel, self.nx+2, self.ny+2)
+        self.d1  = torch.zeros_like(self.V)
+        self.d2  = torch.zeros_like(self.V)
+                
+        # row-direction filters  
         f1 = torch.tensor([-1./self.hx, 1./self.hx]).reshape(1, 1, 2, 1)
         f2 = torch.tensor([.5, .5]).reshape(1, 1, 2, 1)
         
-        # y-direction filters
+        # col-direction filters
         f3 = torch.tensor([-1./self.hy, 1./self.hy]).reshape(1, 1, 1, 2)
         f4 = torch.tensor([.5, .5]).reshape(1, 1, 1, 2)
 
@@ -145,10 +154,10 @@ class OsmosisInpainting:
         self.d2[:, :, :, :self.ny+1] = d2
         
         if verbose:
-            print(f"V shape : {self.V.size()}, V padded shape : {self.V.size()}")
-            print(f"V_padded : \n{self.V}\n")
-            print(f"d1 : {self.d1}")
-            print(f"d1 : {self.d2}")
+            print(f"V shape : {self.V.size()}")
+            print(f"V_padded : \n{self.V[0][0]}\n")
+            print(f"d1 : {self.d1[0][0]}")
+            print(f"d2 : {self.d2[0][0]}")
             self.analyseImage(self.d1, "d1")
             self.analyseImage(self.d2, "d2")
             
@@ -238,55 +247,58 @@ class OsmosisInpainting:
         return X, 1
 
 
-    def BiCGSTAB(self, x, b, kmax, eps):
+    def BiCGSTAB(self, x, b, kmax, eps=1e-9):
         """
         solving system Ax=b
         x : old and new solution ; torch.Tensor batch*channel*nx*ny
         b : right hand side      ; torch.Tensor batch*channel*nx*ny
         """
-        restart = torch.ones((self.batch, self.channel, 1, 1))        
+        restart = 1       
         k = 0 
 
         while restart == 1:
-          
+            
             restart = 0
             
-            r_0 = r = p  = torch.sub(b, self.applyStencil(x))
+            r_0 = r = p  = b - self.applyStencil(x)
             r_abs = r0_abs = torch.norm(r_0, p = 'fro')
 
             while k < kmax and  \
-                  r_abs > eps * self.nx * self.ny and \
-                  restart == 0:
+                    r_abs > eps * self.nx * self.ny and \
+                    restart == 0:
                 
                 v = self.applyStencil(p)
-                sigma = torch.dot(v, r_0)
+                sigma = torch.sum((torch.mul(v, r_0)))
+
                 v_abs = torch.norm(v, p = 'fro')
 
                 if sigma <= eps * v_abs * r0_abs:
 
                     restart = 1
-                
+                    print(f"restarting ... k : {k} , sigma : {sigma} , vabs : {v_abs}")
+
                 else :
 
-                    alpha = torch.div(torch.dot(r, r_0), sigma)
-                    s     = torch.sub(r, torch.mul(v, alpha))
-                    
+                    alpha = torch.sum((torch.mul(r, r_0))) / sigma
+                    s     = r - alpha * v
+
                     if torch.norm(s, p = 'fro') <= eps * self.nx * self.ny:
 
-                        x = torch.add(x, torch.mul(v, alpha))
-                        r = s
+                        x = x + alpha * p 
+                        r = s.detach().clone()
                     
                     else :
 
                         t = self.applyStencil(s)
-                        omega = torch.div(torch.dot(t, s), torch.norm(t, p = 'fro'))
-                        x = torch.add(torch.add(x, torch.mul(p, alpha)), torch.mul(s, omega))
-                        r_old = r
-                        r = torch.sub(s, torch.mul(t, omega))
-                        beta = (alpha/omega) * (torch.dot(r, r_0)/torch.dot(r_old, r_0))
-                        p = torch.add(torch.mul(torch.sub(p, torch.mul(v, omega)), beta), r)
+                        omega = torch.sum((torch.mul(t, s))) / torch.sum((torch.mul(t, t))) 
+                        x = x + alpha * p + omega * s
+                        r_old = r.detach().clone()
+                        r = s - omega * t 
+                        beta = (alpha / omega) * torch.sum((torch.mul(r, r_0))) / torch.sum((torch.mul(r_old, r_0))) 
+                        p = r + beta * (p - omega * v)
 
                     k += 1
                     r_abs = torch.norm(r, p = 'fro')
+                    print(f"iteration : {k} , residual : {r_abs}")
 
-                    
+        return x

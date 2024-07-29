@@ -1,0 +1,15 @@
+P5
+# linear osmosis
+# implicit scheme with BiCGSTAB solver
+# initial image:    sc-init.pgm
+# guidance image:   sc.pgm
+# tau:                1.00
+# iterations:            1
+# offset:             1.00
+# minimum:          112.64
+# maximum:          126.78
+# mean:             119.00
+# std. dev.:          2.10
+15 10
+255
+vvvvvvvwwqztt~tvvvvvvwqqvytsypvvvvvvvvvuyxxypvvvvvvvvvtxwwxtvvvvvvvvutxwwwwuuuuuuuuutxwvvvtttttttuutxwvvvwvvvwwxtttwwvvvzzyyzz{stswwvvvutxxtuzwsx|qvzu

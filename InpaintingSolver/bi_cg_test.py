@@ -25,6 +25,7 @@ def BiCGSTAB(A, x, b, kmax, eps=1e-9):
             
             v = torch.matmul(A, p)
             sigma = torch.sum((torch.mul(v, r_0)))
+
             v_abs = torch.norm(v, p = 'fro')
 
             if sigma <= eps * v_abs * r0_abs:
@@ -129,13 +130,12 @@ if __name__ == '__main__':
     # X = BiCGSTAB_batched1(A, B)
 
 
-    # A = torch.tensor([[3., 2., -1.], [2., -2., 4.], [-1.,.5,-1.]])
-    # B = torch.tensor([1., -2., 0.]).reshape(3, 1)
+    A = torch.tensor([[3., 2., -1.], [2., -2., 4.], [-1.,.5,-1.]])
+    B = torch.tensor([1., -2., 0.]).reshape(3, 1)
 
-    A = torch.randn((50, 50), dtype = torch.float64)
-    B = torch.randn((50, 50), dtype = torch.float64)
+    # A = torch.randn((600, 600), dtype = torch.float64)
+    # B = torch.randn((600, 600), dtype = torch.float64)
     X = B.detach().clone()
 
     print(A.size(), B.size())
     BiCGSTAB(A, X, B, 1000)
-
