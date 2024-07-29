@@ -39,7 +39,7 @@ class OsmosisInpainting:
         self.getDriftVectors()
         print(f"drift vectors calculated")
 
-        self.getStencilMatrices()
+        self.getStencilMatrices(True)
         print(f"weight stencils calculated")
 
 
@@ -115,15 +115,20 @@ class OsmosisInpainting:
         self.bop[:, :, 1:self.nx+1, 1:self.ny+1] = -ryy + ry * self.d2[:, :, 1:self.nx+1, 1:self.ny+1]
 
         # boundaries require cleaning
-        self.bmo[:, :, 1:, :] = -rxx - rx * self.d1[:, :, :self.nx+1, :]
-        self.bom[:, :, :, 1:] = -ryy - ry * self.d2[:, :, :, :self.ny+1]
+        self.bmo[:, :, 1:self.nx+1, 1:self.ny+1] = -rxx - rx * self.d1[:, :, :self.nx, 1:self.ny+1]
+        self.bom[:, :, 1:self.nx+1, 1:self.ny+1] = -ryy - ry * self.d2[:, :, 1:self.nx+1, :self.ny]
  
         if verbose :
             print(self.boo)
+            self.analyseImage(self.boo, "boo")
             print(self.bpo)
+            self.analyseImage(self.bpo, "bpo")
             print(self.bop)
+            self.analyseImage(self.bop, "bop")
             print(self.bmo)
+            self.analyseImage(self.bmo, "bmo")
             print(self.bom)
+            self.analyseImage(self.bom, "bom")
 
 
     def getDriftVectors(self, verbose = False):
