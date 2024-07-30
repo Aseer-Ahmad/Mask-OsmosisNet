@@ -26,12 +26,18 @@ class OsmosisInpainting:
         self.hx      = hx
         self.hy      = hy      
 
-    def solve(self, kmax = 1):
+    def solve(self, kmax = 2):
 
         X = self.U.detach().clone()
 
         for i in range(kmax):
-            X = self.BiCGSTAB(self.U, X)
+            X = self.BiCGSTAB(x = self.U, b = X)
+            self.U = X.detach().clone()
+            self.analyseImage(self.U, "evolving U")
+
+        self.U = self.U - self.offset
+
+        # self.writePGMImage(self.U[0][0].numpy().T, "t80.pgm")
 
     def calculateWeights(self):
         self.prepareInp()
@@ -53,6 +59,11 @@ class OsmosisInpainting:
         self.hx = 1
         self.hy = 1
         return pgm_T
+    
+    def writePGMImage(self, X, filename):
+        cv2.imwrite(filename, X)
+        print(f"written to : {filename}")
+
        
     def prepareInp(self):
         """
@@ -196,6 +207,70 @@ class OsmosisInpainting:
 
         return temp
 
+
+    def zeroPad(self, x):
+        t = torch.zeros_like(x)
+        t[:, :, 1:self.nx+1, 1 :self.ny+1] = x[:, :, 1:self.nx+1, 1 :self.ny+1]
+        return t
+
+    def BiCGSTAB(self, x, b, kmax=10000, eps=1e-9):
+        """
+        solving system Ax=b
+        x : old and new solution ; torch.Tensor batch*channel*nx*ny
+        b : right hand side      ; torch.Tensor batch*channel*nx*ny
+        """
+        restart = 1       
+        k = 0 
+
+        while restart == 1:
+            
+            restart = 0
+            
+            r_0 = self.applyStencil(x)  
+            r_0 = r = p  = self.zeroPad(b - r_0)
+            r_abs = r0_abs = torch.norm(r_0, p = 'fro')
+
+            while k < kmax and  \
+                    r_abs > eps * self.nx * self.ny and \
+                    restart == 0:
+                
+                v = self.applyStencil(p)
+                sigma = torch.sum( torch.mul(v, r_0))
+                v_abs = torch.norm(v, p = 'fro')
+
+                if sigma <= eps * v_abs * r0_abs:
+
+                    restart = 1
+                    print(f"restarting ... k : {k} , sigma : {sigma} , vabs : {v_abs}")
+
+                else :
+
+                    alpha = torch.sum( torch.mul(r, r_0)) / sigma
+                    s     = r - alpha * v
+
+                    if torch.norm(s, p = 'fro') <= eps * self.nx * self.ny:
+
+                        x = x + alpha * p 
+                        r = s.detach().clone()
+                    
+                    else :
+
+                        t = self.applyStencil(s)
+                        omega = torch.sum( torch.mul(t, s)) / torch.sum(torch.mul(t, t))
+                        x = x + alpha * p + omega * s
+                        r_old = r.detach().clone()
+                        r = s - omega * t 
+                        beta = (alpha / omega) * torch.sum(torch.mul(r, r_0)) / torch.sum(torch.mul(r_old, r_0))
+                        p = r + beta * (p - omega * v)
+
+                    k += 1
+                    r_abs = torch.norm(r, p = 'fro')
+                    print(f"iteration : {k} , residual : {r_abs}")
+        print()
+        
+        return x
+
+
     def BiCGSTAB_batched(self, B, X0=None, max_iter=10000, tol=1e-9):
         """
         Solve AX = B using BiCGStab method without preconditioning for batched, multi-channel inputs.
@@ -251,68 +326,3 @@ class OsmosisInpainting:
                 return X, 0
         
         return X, 1
-
-
-
-
-    def zeroPad(self, x):
-        t = torch.zeros_like(x)
-        t[:, :, 1:self.nx+1, 1 :self.ny+1] = x[:, :, 1:self.nx+1, 1 :self.ny+1]
-        return t
-
-    def BiCGSTAB(self, x, b, kmax=10000, eps=1e-9):
-        """
-        solving system Ax=b
-        x : old and new solution ; torch.Tensor batch*channel*nx*ny
-        b : right hand side      ; torch.Tensor batch*channel*nx*ny
-        """
-        restart = 1       
-        k = 0 
-
-        while restart == 1:
-            
-            restart = 0
-            
-            r_0 = self.applyStencil(x)  #boundaries of the input matter are imp
-            r_0 = r = p  = self.zeroPad(b - r_0)
-            r_abs = r0_abs = torch.norm(r_0, p = 'fro')
-            print(f"initial r_abs :{r_abs}")
-
-            while k < kmax and  \
-                    r_abs > eps * self.nx * self.ny and \
-                    restart == 0:
-                
-                v = self.applyStencil(p)
-                sigma = torch.sum( torch.mul(v, r_0))
-                v_abs = torch.norm(v, p = 'fro')
-
-                if sigma <= eps * v_abs * r0_abs:
-
-                    restart = 1
-                    print(f"restarting ... k : {k} , sigma : {sigma} , vabs : {v_abs}")
-
-                else :
-
-                    alpha = torch.sum( torch.mul(r, r_0)) / sigma
-                    s     = r - alpha * v
-
-                    if torch.norm(s, p = 'fro') <= eps * self.nx * self.ny:
-
-                        x = x + alpha * p 
-                        r = s.detach().clone()
-                    
-                    else :
-
-                        t = self.applyStencil(s)
-                        omega = torch.sum( torch.mul(t, s)) / torch.sum(torch.mul(t, t))
-                        x = x + alpha * p + omega * s
-                        r_old = r.detach().clone()
-                        r = s - omega * t 
-                        beta = (alpha / omega) * torch.sum(torch.mul(r, r_0)) / torch.sum(torch.mul(r_old, r_0))
-                        p = r + beta * (p - omega * v)
-
-                    k += 1
-                    r_abs = torch.norm(r, p = 'fro')
-                    print(f"iteration : {k} , residual : {r_abs}")
-
-        return x

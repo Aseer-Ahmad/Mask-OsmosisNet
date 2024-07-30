@@ -35,7 +35,7 @@ if __name__ == '__main__':
 
     osmosis = OsmosisInpainting(U, V, None, 1, 1)
     osmosis.calculateWeights()
-    osmosis.solve()
+    osmosis.solve(80)
 
 
     # pth = 'InpaintingSolver/test.pgm'
