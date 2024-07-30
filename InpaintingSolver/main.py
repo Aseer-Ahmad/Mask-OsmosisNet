@@ -23,21 +23,15 @@ def readPGMImage( pth):
     return pgm_T
 
 if __name__ == '__main__':
-    u_pth = 'InpaintingSolver/cameraman-data.pgm'
-    v_pth = 'InpaintingSolver/svalbard.pgm'
+    v_pth = 'InpaintingSolver/cameraman.pgm'
     mask_pth  = 'InpaintingSolver/cameraman-edge.pgm'
-    # u_pth = 'InpaintingSolver/sc-init.pgm'
-    # v_pth = 'InpaintingSolver/sc.pgm'
     
-    U = readPGMImage(u_pth)
     V = readPGMImage(v_pth)
     mask = readPGMImage(mask_pth)
 
-
-    osmosis = OsmosisInpainting(None, V, None, None, 1, 1)
-    osmosis.createMaskfromCanny()
-    # osmosis.calculateWeights()
-    # osmosis.solve(10)
+    osmosis = OsmosisInpainting(None, V, mask, mask, 1, 1)
+    osmosis.calculateWeights()
+    osmosis.solve(100)
 
 
     # pth = 'InpaintingSolver/test.pgm'

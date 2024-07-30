@@ -21,10 +21,10 @@ class OsmosisInpainting:
         self.offset  = offset
         self.tau     = tau
 
-        self.batch   = U.size(0) 
-        self.channel = U.size(1) 
-        self.nx      = U.size(2) 
-        self.ny      = U.size(3) 
+        self.batch   = V.size(0) 
+        self.channel = V.size(1) 
+        self.nx      = V.size(2) 
+        self.ny      = V.size(3) 
         
         # pixel sizes x and y direction
         self.hx      = hx
@@ -44,7 +44,7 @@ class OsmosisInpainting:
 
         #calculate metrics
 
-        # self.writePGMImage(self.U[0][0].numpy().T, "t80.pgm")
+        # self.writePGMImage(self.U[0][0].numpy().T, "t100.pgm")
 
     def calculateWeights(self):
         self.prepareInp()
@@ -52,8 +52,8 @@ class OsmosisInpainting:
         self.getDriftVectors()
         print(f"drift vectors calculated")
 
-        self.applyMask()
-        print(f"mask applied to drift vectors")
+        # self.applyMask()
+        # print(f"mask applied to drift vectors")
 
         self.getStencilMatrices()
         print(f"weight stencils calculated")
@@ -87,7 +87,15 @@ class OsmosisInpainting:
 
         self.V     = pad_mirror(self.V)
         self.V     = torch.transpose(self.V, 2, 3)
-        self.V     = self.V.type(torch.float32)  
+        # self.V     = self.V.type(torch.float32)  
+
+        if self.mask1 != None :
+            self.mask1     = pad_mirror(self.mask1)
+            self.mask1     = torch.transpose(self.mask1, 2, 3)
+
+        if self.mask2 != None:
+            self.mask2     = pad_mirror(self.mask2)
+            self.mask2     = torch.transpose(self.mask2, 2, 3)
 
         # since we transposed 
         self.nx, self.ny = self.ny, self.nx
@@ -116,10 +124,10 @@ class OsmosisInpainting:
         ryy = self.tau / (self.hy * self.hy)
 
         # x direction filter ; this is a backward difference kernel hence the extra 0 
-        f1 = torch.tensor([1., -1., 0]).reshape(1, 1, 3, 1)
+        f1 = torch.tensor([1., -1., 0.], dtype = torch.float64).reshape(1, 1, 3, 1)
         
         # y direction filter ; this is a backward difference kernel hence the extra 0 
-        f2 = torch.tensor([1., -1., 0]).reshape(1, 1, 1, 3)
+        f2 = torch.tensor([1., -1., 0.], dtype = torch.float64).reshape(1, 1, 1, 3)
 
         # osmosis weights 
         boo = 1. + 2. * (rxx + ryy) \
@@ -154,11 +162,14 @@ class OsmosisInpainting:
         pass
 
     def getInit_U(self):
+        m  = torch.mean(self.V)
+
         # create a flat image ; avg gray val same as guidance
+        u  = torch.zeros_like(self.V) + m
 
         # create a noisy image ; avg gray val same as guidance
-        pass
-
+        return u
+    
     def getCannyEdges(self):
         pass
 
@@ -170,11 +181,12 @@ class OsmosisInpainting:
 
 
     def applyMask(self):
-        # transpose mask (if required)
-        # apply mask1 on d1
+
         self.d1 = torch.mul(self.d1, self.mask1)
-        # apply mask2 on d2
         self.d2 = torch.mul(self.d2, self.mask2)
+        self.analyseImage(self.d1, "d1")
+        self.analyseImage(self.d2, "d2")
+
 
     def getDriftVectors(self, verbose = False):
         """
@@ -182,18 +194,16 @@ class OsmosisInpainting:
         # compute d1 = [-1/hx 1/hx] ∗ V / [.5 .5] ∗ v 
         # compute d2 = [-1/hy 1/hy].T ∗ V / [.5 .5].T ∗ v 
         """
-        # self.d1 = torch.zeros(self.batch, self.channel, self.nx+2, self.ny+2)
-        # self.d2 = torch.zeros(self.batch, self.channel, self.nx+2, self.ny+2)
-        self.d1  = torch.zeros_like(self.V)
-        self.d2  = torch.zeros_like(self.V)
+        self.d1  = torch.zeros_like(self.V, dtype = torch.float64)
+        self.d2  = torch.zeros_like(self.V, dtype = torch.float64)
                 
         # row-direction filters  
-        f1 = torch.tensor([-1./self.hx, 1./self.hx]).reshape(1, 1, 2, 1)
-        f2 = torch.tensor([.5, .5]).reshape(1, 1, 2, 1)
+        f1 = torch.tensor([-1./self.hx, 1./self.hx], dtype = torch.float64).reshape(1, 1, 2, 1)
+        f2 = torch.tensor([.5, .5], dtype = torch.float64).reshape(1, 1, 2, 1)
         
         # col-direction filters
-        f3 = torch.tensor([-1./self.hy, 1./self.hy]).reshape(1, 1, 1, 2)
-        f4 = torch.tensor([.5, .5]).reshape(1, 1, 1, 2)
+        f3 = torch.tensor([-1./self.hy, 1./self.hy], dtype = torch.float64).reshape(1, 1, 1, 2)
+        f4 = torch.tensor([.5, .5], dtype = torch.float64).reshape(1, 1, 1, 2)
 
         d1 = F.conv2d(self.V, f1) / F.conv2d(self.V, f2)
         d2 = F.conv2d(self.V, f3) / F.conv2d(self.V, f4) 
