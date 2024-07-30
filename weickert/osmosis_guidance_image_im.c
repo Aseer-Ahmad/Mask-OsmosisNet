@@ -604,7 +604,7 @@ restart = 0;
 
 
 /* ---- INITIALISATIONS ---- */
-printf("init BiCGSTAB\n");
+
 /* r_0 = p_0 = b - A * x_0 */
 matrix_times_vector (nx, ny, aoo, apo, amo, aop, aom, x, r0);
 
@@ -617,7 +617,6 @@ for (i=1; i<=nx; i++)
 // show(p, nx, ny, 1);
 
 r_abs = r0_abs = sqrt (inner_product (nx, ny, r0, r0));
-printf("first residual : %lf \n", r_abs);
 
 
 /* ---- ITERATIONS ---- */

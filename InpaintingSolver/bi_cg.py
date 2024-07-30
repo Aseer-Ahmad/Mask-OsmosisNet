@@ -3,17 +3,21 @@ import torch
 import torch.nn.functional as F
 from torchvision.transforms import Pad
 import torchvision
-
+import numpy as np
 
 torch.set_printoptions(linewidth=2000)
 
 class OsmosisInpainting:
 
-    def __init__(self, U, V, mask, offset, tau, hx = 1, hy = 1):
+    def __init__(self, U, V, mask1, mask2, offset, tau, hx = 1, hy = 1):
         # (b, c, h, w)
-        self.U       = U + offset  # original image
         self.V       = V + offset  # guidance image
-        self.mask    = mask
+        if U is not None:
+            self.U   = U + offset  # original image
+        else:
+            self.U   = self.getInit_U() + offset
+        self.mask1   = mask1
+        self.mask2   = mask2
         self.offset  = offset
         self.tau     = tau
 
@@ -36,6 +40,9 @@ class OsmosisInpainting:
             self.analyseImage(self.U, "evolving U")
 
         self.U = self.U - self.offset
+        self.V = self.V - self.offset
+
+        #calculate metrics
 
         # self.writePGMImage(self.U[0][0].numpy().T, "t80.pgm")
 
@@ -44,6 +51,9 @@ class OsmosisInpainting:
 
         self.getDriftVectors()
         print(f"drift vectors calculated")
+
+        self.applyMask()
+        print(f"mask applied to drift vectors")
 
         self.getStencilMatrices()
         print(f"weight stencils calculated")
@@ -84,7 +94,7 @@ class OsmosisInpainting:
 
     def analyseImage(self, x, name):
         print(f"analyzing {name} : size : {x.size()}")
-        x = x[:, :, 1:self.nx+1, 1:self.ny+1]
+        # x = x[:, :, 1:self.nx+1, 1:self.ny+1]
         print(f"min  : {torch.min(x):.9f}")
         print(f"max  : {torch.max(x):.9f}")
         print(f"mean : {torch.mean(x):.9f}")
@@ -92,17 +102,12 @@ class OsmosisInpainting:
         print()
 
     def getStencilMatrices(self, verbose = False):
-        # self.boo = torch.zeros(self.batch, self.channel, self.nx+2, self.ny+2) # but weickert init. has ones
-        # self.bop = torch.zeros(self.batch, self.channel, self.nx+2, self.ny+2) # neighbour entries for [i+1,j]
-        # self.bpo = torch.zeros(self.batch, self.channel, self.nx+2, self.ny+2) # neighbour entries for [i,j+1]
-        # self.bmo = torch.zeros(self.batch, self.channel, self.nx+2, self.ny+2) # neighbour entries for [i-1,j]
-        # self.bom = torch.zeros(self.batch, self.channel, self.nx+2, self.ny+2) # neighbour entries for [i,j-1]
 
-        self.boo  = torch.zeros_like(self.V)
-        self.bop  = torch.zeros_like(self.V)
-        self.bpo  = torch.zeros_like(self.V)
-        self.bmo  = torch.zeros_like(self.V)
-        self.bom  = torch.zeros_like(self.V)
+        self.boo  = torch.zeros_like(self.V)# but weickert init. has ones
+        self.bop  = torch.zeros_like(self.V)# neighbour entries for [i+1,j]
+        self.bpo  = torch.zeros_like(self.V)# neighbour entries for [i,j+1]
+        self.bmo  = torch.zeros_like(self.V)# neighbour entries for [i-1,j]
+        self.bom  = torch.zeros_like(self.V)# neighbour entries for [i,j-1]
 
         #time savers
         rx  = self.tau / (2.0 * self.hx)
@@ -141,6 +146,35 @@ class OsmosisInpainting:
             print(self.bom)
             self.analyseImage(self.bom, "bom")
 
+    def getMetrics(self):
+        #cal PSNR
+
+        #cal MSE
+
+        pass
+
+    def getInit_U(self):
+        # create a flat image ; avg gray val same as guidance
+
+        # create a noisy image ; avg gray val same as guidance
+        pass
+
+    def getCannyEdges(self):
+        pass
+
+    def createMaskfromCanny(self):
+        img = self.V.numpy().astype(np.uint8)
+        print(img)
+        edge = cv2.Canny(img, 100, 150 )
+        print(edge) 
+
+
+    def applyMask(self):
+        # transpose mask (if required)
+        # apply mask1 on d1
+        self.d1 = torch.mul(self.d1, self.mask1)
+        # apply mask2 on d2
+        self.d2 = torch.mul(self.d2, self.mask2)
 
     def getDriftVectors(self, verbose = False):
         """
@@ -215,7 +249,11 @@ class OsmosisInpainting:
 
     def BiCGSTAB(self, x, b, kmax=10000, eps=1e-9):
         """
-        solving system Ax=b
+        Biconjugate gradient stabilised method without preconditioning for
+        solving a linear system A x = b with an unsymmetric, pentadiagonal
+        system matrix A that involves four 2D neighbours.
+        Follows the description in A. Meister: Numerik linearer Gleichungssysteme.
+        Vieweg, Braunschweig, 1999.
         x : old and new solution ; torch.Tensor batch*channel*nx*ny
         b : right hand side      ; torch.Tensor batch*channel*nx*ny
         """
@@ -269,6 +307,8 @@ class OsmosisInpainting:
         print()
         
         return x
+
+
 
 
     def BiCGSTAB_batched(self, B, X0=None, max_iter=10000, tol=1e-9):
