@@ -614,6 +614,7 @@ for (i=1; i<=nx; i++)
      r[i][j] = r0[i][j] = p[i][j] = b[i][j] - r0[i][j];
 
 r_abs = r0_abs = sqrt (inner_product (nx, ny, r0, r0));
+printf("first residual : %lf \n", r_abs);
 
 
 /* ---- ITERATIONS ---- */
@@ -780,23 +781,6 @@ for (i=1; i<=nx; i++)
 // printf("\n");
 // show(d2, nx, ny, 3);
 
-// double  max, min;             /* largest, smallest grey value */
-// double  mean;                 /* average grey value */
-// double  std;                  /* standard deviation */
-
-// analyse_grey_double (d1, nx, ny, &min, &max, &mean, &std);
-// printf("d1 analyzed\n");
-// printf ("minimum:              %8.6lf \n", min);
-// printf ("maximum:              %8.6lf \n", max);
-// printf ("mean:                 %8.6lf \n", mean);
-// printf ("standard dev.:        %8.6lf \n\n", std);
-
-// analyse_grey_double (d2, nx, ny, &min, &max, &mean, &std);
-// printf("d2 analyzed\n");
-// printf ("minimum:              %8.6lf \n", min);
-// printf ("maximum:              %8.6lf \n", max);
-// printf ("mean:                 %8.6lf \n", mean);
-// printf ("standard dev.:        %8.6lf \n\n", std);
 
  
 return;
@@ -872,11 +856,50 @@ for (i=1; i<=nx; i++)
      bom[i][j] = - ryy - ry * d2[i][j-1];
      }
 
-show(boo, nx, ny, 3);
-show(bpo, nx, ny, 3);
-show(bop, nx, ny, 3);
-show(bmo, nx, ny, 3);
-show(bom, nx, ny, 3);
+// show(boo, nx, ny, 3);
+// show(bpo, nx, ny, 3);
+// show(bop, nx, ny, 3);
+// show(bmo, nx, ny, 3);
+// show(bom, nx, ny, 3);
+
+// double  max, min;             /* largest, smallest grey value */
+// double  mean;                 /* average grey value */
+// double  std;                  /* standard deviation */
+
+// analyse_grey_double (boo, nx, ny, &min, &max, &mean, &std);
+// printf("boo analyzed\n");
+// printf ("minimum:              %8.6lf \n", min);
+// printf ("maximum:              %8.6lf \n", max);
+// printf ("mean:                 %8.6lf \n", mean);
+// printf ("standard dev.:        %8.6lf \n\n", std);
+
+// analyse_grey_double (bpo, nx, ny, &min, &max, &mean, &std);
+// printf("bpo analyzed\n");
+// printf ("minimum:              %8.6lf \n", min);
+// printf ("maximum:              %8.6lf \n", max);
+// printf ("mean:                 %8.6lf \n", mean);
+// printf ("standard dev.:        %8.6lf \n\n", std);
+
+// analyse_grey_double (bop, nx, ny, &min, &max, &mean, &std);
+// printf("bop analyzed\n");
+// printf ("minimum:              %8.6lf \n", min);
+// printf ("maximum:              %8.6lf \n", max);
+// printf ("mean:                 %8.6lf \n", mean);
+// printf ("standard dev.:        %8.6lf \n\n", std);
+
+// analyse_grey_double (bmo, nx, ny, &min, &max, &mean, &std);
+// printf("bmo analyzed\n");
+// printf ("minimum:              %8.6lf \n", min);
+// printf ("maximum:              %8.6lf \n", max);
+// printf ("mean:                 %8.6lf \n", mean);
+// printf ("standard dev.:        %8.6lf \n\n", std);
+
+// analyse_grey_double (bom, nx, ny, &min, &max, &mean, &std);
+// printf("bom analyzed\n");
+// printf ("minimum:              %8.6lf \n", min);
+// printf ("maximum:              %8.6lf \n", max);
+// printf ("mean:                 %8.6lf \n", mean);
+// printf ("standard dev.:        %8.6lf \n\n", std);
 
 
 return;  

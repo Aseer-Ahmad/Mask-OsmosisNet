@@ -23,8 +23,8 @@ def readPGMImage( pth):
     return pgm_T
 
 if __name__ == '__main__':
-    u_pth = 'InpaintingSolver/sc-init.pgm'
-    v_pth = 'InpaintingSolver/sc.pgm'
+    u_pth = 'InpaintingSolver/svalbard-init.pgm'
+    v_pth = 'InpaintingSolver/svalbard.pgm'
     
     U = readPGMImage(u_pth)
     V = readPGMImage(v_pth)
@@ -36,7 +36,7 @@ if __name__ == '__main__':
 
     osmosis = OsmosisInpainting(U, V, None, 1, 1)
     osmosis.calculateWeights()
-    # osmosis.solve()
+    osmosis.solve()
 
 
     # pth = 'InpaintingSolver/test.pgm'

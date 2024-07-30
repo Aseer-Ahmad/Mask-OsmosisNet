@@ -31,7 +31,7 @@ class OsmosisInpainting:
         X = self.U.detach().clone()
 
         for i in range(kmax):
-            X, info = self.BiCGSTAB_batched(X)
+            X, info = self.BiCGSTAB(self.U, X)
 
     def calculateWeights(self):
         self.prepareInp()
@@ -39,7 +39,7 @@ class OsmosisInpainting:
         self.getDriftVectors()
         print(f"drift vectors calculated")
 
-        self.getStencilMatrices(True)
+        self.getStencilMatrices()
         print(f"weight stencils calculated")
 
 
@@ -73,10 +73,11 @@ class OsmosisInpainting:
 
     def analyseImage(self, x, name):
         print(f"analyzing {name} : size : {x.size()}")
-        print(f"min  : {torch.min(x)}")
-        print(f"max  : {torch.max(x)}")
-        print(f"mean : {torch.mean(x)}")
-        print(f"std  : {torch.std(x)}")
+        x = x[:, :, 1:self.nx+1, 1:self.ny+1]
+        print(f"min  : {torch.min(x):.9f}")
+        print(f"max  : {torch.max(x):.9f}")
+        print(f"mean : {torch.mean(x):.9f}")
+        print(f"std  : {torch.std(x):.9f}")
         print()
 
     def getStencilMatrices(self, verbose = False):
@@ -110,11 +111,10 @@ class OsmosisInpainting:
                 - ry * F.conv2d(self.d2, f2, padding='same')
         self.boo[:, :, 1:self.nx+1, 1:self.ny+1] = boo[:, :, 1:self.nx+1, 1:self.ny+1]
 
-        # unclean indexing to avoid boundaries being affected
+        # indexing to avoid boundaries being affected
         self.bpo[:, :, 1:self.nx+1, 1:self.ny+1] = -rxx + rx * self.d1[:, :, 1:self.nx+1, 1:self.ny+1]
         self.bop[:, :, 1:self.nx+1, 1:self.ny+1] = -ryy + ry * self.d2[:, :, 1:self.nx+1, 1:self.ny+1]
 
-        # boundaries require cleaning
         self.bmo[:, :, 1:self.nx+1, 1:self.ny+1] = -rxx - rx * self.d1[:, :, :self.nx, 1:self.ny+1]
         self.bom[:, :, 1:self.nx+1, 1:self.ny+1] = -ryy - ry * self.d2[:, :, 1:self.nx+1, :self.ny]
  
@@ -214,6 +214,7 @@ class OsmosisInpainting:
 
         print(f"\nstarting BiCGStab")
         
+
         B = B.to(torch.float64)
         batch, channel, nx, ny = B.shape
         
@@ -251,8 +252,10 @@ class OsmosisInpainting:
         
         return X, 1
 
+    def avoidBorders(self, x):
+        return x[:, :, 1:self.nx+1, 1 :self.ny+1]
 
-    def BiCGSTAB(self, x, b, kmax, eps=1e-9):
+    def BiCGSTAB(self, x, b, kmax=10000, eps=1e-9):
         """
         solving system Ax=b
         x : old and new solution ; torch.Tensor batch*channel*nx*ny
@@ -267,7 +270,7 @@ class OsmosisInpainting:
             
             r_0 = r = p  = b - self.applyStencil(x)
             r_abs = r0_abs = torch.norm(r_0, p = 'fro')
-
+            print(f"initial r_abs :{r_abs}")
             while k < kmax and  \
                     r_abs > eps * self.nx * self.ny and \
                     restart == 0:
