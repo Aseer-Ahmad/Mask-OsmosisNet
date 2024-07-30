@@ -31,7 +31,7 @@ class OsmosisInpainting:
         X = self.U.detach().clone()
 
         for i in range(kmax):
-            X, info = self.BiCGSTAB(self.U, X)
+            X = self.BiCGSTAB(self.U, X)
 
     def calculateWeights(self):
         self.prepareInp()
@@ -172,7 +172,7 @@ class OsmosisInpainting:
         inp : (batch, channel, nx, ny)
         This input should be padded and trasnposed along with offset added to it.
         """
-        r = torch.zeros_like(inp)
+        temp = torch.zeros_like(inp)
 
         center = torch.mul(self.boo[:, :, 1:self.nx+1, 1:self.ny+1],
                             inp[:, :, 1:self.nx+1, 1:self.ny+1])    
@@ -189,12 +189,12 @@ class OsmosisInpainting:
         right  = torch.mul(self.bpo[:, :, 1:self.nx+1, 1:self.ny+1],
                             inp[:, :, 2:self.nx+2, 1:self.ny+1])
         
-        r[:, :, 1:self.nx+1, 1:self.ny+1 ] = center + left + right + up + down
+        temp[:, :, 1:self.nx+1, 1:self.ny+1 ] = center + left + right + up + down
         
         if verbose :
-            self.analyseImage(r, "X")
+            self.analyseImage(temp, "X")
 
-        return r
+        return temp
 
     def BiCGSTAB_batched(self, B, X0=None, max_iter=10000, tol=1e-9):
         """
@@ -252,8 +252,13 @@ class OsmosisInpainting:
         
         return X, 1
 
-    def avoidBorders(self, x):
-        return x[:, :, 1:self.nx+1, 1 :self.ny+1]
+
+
+
+    def zeroPad(self, x):
+        t = torch.zeros_like(x)
+        t[:, :, 1:self.nx+1, 1 :self.ny+1] = x[:, :, 1:self.nx+1, 1 :self.ny+1]
+        return t
 
     def BiCGSTAB(self, x, b, kmax=10000, eps=1e-9):
         """
@@ -268,16 +273,17 @@ class OsmosisInpainting:
             
             restart = 0
             
-            r_0 = r = p  = b - self.applyStencil(x)
+            r_0 = self.applyStencil(x)  #boundaries of the input matter are imp
+            r_0 = r = p  = self.zeroPad(b - r_0)
             r_abs = r0_abs = torch.norm(r_0, p = 'fro')
             print(f"initial r_abs :{r_abs}")
+
             while k < kmax and  \
                     r_abs > eps * self.nx * self.ny and \
                     restart == 0:
                 
                 v = self.applyStencil(p)
-                sigma = torch.sum((torch.mul(v, r_0)))
-
+                sigma = torch.sum( torch.mul(v, r_0))
                 v_abs = torch.norm(v, p = 'fro')
 
                 if sigma <= eps * v_abs * r0_abs:
@@ -287,7 +293,7 @@ class OsmosisInpainting:
 
                 else :
 
-                    alpha = torch.sum((torch.mul(r, r_0))) / sigma
+                    alpha = torch.sum( torch.mul(r, r_0)) / sigma
                     s     = r - alpha * v
 
                     if torch.norm(s, p = 'fro') <= eps * self.nx * self.ny:
@@ -298,11 +304,11 @@ class OsmosisInpainting:
                     else :
 
                         t = self.applyStencil(s)
-                        omega = torch.sum((torch.mul(t, s))) / torch.sum((torch.mul(t, t))) 
+                        omega = torch.sum( torch.mul(t, s)) / torch.sum(torch.mul(t, t))
                         x = x + alpha * p + omega * s
                         r_old = r.detach().clone()
                         r = s - omega * t 
-                        beta = (alpha / omega) * torch.sum((torch.mul(r, r_0))) / torch.sum((torch.mul(r_old, r_0))) 
+                        beta = (alpha / omega) * torch.sum(torch.mul(r, r_0)) / torch.sum(torch.mul(r_old, r_0))
                         p = r + beta * (p - omega * v)
 
                     k += 1

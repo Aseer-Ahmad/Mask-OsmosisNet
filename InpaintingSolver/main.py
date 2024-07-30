@@ -23,16 +23,15 @@ def readPGMImage( pth):
     return pgm_T
 
 if __name__ == '__main__':
-    u_pth = 'InpaintingSolver/svalbard-init.pgm'
+    u_pth = 'InpaintingSolver/svalbard-noise.pgm'
     v_pth = 'InpaintingSolver/svalbard.pgm'
+
+    # u_pth = 'InpaintingSolver/sc-init.pgm'
+    # v_pth = 'InpaintingSolver/sc.pgm'
     
     U = readPGMImage(u_pth)
     V = readPGMImage(v_pth)
 
-    # Um = U[0][0][190:200, 215:230]
-    # write_tensor_to_pgm('sc-init.pgm', Um)
-    # Vm = V[0][0][190:200, 215:230]
-    # write_tensor_to_pgm('sc.pgm', Vm)
 
     osmosis = OsmosisInpainting(U, V, None, 1, 1)
     osmosis.calculateWeights()
@@ -49,6 +48,10 @@ if __name__ == '__main__':
     # U = U + 1
     # x = osmosis.applyStencil(U, True)
 
+    # Um = U[0][0][190:200, 215:230]
+    # write_tensor_to_pgm('sc-init.pgm', Um)
+    # Vm = V[0][0][190:200, 215:230]
+    # write_tensor_to_pgm('sc.pgm', Vm)
 
     # image = np.array([[3,8,0],
     #                   [6,0,1],

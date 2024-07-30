@@ -613,6 +613,9 @@ for (i=1; i<=nx; i++)
  for (j=1; j<=ny; j++)
      r[i][j] = r0[i][j] = p[i][j] = b[i][j] - r0[i][j];
 
+// printf("iteration : %ld p\n",k);
+// show(p, nx, ny, 1);
+
 r_abs = r0_abs = sqrt (inner_product (nx, ny, r0, r0));
 printf("first residual : %lf \n", r_abs);
 
@@ -625,13 +628,13 @@ while ((k < kmax) && (r_abs > eps * nx * ny) && (restart == 0))
 
       /* v_k = A p_k */
       matrix_times_vector (nx, ny, aoo, apo, amo, aop, aom, p, v);
-      // show(v, nx, ny, 1);
 
       /* sigma_k = <v_k, r_0> */
       sigma = inner_product (nx, ny, v, r0);
 
       /* v_abs = |v| */
       v_abs = sqrt (inner_product (nx, ny, v, v));
+      // printf("iteration : %ld , sigma : %lf vabs : %lf\n", k, sigma, v_abs);
 
       /* check if restart is necessary */
       if (sigma <= 1.0e-9 * v_abs * r0_abs){
