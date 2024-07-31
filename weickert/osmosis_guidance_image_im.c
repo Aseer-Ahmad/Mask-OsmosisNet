@@ -617,6 +617,7 @@ for (i=1; i<=nx; i++)
 // show(p, nx, ny, 1);
 
 r_abs = r0_abs = sqrt (inner_product (nx, ny, r0, r0));
+printf("k : %ld , r_abs : %lf \n", k, r_abs);
 
 
 /* ---- ITERATIONS ---- */
@@ -627,13 +628,14 @@ while ((k < kmax) && (r_abs > eps * nx * ny) && (restart == 0))
 
       /* v_k = A p_k */
       matrix_times_vector (nx, ny, aoo, apo, amo, aop, aom, p, v);
-
+      // show(v, nx, ny, 1);
+      // break;
       /* sigma_k = <v_k, r_0> */
       sigma = inner_product (nx, ny, v, r0);
 
       /* v_abs = |v| */
       v_abs = sqrt (inner_product (nx, ny, v, v));
-      // printf("iteration : %ld , sigma : %lf vabs : %lf\n", k, sigma, v_abs);
+      // printf("k : %ld , sigma : %lf vabs : %lf\n", k, sigma, v_abs);
 
       /* check if restart is necessary */
       if (sigma <= 1.0e-9 * v_abs * r0_abs){
@@ -645,6 +647,7 @@ while ((k < kmax) && (r_abs > eps * nx * ny) && (restart == 0))
       {
       /* alpha_k = <r_k, r_0> / sigma_k */
       alpha = inner_product (nx, ny, r, r0) / sigma;
+      // printf("k : %ld , alpha : %lf \n", k, alpha);
 
       /* s_k = r_k - alpha_k * v_k */
       for (i=1; i<=nx; i++)
@@ -673,6 +676,7 @@ while ((k < kmax) && (r_abs > eps * nx * ny) && (restart == 0))
 
       /* omega_k = <t_k, s_k> / <t_k, t_k> */
       omega = inner_product (nx, ny, t, s) / inner_product (nx, ny, t, t);
+      // printf("k : %ld , omega : %lf \n", k, omega);
 
       /* x_{k+1} = x_k + alpha_k * p_k + omega_k * s_k */
       for (i=1; i<=nx; i++)
@@ -692,6 +696,7 @@ while ((k < kmax) && (r_abs > eps * nx * ny) && (restart == 0))
       /* beta_k = alpha_k / omega_k * <r_{k+1}, r_0> / <r_k, r_0> */
       beta = alpha / omega *
              inner_product (nx, ny, r, r0) / inner_product (nx, ny, r_old, r0);
+      // printf("k : %ld , beta : %lf \n", k, beta);
 
       /* p_{k+1} = r_{k+1} + beta_k * (p_k - omega_k * v_k) */
       for (i=1; i<=nx; i++)
@@ -704,7 +709,7 @@ while ((k < kmax) && (r_abs > eps * nx * ny) && (restart == 0))
 
       /* r_abs = |r| */
       r_abs = sqrt (inner_product (nx, ny, r, r));
-      printf("iteration : %ld , residual : %lf \n", k, r_abs);
+      printf("k : %ld , residual : %lf \n", k, r_abs);
 
       }  /* else (if sigma) */
 
@@ -1070,6 +1075,8 @@ generate_matrix (tau, nx, ny, 1.0, 1.0, d1, d2, boo, bpo, bmo, bop, bom);
 /* perform kmax osmosis iterations */
 for (k=1; k<=kmax; k++)
     {
+
+    printf("ITER : %ld \n", k);
     /* perform one iteration */
     osmosis (nx, ny, boo, bpo, bmo, bop, bom, u);
 
