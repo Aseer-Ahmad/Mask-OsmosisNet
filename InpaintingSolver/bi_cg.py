@@ -39,7 +39,7 @@ class OsmosisInpainting:
         self.save_every = save_every
 
         X = self.U.detach().clone()
-        self.analyseImage(X, f"Initial img")
+        print(self.analyseImage(X, f"Initial img"))
         print()
         tt = 0
 
@@ -52,17 +52,20 @@ class OsmosisInpainting:
             tt += (et-st)
             self.U = X.detach().clone()
             
-            self.analyseImage(self.U, f"evolving U at iter {i}")
-            print(f"time for iteration : {et-st} sec")
-            print(f"total time         : {tt} sec")
+            comm = self.analyseImage(self.U, f"evolving U at iter {i}")
+            comm += f"time for iteration : {str(et-st)} sec\n"
+            comm += f"total time         : {str(tt)} sec\n"
+            print(comm)
             print()
 
-            if i % save_every == 0:
+            if i % self.save_every == 0:
                 self.U = self.U - self.offset
                 
                 #calculate metrics
-                
-                self.writePGMImage(self.U[0][0].numpy().T, f"out_{str(i+1)}.pgm")
+                metrics = self.getMetrics()
+                # self.writePGMImage(self.U[0][0].numpy().T, f"out_{str(i+1)}.pgm")
+                fname = f"out_{str(i+1)}.pgm"
+                self.writeToPGM(fname = fname, t = self.U[0][0].T, comments= comm)
 
                 self.U = self.U + self.offset
                 
@@ -81,6 +84,8 @@ class OsmosisInpainting:
         
         print()
 
+    def normalize(self):
+        pass
 
     def readPGMImage(self, pth):
         pgm = cv2.imread(pth, cv2.IMREAD_GRAYSCALE) 
@@ -92,10 +97,31 @@ class OsmosisInpainting:
         self.hx = 1
         self.hy = 1
         return pgm_T
+
+    def writeToPGM(self, fname, t, comments):
+        image = t.numpy()
+        height, width = image.shape
+        image = cv2.normalize(
+                    image, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
+
+        with open(fname, 'wb') as f:
+            f.write(b'P5\n')
+
+            if comments:
+                for comment in comments:
+                    f.write(f'# {comment}\n'.encode())
+
+            f.write(f'{height} {width}\n'.encode())
+            f.write(b'255\n')
+            f.write(image.tobytes())
+
+        print(f"written to : {fname}")
+
+
     
     def writePGMImage(self, X, filename):
         # add comments for pgm img
-        cv2.imwrite(filename, X)
+        # cv2.imwrite(filename, X)
         print(f"written to : {filename}")
 
        
@@ -125,13 +151,18 @@ class OsmosisInpainting:
         self.nx, self.ny = self.ny, self.nx
 
     def analyseImage(self, x, name):
-
+        comm = ""
         x = x[:, :, 1:self.nx+1, 1:self.ny+1]
+        
         print(f"analyzing {name}")
-        print(f"min  : {torch.min(x):.9f}")
-        print(f"max  : {torch.max(x):.9f}")
-        print(f"mean : {torch.mean(x):.9f}")
-        print(f"std  : {torch.std(x):.9f}")
+        
+        comm += f"min  : {str(torch.min(x).item())}\n"
+        comm += f"min  : {str(torch.min(x).item())}\n"
+        comm += f"max  : {str(torch.max(x).item())}\n"
+        comm += f"mean : {str(torch.mean(x).item())}\n"
+        comm += f"std  : {str(torch.std(x).item())}\n"
+
+        return comm
         
     def getStencilMatrices(self, verbose = False):
 
@@ -179,6 +210,8 @@ class OsmosisInpainting:
             self.analyseImage(self.bom, "bom")
 
     def getMetrics(self):
+        #self.U , self.V
+        
         #cal PSNR
 
         #cal MSE
