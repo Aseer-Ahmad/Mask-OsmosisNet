@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from torchvision.transforms import Pad
 import torchvision
 import numpy as np
+import time
 
 torch.set_printoptions(linewidth=2000)
 
@@ -28,25 +29,43 @@ class OsmosisInpainting:
         
         # pixel sizes x and y direction
         self.hx      = hx
-        self.hy      = hy      
+        self.hy      = hy    
 
-    def solve(self, kmax = 2, verbose = False):
+        # img 
+        self.save_every = 10
+
+    def solve(self, kmax = 2, save_every = 10, verbose = False):
+        
+        self.save_every = save_every
 
         X = self.U.detach().clone()
         self.analyseImage(X, f"Initial img")
+        print()
+        tt = 0
 
         for i in range(kmax):
-            print(f"ITER : {i+1}\n")
+            print(f"ITERATION : {i+1}")
+
+            st = time.time()
             X = self.BiCGSTAB(x = self.U, b = X, kmax = 10000, eps = 1e-9, verbose=verbose)
+            et = time.time()
+            tt += (et-st)
             self.U = X.detach().clone()
+            
             self.analyseImage(self.U, f"evolving U at iter {i}")
+            print(f"time for iteration : {et-st} sec")
+            print(f"total time         : {tt} sec")
+            print()
 
-        self.U = self.U - self.offset
-        self.V = self.V - self.offset
+            if i % save_every == 0:
+                self.U = self.U - self.offset
+                
+                #calculate metrics
+                
+                self.writePGMImage(self.U[0][0].numpy().T, f"out_{str(i+1)}.pgm")
 
-        #calculate metrics
-        self.writePGMImage(self.U[0][0].numpy().T, "cd100.pgm")
-
+                self.U = self.U + self.offset
+                
 
     def calculateWeights(self, d_verbose = False, m_verbose = False, s_verbose = False):
         self.prepareInp()
@@ -58,7 +77,9 @@ class OsmosisInpainting:
         print(f"mask applied to drift vectors")
 
         self.getStencilMatrices(s_verbose)
-        print(f"weight stencils calculated")
+        print(f"stencils weights calculated")
+        
+        print()
 
 
     def readPGMImage(self, pth):
@@ -73,6 +94,7 @@ class OsmosisInpainting:
         return pgm_T
     
     def writePGMImage(self, X, filename):
+        # add comments for pgm img
         cv2.imwrite(filename, X)
         print(f"written to : {filename}")
 
@@ -104,14 +126,13 @@ class OsmosisInpainting:
 
     def analyseImage(self, x, name):
 
-        print(f"analyzing {name} : size : {x.size()}")
         x = x[:, :, 1:self.nx+1, 1:self.ny+1]
+        print(f"analyzing {name}")
         print(f"min  : {torch.min(x):.9f}")
         print(f"max  : {torch.max(x):.9f}")
         print(f"mean : {torch.mean(x):.9f}")
         print(f"std  : {torch.std(x):.9f}")
-        print()
-
+        
     def getStencilMatrices(self, verbose = False):
 
         self.boo  = torch.zeros_like(self.V)# but weickert init. has ones
@@ -291,7 +312,7 @@ class OsmosisInpainting:
             r_0 = r = p  = b - r_0  # boundaries imp since they are used later for Ax 
             r_abs = r0_abs = torch.norm(r_0[:, :, 1:self.nx+1, 1:self.ny+1], p = 'fro') # avoid boundary calculations
             
-            print(f"k : {k} , r_abs : {r_abs}")
+            # print(f"k : {k} , r_abs : {r_abs}")
 
             while k < kmax and  \
                     r_abs > eps * self.nx * self.ny and \
@@ -308,7 +329,7 @@ class OsmosisInpainting:
 
                     restart = 1
                  
-                    print(f"restarting ... k : {k} , sigma : {sigma} , vabs : {v_abs}")
+                    # print(f"restarting ... k : {k} , sigma : {sigma} , vabs : {v_abs}")
 
                 else :
 
@@ -342,7 +363,8 @@ class OsmosisInpainting:
 
                     k += 1
                     r_abs = torch.norm(r[:, :, 1:self.nx+1, 1:self.ny+1], p = 'fro')
-                    print(f"k : {k} , RESIDUAL : {r_abs}")
+                    
+                    # print(f"k : {k} , RESIDUAL : {r_abs}")
         print()
         
         return x

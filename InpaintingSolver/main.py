@@ -31,10 +31,10 @@ if __name__ == '__main__':
     V = readPGMImage(v_pth)
     mask = readPGMImage(mask_pth)
 
-    osmosis = OsmosisInpainting(None, V, mask, mask, offset=1, tau=10)
+    osmosis = OsmosisInpainting(None, V, mask, mask, offset=1, tau=10000)
     # osmosis.writePGMImage(osmosis.U[0][0].T.numpy().T, "cm-init.pgm")
     osmosis.calculateWeights(False, False, False)
-    osmosis.solve(3, False)
+    osmosis.solve(100, 10, False)
 
 
     # pth = 'InpaintingSolver/test.pgm'
