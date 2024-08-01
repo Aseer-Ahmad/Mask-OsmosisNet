@@ -48,14 +48,14 @@ class OsmosisInpainting:
         self.writePGMImage(self.U[0][0].numpy().T, "cd100.pgm")
 
 
-    def calculateWeights(self, d_verbose = False, s_verbose = False):
+    def calculateWeights(self, d_verbose = False, m_verbose = False, s_verbose = False):
         self.prepareInp()
 
         self.getDriftVectors(d_verbose)
         print(f"drift vectors calculated")
 
-        # self.applyMask()
-        # print(f"mask applied to drift vectors")
+        self.applyMask(m_verbose)
+        print(f"mask applied to drift vectors")
 
         self.getStencilMatrices(s_verbose)
         print(f"weight stencils calculated")
@@ -182,13 +182,20 @@ class OsmosisInpainting:
         edge = cv2.Canny(img, 100, 150 )
         print(edge) 
 
-
-    def applyMask(self):
-
+    def binarizeMask(self):
+        if self.mask1 != None and self.mask2 != None:
+            self.mask1 = (self.mask1 > 0).float()
+            self.mask2 = (self.mask2 > 0).float()
+            
+    def applyMask(self , verbose = False):
+        self.binarizeMask() 
         self.d1 = torch.mul(self.d1, self.mask1)
         self.d2 = torch.mul(self.d2, self.mask2)
-        self.analyseImage(self.d1, "d1")
-        self.analyseImage(self.d2, "d2")
+        if verbose:
+            self.analyseImage(self.mask1, "mask1")
+            self.analyseImage(self.mask2, "mask2")
+            self.analyseImage(self.d1, "d1")
+            self.analyseImage(self.d2, "d2")
 
 
     def getDriftVectors(self, verbose = False):
