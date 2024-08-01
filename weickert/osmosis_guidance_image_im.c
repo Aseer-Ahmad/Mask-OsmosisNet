@@ -635,7 +635,7 @@ while ((k < kmax) && (r_abs > eps * nx * ny) && (restart == 0))
 
       /* v_abs = |v| */
       v_abs = sqrt (inner_product (nx, ny, v, v));
-      // printf("k : %ld , sigma : %lf vabs : %lf\n", k, sigma, v_abs);
+      printf("k : %ld , sigma : %lf vabs : %lf\n", k, sigma, v_abs);
 
       /* check if restart is necessary */
       if (sigma <= 1.0e-9 * v_abs * r0_abs){
@@ -647,7 +647,7 @@ while ((k < kmax) && (r_abs > eps * nx * ny) && (restart == 0))
       {
       /* alpha_k = <r_k, r_0> / sigma_k */
       alpha = inner_product (nx, ny, r, r0) / sigma;
-      // printf("k : %ld , alpha : %lf \n", k, alpha);
+      printf("k : %ld , alpha : %lf \n", k, alpha);
 
       /* s_k = r_k - alpha_k * v_k */
       for (i=1; i<=nx; i++)
@@ -696,7 +696,7 @@ while ((k < kmax) && (r_abs > eps * nx * ny) && (restart == 0))
       /* beta_k = alpha_k / omega_k * <r_{k+1}, r_0> / <r_k, r_0> */
       beta = alpha / omega *
              inner_product (nx, ny, r, r0) / inner_product (nx, ny, r_old, r0);
-      // printf("k : %ld , beta : %lf \n", k, beta);
+      printf("k : %ld , omega : %lf , beta : %lf \n", k, omega, beta);
 
       /* p_{k+1} = r_{k+1} + beta_k * (p_k - omega_k * v_k) */
       for (i=1; i<=nx; i++)

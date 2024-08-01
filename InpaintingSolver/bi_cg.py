@@ -33,6 +33,7 @@ class OsmosisInpainting:
     def solve(self, kmax = 2, verbose = False):
 
         X = self.U.detach().clone()
+        self.analyseImage(X, f"Initial img")
 
         for i in range(kmax):
             print(f"ITER : {i+1}\n")
@@ -44,8 +45,8 @@ class OsmosisInpainting:
         self.V = self.V - self.offset
 
         #calculate metrics
+        self.writePGMImage(self.U[0][0].numpy().T, "cd100.pgm")
 
-        # self.writePGMImage(self.U[0][0].numpy().T, "t60.pgm")
 
     def calculateWeights(self, d_verbose = False, s_verbose = False):
         self.prepareInp()
@@ -102,8 +103,9 @@ class OsmosisInpainting:
         self.nx, self.ny = self.ny, self.nx
 
     def analyseImage(self, x, name):
+
         print(f"analyzing {name} : size : {x.size()}")
-        # x = x[:, :, 1:self.nx+1, 1:self.ny+1]
+        x = x[:, :, 1:self.nx+1, 1:self.ny+1]
         print(f"min  : {torch.min(x):.9f}")
         print(f"max  : {torch.max(x):.9f}")
         print(f"mean : {torch.mean(x):.9f}")
@@ -231,21 +233,21 @@ class OsmosisInpainting:
         pad_mirror = Pad(1, padding_mode = "symmetric")
         inp        = pad_mirror(inp[:, :, 1:self.nx+1, 1:self.ny+1])
 
-        temp = torch.zeros_like(inp)
+        temp       = torch.zeros_like(inp)
 
-        center = torch.mul(self.boo[:, :, 1:self.nx+1, 1:self.ny+1],
+        center     = torch.mul(self.boo[:, :, 1:self.nx+1, 1:self.ny+1],
                             inp[:, :, 1:self.nx+1, 1:self.ny+1])    
          
-        left   = torch.mul(self.bmo[:, :, 1:self.nx+1, 1:self.ny+1],
+        left       = torch.mul(self.bmo[:, :, 1:self.nx+1, 1:self.ny+1],
                             inp[:, :, :self.nx, 1:self.ny+1])
         
-        down = torch.mul(self.bom[:, :, 1:self.nx+1, 1:self.ny+1],
+        down       = torch.mul(self.bom[:, :, 1:self.nx+1, 1:self.ny+1],
                             inp[:, :, 1:self.nx+1, 0:self.ny])
         
-        up     = torch.mul(self.bop[:, :, 1:self.nx+1, 1:self.ny+1],
+        up         = torch.mul(self.bop[:, :, 1:self.nx+1, 1:self.ny+1],
                             inp[:, :, 1:self.nx+1, 2:self.ny+2])
         
-        right  = torch.mul(self.bpo[:, :, 1:self.nx+1, 1:self.ny+1],
+        right      = torch.mul(self.bpo[:, :, 1:self.nx+1, 1:self.ny+1],
                             inp[:, :, 2:self.nx+2, 1:self.ny+1])
         
         temp[:, :, 1:self.nx+1, 1:self.ny+1 ] = center + left + right + up + down
@@ -281,7 +283,7 @@ class OsmosisInpainting:
             r_0 = self.applyStencil(x)  
             r_0 = r = p  = b - r_0  # boundaries imp since they are used later for Ax 
             r_abs = r0_abs = torch.norm(r_0[:, :, 1:self.nx+1, 1:self.ny+1], p = 'fro') # avoid boundary calculations
-            # [:, :, 1:self.nx+1, 1:self.ny+1]
+            
             print(f"k : {k} , r_abs : {r_abs}")
 
             while k < kmax and  \
@@ -320,17 +322,14 @@ class OsmosisInpainting:
 
                         t = self.applyStencil(s)
                         omega = torch.sum( torch.mul(t, s)) / torch.sum(torch.mul(t, t))
-                    
-                        if verbose:
-                            print(f"k : {k} , omega : {omega}")
-                    
+                                        
                         x = x + alpha * p + omega * s
                         r_old = r.detach().clone()
                         r = s - omega * t 
                         beta = (alpha / omega) * torch.sum(torch.mul(r[:, :, 1:self.nx+1, 1:self.ny+1], r_0[:, :, 1:self.nx+1, 1:self.ny+1])) / torch.sum(torch.mul(r_old[:, :, 1:self.nx+1, 1:self.ny+1], r_0[:, :, 1:self.nx+1, 1:self.ny+1]))
                     
                         if verbose:
-                            print(f"k : {k} , beta : {beta}")
+                            print(f"k : {k} , omega : {omega}, beta : {beta}")
 
                         p = r + beta * (p - omega * v)
 
