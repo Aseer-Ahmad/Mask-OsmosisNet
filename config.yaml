@@ -1,6 +1,15 @@
 # MODEL PARAMS
 
 # DATA PARMS
+TRAIN_FILENAME : iids_train.txt
+TEST_FILENAME  : iids_test.txt
+ROOT_DIR       : dataset/BSDS300-images/BSDS300/images/
 
+IMG_SIZE       : 256 
+BATCH_SIZE     : 16
+
+# OPT PARAMS
 
 # HYPER PARAMS
+
+
