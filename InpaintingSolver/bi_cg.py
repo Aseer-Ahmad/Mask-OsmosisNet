@@ -5,6 +5,8 @@ from torchvision.transforms import Pad
 import torchvision
 import numpy as np
 import time
+from torchmetrics.image import PeakSignalNoiseRatio
+from torchmetrics.regression import MeanSquaredError
 
 torch.set_printoptions(linewidth=2000)
 
@@ -55,17 +57,16 @@ class OsmosisInpainting:
             comm = self.analyseImage(self.U, f"evolving U at iter {i}")
             comm += f"time for iteration : {str(et-st)} sec\n"
             comm += f"total time         : {str(tt)} sec\n"
+            #calculate metrics
+            comm += self.getMetrics()
             print(comm)
-            print()
 
             if i % self.save_every == 0:
                 self.U = self.U - self.offset
                 
-                #calculate metrics
-                metrics = self.getMetrics()
-                # self.writePGMImage(self.U[0][0].numpy().T, f"out_{str(i+1)}.pgm")
                 fname = f"out_{str(i+1)}.pgm"
-                self.writeToPGM(fname = fname, t = self.U[0][0].T, comments= comm)
+                self.writePGMImage(self.U[0][0].numpy().T, fname)
+                # self.writeToPGM(fname = fname, t = self.U[0][0].T, comments= comm)
 
                 self.U = self.U + self.offset
                 
@@ -121,7 +122,7 @@ class OsmosisInpainting:
     
     def writePGMImage(self, X, filename):
         # add comments for pgm img
-        # cv2.imwrite(filename, X)
+        cv2.imwrite(filename, X)
         print(f"written to : {filename}")
 
        
@@ -210,13 +211,14 @@ class OsmosisInpainting:
             self.analyseImage(self.bom, "bom")
 
     def getMetrics(self):
-        #self.U , self.V
+        metrics = ""
+        psnr  = PeakSignalNoiseRatio()
+        mse   = torch.nn.MSELoss()
+
+        metrics += f"psnr : {str(( psnr(self.U, self.V) ))}\n"
+        metrics += f"mse  : {str(( mse(self.U, self.V) ))}\n"
         
-        #cal PSNR
-
-        #cal MSE
-
-        pass
+        return metrics
 
     def getInit_U(self):
         m  = torch.mean(self.V)
@@ -342,7 +344,7 @@ class OsmosisInpainting:
             restart = 0
             
             r_0 = self.applyStencil(x)  
-            r_0 = r = p  = b - r_0  # boundaries imp since they are used later for Ax 
+            r_0 = r = p  = b - r_0  
             r_abs = r0_abs = torch.norm(r_0[:, :, 1:self.nx+1, 1:self.ny+1], p = 'fro') # avoid boundary calculations
             
             # print(f"k : {k} , r_abs : {r_abs}")
@@ -361,8 +363,8 @@ class OsmosisInpainting:
                 if sigma <= eps * v_abs * r0_abs:
 
                     restart = 1
-                 
-                    # print(f"restarting ... k : {k} , sigma : {sigma} , vabs : {v_abs}")
+                    if verbose:
+                        print(f"restarting ... k : {k} , sigma : {sigma} , vabs : {v_abs}")
 
                 else :
 
@@ -397,7 +399,8 @@ class OsmosisInpainting:
                     k += 1
                     r_abs = torch.norm(r[:, :, 1:self.nx+1, 1:self.ny+1], p = 'fro')
                     
-                    # print(f"k : {k} , RESIDUAL : {r_abs}")
+                    if verbose:
+                        print(f"k : {k} , RESIDUAL : {r_abs}")
         print()
         
         return x
