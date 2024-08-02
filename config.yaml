@@ -2,6 +2,7 @@
 EPOCHS : 100
 RESUME_CHECKPOINT : 
 SAVE_EVERY : 10
+VAL_EVERY : 10
 OUTPUT_DIR :
 
 
@@ -13,13 +14,13 @@ ROOT_DIR       : dataset/BSDS300-images/BSDS300/images/
 IMG_SIZE       : 256 
 
 # HYPER PARAMS
-LR :
-WEIGHT_DECAY :
+LR             :
+WEIGHT_DECAY   :
 BATCH_SIZE     : 16
-OPT : 
-SCHEDL :
-TRAIN_BATCH : 
-TEST_BATCH  :
+OPT            : 
+SCHEDL         :
+TRAIN_BATCH    : 
+TEST_BATCH     :
 
 
 

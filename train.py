@@ -1,5 +1,9 @@
 #train.py
 from torch.utils.data import DataLoader
+from torch.optim import AdamW, Adam, SGD
+import torch
+
+import os
 
 class ModelTrainer():
 
@@ -13,11 +17,15 @@ class ModelTrainer():
         self.train_batch_size = train_batch,
         self.test_batch_size = test_batch
 
-    def getOptimizer(self):
+    def getOptimizer(self, model):
+
         if self.optimizer == "Adam":
-            pass
+            opt = Adam(model.parameters(), lr=self.lr, weight_decay = self.weight_decay)
+
         elif self.optimizer == "SGD":
-            pass
+            opt = SGD(model.parameters(), lr=self.lr, momentum = self.weight_decay)
+              
+        return opt
 
     def getScheduler(self):
         pass
@@ -28,11 +36,25 @@ class ModelTrainer():
     def validate(self):
         pass
 
-    def loadCheckpoint(self):
-        pass
+    def loadCheckpoint(self, model, optimizer, path):
+        
+        checkpoint = torch.load(path)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
-    def saveCheckpoint(self):
-        pass
+        return model, optimizer
+
+
+    def saveCheckpoint(self, model, optimizer):
+        
+        if not os.path.exists(self.output_dir):
+            os.makedirs(self.output_dir)
+
+        torch.save({
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            }, os.path.join(self.output_dir, "ckp.pt"))
+        
 
     def getDataloaders(self):
 
@@ -43,9 +65,17 @@ class ModelTrainer():
 
     def train(self, epochs, resume_checkpoint_file, save_every ,train_dataset ,test_dataseet):
         
-        
         train_dataloader, test_dataloader = self.getDataloaders()
         optimizer = self.getOptimizer()
+        scheduler = self.getScheduler()
+
+        if resume_checkpoint_file != None:
+            model, optimizer = self.loadCheckpoint(model, optimizer, resume_checkpoint_file)
+        
+        model.train()
+
+        print("\nmodel, opt, schdl loaded")
+        print("\nbeginning training ...")
 
         for epoch in range(epochs):
 
@@ -53,12 +83,10 @@ class ModelTrainer():
             
             for i, x in enumerate(train_dataloader): 
                 
-                optimizer.zero_grad()
+                
 
-                print(f'Epoch {epoch}/{num_epochs} , Step {i}/{len(train_dataloader)} ')
-                # print(f'accuracy : { metrics_dict["accuracy"] } precision : { metrics_dict["precision"] } recall : { metrics_dict["recall"] } f1 : { metrics_dict["f1"] }')
+                print(f'Epoch {epoch}/{epochs} , Step {i}/{len(train_dataloader)} ')
 
             epoch_loss = running_loss / train_dataset.__len__()
-            # writer.add_scalar('Loss/train', epoch_loss, epoch)
-            print('Epoch [{}/{}], Loss: {:.4f}'.format(epoch+1, num_epochs, epoch_loss))
+            print('Epoch [{}/{}], Loss: {:.4f}'.format(epoch+1, epochs, epoch_loss))
 

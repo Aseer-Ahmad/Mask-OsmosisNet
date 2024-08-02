@@ -50,7 +50,8 @@ def getDataSets(config):
 def main(config):
 
     train_dataset, test_dataset = getDataSets(config)
-
+    model = None
+    
     trainer = ModelTrainer(
         output_dir= config["OUTPUT_DIR"],
         optimizer= config["OPT"],
@@ -62,9 +63,11 @@ def main(config):
     )
 
     trainer.train(
+        model = model,
         epochs = config["EPOCHS"],
         resume_checkpoint_file = config["RESUME_CHECKPOINT"],
         save_every = config["SAVE_EVERY"], 
+        val_every = config["VAL_EVERY"],
         train_dataset = train_dataset , 
         test_dataseet = test_dataset
     )
