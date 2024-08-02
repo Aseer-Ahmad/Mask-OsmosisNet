@@ -2,6 +2,7 @@
 import yaml
 from train import ModelTrainer
 from dataloader import BSDS300Dataset
+from MaskModel.unet import UNet
 
 CONFIG_YAML = 'config.yaml'
 
@@ -50,8 +51,8 @@ def getDataSets(config):
 def main(config):
 
     train_dataset, test_dataset = getDataSets(config)
-    model = None
-    
+    model = UNet(config["INP_CHANNELS"], config["OUT_CHANNELS"])
+
     trainer = ModelTrainer(
         output_dir= config["OUTPUT_DIR"],
         optimizer= config["OPT"],
