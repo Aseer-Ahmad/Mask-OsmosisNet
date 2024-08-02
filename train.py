@@ -3,35 +3,51 @@ from torch.utils.data import DataLoader
 
 class ModelTrainer():
 
-    def __init__(self):
+    def __init__(self, output_dir, optimizer, scheduler, lr, weight_decay, train_batch, test_batch):
+        
+        self.output_dir= output_dir,
+        self.optimizer= optimizer,
+        self.scheduler= scheduler,
+        self.learning_rate= lr,
+        self.weight_decay= weight_decay, 
+        self.train_batch_size = train_batch,
+        self.test_batch_size = test_batch
+
+    def getOptimizer(self):
+        if self.optimizer == "Adam":
+            pass
+        elif self.optimizer == "SGD":
+            pass
+
+    def getScheduler(self):
         pass
 
-    def getOptimizer():
+    def calcLoss(self):
         pass
 
-    def getScheduler():
+    def validate(self):
         pass
 
-    def calcLoss():
+    def loadCheckpoint(self):
         pass
 
-    def validate():
-        pass
-
-    def loadCheckpoint():
-        pass
-
-    def saveCheckpoint():
+    def saveCheckpoint(self):
         pass
 
     def getDataloaders(self):
-        train_dataloader = DataLoader(self.train_dataset, batch_size=train_batch_size, shuffle=True)
-        test_dataloader  = DataLoader(self.test_dataset, batch_size=test_batch_size, shuffle=True)
 
+        train_dataloader = DataLoader(self.train_dataset, batch_size=self.train_batch_size, shuffle=True)
+        test_dataloader  = DataLoader(self.test_dataset, batch_size=self.test_batch_size, shuffle=True)
 
-    def train(epochs, resume_checkpoint_file, save_every ,train_dataset ,test_dataseet):
+        return (train_dataloader, test_dataloader)
+
+    def train(self, epochs, resume_checkpoint_file, save_every ,train_dataset ,test_dataseet):
         
-        for epoch in range(num_epochs):
+        
+        train_dataloader, test_dataloader = self.getDataloaders()
+        optimizer = self.getOptimizer()
+
+        for epoch in range(epochs):
 
             running_loss = 0.0
             

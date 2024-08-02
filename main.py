@@ -25,20 +25,21 @@ def read_config(file_path):
 
 def getDataSets(config):
     """
-    Create and return DataLoader objects for training and testing datasets.
+    Create and return Datasets objects for training and testing .
 
     Parameters:
-    config (dict): A dictionary containing configuration parameters for dataset and dataloader creation.
+    config (dict): A dictionary containing configuration parameters for dataset creation.
 
     Returns:
-    tuple: A tuple containing two DataLoader objects:
-        - train_dataloader: DataLoader for the training dataset.
-        - test_dataloader: DataLoader for the testing dataset.
+    tuple: A tuple containing two Datasets objects:
+        - train_dataset: Datasets for the training dataset.
+        - test_dataset: Datasets for the testing dataset.
     """
     train_dataset = BSDS300Dataset(config["TRAIN_FILENAME"], 
                              config["ROOT_DIR"], 
                              "train", 
                              config["IMG_SIZE"])
+    
     test_dataset = BSDS300Dataset(config["TEST_FILENAME"], 
                              config["ROOT_DIR"], 
                              "test", 
@@ -46,33 +47,31 @@ def getDataSets(config):
     
     return (train_dataset, test_dataset)
 
-def main():
-    config = read_config(CONFIG_YAML)
-    print(config)
+def main(config):
 
     train_dataset, test_dataset = getDataSets(config)
 
-	trainer = ModelTrainer(
-		output_dir= ,
-        optimizer= ,
-        scheduler= ,
-		learning_rate= ,
-		weight_decay= , 
-		train_batch_size  = ,
-		test_batch_size  = 
-	)
+    trainer = ModelTrainer(
+        output_dir= config["OUTPUT_DIR"],
+        optimizer= config["OPT"],
+        scheduler= config["SCHEDL"],
+        learning_rate= config["LR"],
+        weight_decay= config["WEIGHT_DECAY"], 
+        train_batch_size = config["TRAIN_BATCH"],
+        test_batch_size = config["TEST_BATCH"]
+    )
 
     trainer.train(
-		epochs = ,
-        resume_checkpoint_file = ,
-        save_every =, 
-        train_dataset = train_dataset, 
+        epochs = config["EPOCHS"],
+        resume_checkpoint_file = config["RESUME_CHECKPOINT"],
+        save_every = config["SAVE_EVERY"], 
+        train_dataset = train_dataset , 
         test_dataseet = test_dataset
     )
     
 
-
-
-
 if __name__ == '__main__':
-    main()
+    config = read_config(CONFIG_YAML)
+    print(config)
+
+    main(config)
