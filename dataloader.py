@@ -36,7 +36,7 @@ class BSDS300Dataset(Dataset):
         image = cv2.imread(img_pth, cv2.IMREAD_GRAYSCALE) 
         tensor = torch.tensor(image, dtype = torch.float64).unsqueeze(0)
 
-        # transforms
+        # resizing ; Tobias paper cropped images
         tensor = transforms.Resize((self.img_size, self.img_size))(tensor)     
 
         return tensor

@@ -1,7 +1,7 @@
 # main.py
-from dataloader import BSDS300Dataset
-from torch.utils.data import DataLoader
 import yaml
+from train import ModelTrainer
+from dataloader import BSDS300Dataset
 
 CONFIG_YAML = 'config.yaml'
 
@@ -23,7 +23,7 @@ def read_config(file_path):
             print(f"Error reading YAML file: {e}")
             return None
 
-def getDataLoaders(config):
+def getDataSets(config):
     """
     Create and return DataLoader objects for training and testing datasets.
 
@@ -44,19 +44,32 @@ def getDataLoaders(config):
                              "test", 
                              config["IMG_SIZE"])
     
-    train_dataloader = DataLoader(train_dataset, batch_size=config["BATCH_SIZE"], shuffle=True)
-    test_dataloader  = DataLoader(test_dataset, batch_size=config["BATCH_SIZE"], shuffle=True)
-
-    return (train_dataloader, test_dataloader)
+    return (train_dataset, test_dataset)
 
 def main():
     config = read_config(CONFIG_YAML)
     print(config)
 
+    train_dataset, test_dataset = getDataSets(config)
 
-    train_dataloader, test_dataloader = getDataLoaders(config)
+	trainer = ModelTrainer(
+		output_dir= ,
+        optimizer= ,
+        scheduler= ,
+		learning_rate= ,
+		weight_decay= , 
+		train_batch_size  = ,
+		test_batch_size  = 
+	)
 
-
+    trainer.train(
+		epochs = ,
+        resume_checkpoint_file = ,
+        save_every =, 
+        train_dataset = train_dataset, 
+        test_dataseet = test_dataset
+    )
+    
 
 
 
