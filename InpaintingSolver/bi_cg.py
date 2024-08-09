@@ -12,7 +12,7 @@ torch.set_printoptions(linewidth=2000)
 
 class OsmosisInpainting:
 
-    def __init__(self, U, V, mask1, mask2, offset, tau, hx = 1, hy = 1):
+    def __init__(self, U, V, mask1, mask2, offset, tau, hx = 1, hy = 1, apply_canny = False):
         # (b, c, h, w)
         self.V       = V + offset  # guidance image
         if U is not None:
@@ -23,7 +23,7 @@ class OsmosisInpainting:
         self.mask2   = mask2
         self.offset  = offset
         self.tau     = tau
-
+        
         self.batch   = V.size(0) 
         self.channel = V.size(1) 
         self.nx      = V.size(2) 
@@ -34,8 +34,11 @@ class OsmosisInpainting:
         self.hy      = hy    
 
         # img 
-        self.save_every = 10
+        self.save_every  = 10
+        self.apply_canny = apply_canny
 
+        self.device = None
+        
     def solve(self, kmax = 2, save_every = 10, verbose = False):
         
         self.save_every = save_every
@@ -64,7 +67,7 @@ class OsmosisInpainting:
             if i % self.save_every == 0:
                 self.U = self.U - self.offset
                 
-                fname = f"out_{str(i+1)}.pgm"
+                fname = f"scarf_{str(i+1)}.pgm"
                 self.writePGMImage(self.U[0][0].numpy().T, fname)
                 # self.writeToPGM(fname = fname, t = self.U[0][0].T, comments= comm)
 
@@ -77,8 +80,8 @@ class OsmosisInpainting:
         self.getDriftVectors(d_verbose)
         print(f"drift vectors calculated")
 
-        self.applyMask(m_verbose)
-        print(f"mask applied to drift vectors")
+        # self.applyMask(m_verbose)
+        # print(f"mask applied to drift vectors")
 
         self.getStencilMatrices(s_verbose)
         print(f"stencils weights calculated")
@@ -122,7 +125,7 @@ class OsmosisInpainting:
     
     def writePGMImage(self, X, filename):
         # add comments for pgm img
-        cv2.imwrite(filename, X)
+        cv2.imwrite(filename, X[1:-1, 1:-1])
         print(f"written to : {filename}")
 
        
@@ -229,8 +232,6 @@ class OsmosisInpainting:
         # create a noisy image ; avg gray val same as guidance
         return u
     
-    def getCannyEdges(self):
-        pass
 
     def createMaskfromCanny(self):
         img = self.V.numpy().astype(np.uint8)
@@ -407,59 +408,98 @@ class OsmosisInpainting:
 
 
 
+    def BiCGSTAB_Batched(self, x, b, kmax=10000, eps=1e-9, verbose = False):
+        
+        restart = torch.ones((self.batch, self.channel),  dtype=torch.bool)
+        k       = torch.zeros((self.batch, self.channel), dtype=torch.long)
+        r_abs   = torch.zeros((self.batch, self.channel), dtype=torch.long)
+        v_abs   = torch.zeros((self.batch, self.channel), dtype=torch.long)
+        r0_abs  = torch.zeros((self.batch, self.channel), dtype=torch.long)
+        sigma   = torch.zeros((self.batch, self.channel), dtype=torch.long)
 
-    def BiCGSTAB_batched(self, B, X0=None, max_iter=10000, tol=1e-9):
-        """
-        Solve AX = B using BiCGStab method without preconditioning for batched, multi-channel inputs.
-        
-        Args:
-        A: coefficient tensor of shape (batch, channel, nx, ny)
-        B: right-hand side tensor of shape (batch, channel, ny, m)
-        X0: initial guess tensor (if None, use zeros)
-        max_iter: maximum number of iterations
-        tol: tolerance for convergence
-        
-        Returns:
-        X: solution tensor of shape (batch, channel, nx, m)
-        info: convergence information (0: converged, 1: not converged)
-        """
+        r_0     = torch.zeros_like(x)
+        r       = torch.zeros_like(x)
+        p       = torch.zeros_like(x)
+        v       = torch.zeros_like(x)
 
-        print(f"\nstarting BiCGStab")
+        # check if any of restart is True or not
+        while restart.any():    
+
+            # set only those restart to zero
+            RES_COND = restart == 1
+
+            # using condition to select only those batch, channel that required restart
+            restart[RES_COND] = 0
+            r_0[RES_COND]     = self.applyStencil(x)  
+            r_0[RES_COND]     = r[RES_COND] = p[RES_COND] = b[RES_COND] - r_0[RES_COND]
+            r_abs[RES_COND]   = r0_abs[RES_COND] = torch.norm(r_0[RES_COND][:, 1:self.nx+1, 1:self.ny+1], p = "fro")
+
+            #  check if any batch, channel system fails the convergence condition
+            while (k < kmax).any() and (r_abs > eps * self.nx * self.ny).any() and (restart == 0).any():
+
+                CONV_COND = (k < kmax) and (r_abs > eps * self.nx * self.ny) and (restart == 0)
+
+                v[CONV_COND] = self.applyStencil(p)
+                # sum, norm across only batch, channel
+                sigma[CONV_COND]  = torch.sum(torch.mul(v[CONV_COND], r_0[CONV_COND]))
+                v_abs[CONV_COND]  = torch.norm(v[CONV_COND], p = "fro")
+              
+                if 
+             
+             
+
+    # def BiCGSTAB_batched(self, B, X0=None, max_iter=10000, tol=1e-9):
+    #     """
+    #     Solve AX = B using BiCGStab method without preconditioning for batched, multi-channel inputs.
+        
+    #     Args:
+    #     A: coefficient tensor of shape (batch, channel, nx, ny)
+    #     B: right-hand side tensor of shape (batch, channel, ny, m)
+    #     X0: initial guess tensor (if None, use zeros)
+    #     max_iter: maximum number of iterations
+    #     tol: tolerance for convergence
+        
+    #     Returns:
+    #     X: solution tensor of shape (batch, channel, nx, m)
+    #     info: convergence information (0: converged, 1: not converged)
+    #     """
+
+    #     print(f"\nstarting BiCGStab")
         
 
-        B = B.to(torch.float64)
-        batch, channel, nx, ny = B.shape
+    #     B = B.to(torch.float64)
+    #     batch, channel, nx, ny = B.shape
         
-        if X0 is None:
-            X = torch.zeros_like(B) # torch.zeros(batch, channel, nx, ny, dtype=torch.float64)
-        else:
-            X = X0.clone().to(torch.float64)
+    #     if X0 is None:
+    #         X = torch.zeros_like(B) # torch.zeros(batch, channel, nx, ny, dtype=torch.float64)
+    #     else:
+    #         X = X0.clone().to(torch.float64)
         
-        R = B - self.applyStencil(X) # torch.matmul(A, X)
-        R_tilde = R.clone()
-        rho = alpha = omega = torch.ones(batch, channel, 1, 1, dtype=torch.float64)
-        V = P = torch.zeros_like(X)
+    #     R = B - self.applyStencil(X) # torch.matmul(A, X)
+    #     R_tilde = R.clone()
+    #     rho = alpha = omega = torch.ones(batch, channel, 1, 1, dtype=torch.float64)
+    #     V = P = torch.zeros_like(X)
         
-        for i in range(max_iter):
-            rho_new = torch.sum(R_tilde * R, dim=(-2, -1), keepdim=True)
-            beta = (rho_new / rho) * (alpha / omega)
-            P = R + beta * (P - omega * V)
-            V = self.applyStencil(P) # torch.matmul(A, P)
-            alpha = rho_new / torch.sum(R_tilde * V, dim=(-2, -1), keepdim=True)
-            H = X + alpha * P
-            S = R - alpha * V
-            T = self.applyStencil(S) # torch.matmul(A, S)
-            omega = torch.sum(T * S, dim=(-2, -1), keepdim=True) / torch.sum(T * T, dim=(-2, -1), keepdim=True)
-            X = H + omega * S
-            R = S - omega * T
+    #     for i in range(max_iter):
+    #         rho_new = torch.sum(R_tilde * R, dim=(-2, -1), keepdim=True)
+    #         beta = (rho_new / rho) * (alpha / omega)
+    #         P = R + beta * (P - omega * V)
+    #         V = self.applyStencil(P) # torch.matmul(A, P)
+    #         alpha = rho_new / torch.sum(R_tilde * V, dim=(-2, -1), keepdim=True)
+    #         H = X + alpha * P
+    #         S = R - alpha * V
+    #         T = self.applyStencil(S) # torch.matmul(A, S)
+    #         omega = torch.sum(T * S, dim=(-2, -1), keepdim=True) / torch.sum(T * T, dim=(-2, -1), keepdim=True)
+    #         X = H + omega * S
+    #         R = S - omega * T
             
-            rho = rho_new
+    #         rho = rho_new
             
-            residual_norm = torch.norm(R.reshape(batch, channel, -1), dim=-1)
+    #         residual_norm = torch.norm(R.reshape(batch, channel, -1), dim=-1)
 
-            print(f"Iteration {i+1} , residual norm : {residual_norm}")
+    #         print(f"Iteration {i+1} , residual norm : {residual_norm}")
 
-            if torch.all(residual_norm < tol):
-                return X, 0
+    #         if torch.all(residual_norm < tol):
+    #             return X, 0
         
-        return X, 1
+    #     return X, 1
