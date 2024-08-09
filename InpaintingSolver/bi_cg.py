@@ -416,11 +416,18 @@ class OsmosisInpainting:
         v_abs   = torch.zeros((self.batch, self.channel), dtype=torch.long)
         r0_abs  = torch.zeros((self.batch, self.channel), dtype=torch.long)
         sigma   = torch.zeros((self.batch, self.channel), dtype=torch.long)
+        alpha   = torch.zeros((self.batch, self.channel), dtype=torch.long)
+        omega   = torch.zeros((self.batch, self.channel), dtype=torch.long)
+        beta    = torch.zeros((self.batch, self.channel), dtype=torch.long)
 
         r_0     = torch.zeros_like(x)
         r       = torch.zeros_like(x)
+        r_old   = torch.zeros_like(x)
         p       = torch.zeros_like(x)
         v       = torch.zeros_like(x)
+        s       = torch.zeros_like(x)
+        t       = torch.zeros_like(x)
+
 
         # check if any of restart is True or not
         while restart.any():    
@@ -444,9 +451,42 @@ class OsmosisInpainting:
                 sigma[CONV_COND]  = torch.sum(torch.mul(v[CONV_COND], r_0[CONV_COND]))
                 v_abs[CONV_COND]  = torch.norm(v[CONV_COND], p = "fro")
               
-                if 
+
+                RES1_COND = sigma <= eps * v_abs * r0_abs
+
+                # batch, channel systems that require restart
+                restart[RES1_COND] == 1
+
+                
+                alpha[~RES1_COND] = torch.sum( torch.mul(r[~RES1_COND][ :, 1:self.nx+1, 1:self.ny+1], r_0[~RES1_COND][ :, 1:self.nx+1, 1:self.ny+1])) / sigma[~RES1_COND]
+                s[~RES1_COND]     = r[~RES1_COND] - alpha[~RES1_COND] * v[~RES1_COND]
+                
+                # if verbose:
+                #     print(f"k : {k} , alpha : {alpha}")
+
+                CONV2_COND = torch.norm(s[~RES1_COND][ :, 1:self.nx+1, 1:self.ny+1], p = 'fro') <= eps * self.nx * self.ny
+                CONV3_COND = CONV2_COND & (~RES1_COND)
+
+                x[CONV3_COND] = x[CONV3_COND] + alpha[CONV3_COND] * p[CONV3_COND] 
+                r[CONV3_COND] = s[CONV3_COND].detach().clone()
+                    
+
+                t[~CONV3_COND] = self.applyStencil(s)
+                omega[~CONV3_COND] = torch.sum( torch.mul(t[~CONV3_COND], s[~CONV3_COND])) / torch.sum(torch.mul(t[~CONV3_COND], t[~CONV3_COND]))
+                                
+                x[~CONV3_COND] = x[~CONV3_COND] + alpha[~CONV3_COND] * p[~CONV3_COND] + omega[~CONV3_COND] * s[~CONV3_COND]
+                r_old[~CONV3_COND] = r[~CONV3_COND].detach().clone()
+                r[~CONV3_COND] = s[~CONV3_COND] - omega[~CONV3_COND] * t[~CONV3_COND] 
+                beta[~CONV3_COND] = (alpha[~CONV3_COND] / omega[~CONV3_COND]) * torch.sum(torch.mul(r[~CONV3_COND][ :, 1:self.nx+1, 1:self.ny+1], r_0[~CONV3_COND][ :, 1:self.nx+1, 1:self.ny+1])) / torch.sum(torch.mul(r_old[~CONV3_COND][ :, 1:self.nx+1, 1:self.ny+1], r_0[~CONV3_COND][ :, 1:self.nx+1, 1:self.ny+1]))
+            
+                # if verbose:
+                #     print(f"k : {k} , omega : {omega}, beta : {beta}")
+
+                p[~CONV3_COND] = r[~CONV3_COND] + beta[~CONV3_COND] * (p[~CONV3_COND] - omega[~CONV3_COND] * v[~CONV3_COND])
              
-             
+                k[~RES1_COND] += 1 
+                r_abs[~RES1_COND] = torch.norm(r[~RES1_COND][ :, 1:self.nx+1, 1:self.ny+1], p = 'fro')
+   
 
     # def BiCGSTAB_batched(self, B, X0=None, max_iter=10000, tol=1e-9):
     #     """
