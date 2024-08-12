@@ -52,7 +52,7 @@ class OsmosisInpainting:
             print(f"ITERATION : {i+1}")
 
             st = time.time()
-            X = self.BiCGSTAB(x = self.U, b = X, kmax = 10000, eps = 1e-9, verbose=verbose)
+            X = self.BiCGSTAB_Batched(x = self.U, b = X, kmax = 10000, eps = 1e-9, verbose=verbose)
             et = time.time()
             tt += (et-st)
             self.U = X.detach().clone()
@@ -67,7 +67,7 @@ class OsmosisInpainting:
             if i % self.save_every == 0:
                 self.U = self.U - self.offset
                 
-                fname = f"scarf_{str(i+1)}.pgm"
+                fname = f"kani_{str(i+1)}.pgm"
                 self.writePGMImage(self.U[0][0].numpy().T, fname)
                 # self.writeToPGM(fname = fname, t = self.U[0][0].T, comments= comm)
 
@@ -321,7 +321,6 @@ class OsmosisInpainting:
 
         return temp
 
-
     def zeroPad(self, x):
         t = torch.zeros_like(x)
         t[:, :, 1:self.nx+1, 1 :self.ny+1] = x[:, :, 1:self.nx+1, 1 :self.ny+1]
@@ -407,6 +406,37 @@ class OsmosisInpainting:
         return x
 
 
+    def applyStencilBatch(self, inp, COND, verbose = False):
+        """
+        inp : (batch, channel, nx, ny)
+        """
+        pad_mirror = Pad(1, padding_mode = "symmetric")
+        inp        = pad_mirror(inp[ :, 1:self.nx+1, 1:self.ny+1])
+
+        temp       = torch.zeros_like(inp)
+
+        center     = torch.mul(self.boo[COND][ :, 1:self.nx+1, 1:self.ny+1],
+                            inp[ :, 1:self.nx+1, 1:self.ny+1])    
+         
+        left       = torch.mul(self.bmo[COND][ :, 1:self.nx+1, 1:self.ny+1],
+                            inp[ :, :self.nx, 1:self.ny+1])
+        
+        down       = torch.mul(self.bom[COND][ :, 1:self.nx+1, 1:self.ny+1],
+                            inp[ :, 1:self.nx+1, 0:self.ny])
+        
+        up         = torch.mul(self.bop[COND][ :, 1:self.nx+1, 1:self.ny+1],
+                            inp[ :, 1:self.nx+1, 2:self.ny+2])
+        
+        right      = torch.mul(self.bpo[COND][ :, 1:self.nx+1, 1:self.ny+1],
+                            inp[ :, 2:self.nx+2, 1:self.ny+1])
+        
+        temp[ :, 1:self.nx+1, 1:self.ny+1 ] = center + left + right + up + down
+        
+        if verbose :
+            self.analyseImage(temp, "X")
+
+        return temp
+
 
     def BiCGSTAB_Batched(self, x, b, kmax=10000, eps=1e-9, verbose = False):
         
@@ -437,19 +467,19 @@ class OsmosisInpainting:
 
             # using condition to select only those batch, channel that required restart
             restart[RES_COND] = 0
-            r_0[RES_COND]     = self.applyStencil(x)  
+            r_0[RES_COND]     = self.applyStencilBatch(x[RES_COND], RES_COND)  
             r_0[RES_COND]     = r[RES_COND] = p[RES_COND] = b[RES_COND] - r_0[RES_COND]
-            r_abs[RES_COND]   = r0_abs[RES_COND] = torch.norm(r_0[RES_COND][:, 1:self.nx+1, 1:self.ny+1], p = "fro")
+            r_abs[RES_COND]   = r0_abs[RES_COND] = torch.norm(r_0[RES_COND][:, 1:self.nx+1, 1:self.ny+1], dim = (2,3), p = "fro")
 
             #  check if any batch, channel system fails the convergence condition
             while (k < kmax).any() and (r_abs > eps * self.nx * self.ny).any() and (restart == 0).any():
 
                 CONV_COND = (k < kmax) and (r_abs > eps * self.nx * self.ny) and (restart == 0)
 
-                v[CONV_COND] = self.applyStencil(p)
+                v[CONV_COND] = self.applyStencilBatch(p[CONV_COND], CONV_COND)
                 # sum, norm across only batch, channel
-                sigma[CONV_COND]  = torch.sum(torch.mul(v[CONV_COND], r_0[CONV_COND]))
-                v_abs[CONV_COND]  = torch.norm(v[CONV_COND], p = "fro")
+                sigma[CONV_COND]  = torch.sum(torch.mul(v[CONV_COND], r_0[CONV_COND]), dim = (2,3))
+                v_abs[CONV_COND]  = torch.norm(v[CONV_COND], dim = (2,3),  p = "fro")
               
 
                 RES1_COND = sigma <= eps * v_abs * r0_abs
@@ -458,20 +488,20 @@ class OsmosisInpainting:
                 restart[RES1_COND] == 1
 
                 
-                alpha[~RES1_COND] = torch.sum( torch.mul(r[~RES1_COND][ :, 1:self.nx+1, 1:self.ny+1], r_0[~RES1_COND][ :, 1:self.nx+1, 1:self.ny+1])) / sigma[~RES1_COND]
+                alpha[~RES1_COND] = torch.sum( torch.mul(r[~RES1_COND][ :, 1:self.nx+1, 1:self.ny+1], r_0[~RES1_COND][ :, 1:self.nx+1, 1:self.ny+1]), dim = (2,3)) / sigma[~RES1_COND]
                 s[~RES1_COND]     = r[~RES1_COND] - alpha[~RES1_COND] * v[~RES1_COND]
                 
                 # if verbose:
                 #     print(f"k : {k} , alpha : {alpha}")
 
-                CONV2_COND = torch.norm(s[~RES1_COND][ :, 1:self.nx+1, 1:self.ny+1], p = 'fro') <= eps * self.nx * self.ny
+                CONV2_COND = torch.norm(s[~RES1_COND][ :, 1:self.nx+1, 1:self.ny+1], dim = (2,3), p = 'fro') <= eps * self.nx * self.ny
                 CONV3_COND = CONV2_COND & (~RES1_COND)
 
                 x[CONV3_COND] = x[CONV3_COND] + alpha[CONV3_COND] * p[CONV3_COND] 
                 r[CONV3_COND] = s[CONV3_COND].detach().clone()
                     
 
-                t[~CONV3_COND] = self.applyStencil(s)
+                t[~CONV3_COND] = self.applyStencilBatch(s[~CONV3_COND], ~CONV3_COND)
                 omega[~CONV3_COND] = torch.sum( torch.mul(t[~CONV3_COND], s[~CONV3_COND])) / torch.sum(torch.mul(t[~CONV3_COND], t[~CONV3_COND]))
                                 
                 x[~CONV3_COND] = x[~CONV3_COND] + alpha[~CONV3_COND] * p[~CONV3_COND] + omega[~CONV3_COND] * s[~CONV3_COND]
@@ -485,7 +515,7 @@ class OsmosisInpainting:
                 p[~CONV3_COND] = r[~CONV3_COND] + beta[~CONV3_COND] * (p[~CONV3_COND] - omega[~CONV3_COND] * v[~CONV3_COND])
              
                 k[~RES1_COND] += 1 
-                r_abs[~RES1_COND] = torch.norm(r[~RES1_COND][ :, 1:self.nx+1, 1:self.ny+1], p = 'fro')
+                r_abs[~RES1_COND] = torch.norm(r[~RES1_COND][ :, 1:self.nx+1, 1:self.ny+1], dim = (2,3), p = 'fro')
    
 
     # def BiCGSTAB_batched(self, B, X0=None, max_iter=10000, tol=1e-9):
