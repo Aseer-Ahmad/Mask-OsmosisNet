@@ -504,23 +504,25 @@ class OsmosisInpainting:
                 #     print(f"k : {k} , alpha : {alpha}")
 
                 # =======================================
-                # RESTART and CONVERGENCE CONDITION 
+                # No RESTART and CONVERGENCE CONDITION 
                 # =======================================
 
                 CONV2_COND = torch.norm(s[:, :, 1:self.nx+1, 1:self.ny+1], dim = (2, 3), p = 'fro') <= eps * self.nx * self.ny
                 CONV3_COND = (~RES1_COND) & CONV2_COND
-                print(f"RES1_COND shape : {RES1_COND.shape}")
-                print(f"CONV2_COND shape : {CONV2_COND.shape}")
-                print(f"CONV3_COND shape : {CONV3_COND.shape}")
+
+                # print(f"RES1_COND shape : {RES1_COND.shape}")
+                # print(f"CONV2_COND shape : {CONV2_COND.shape}")
+                # print(f"CONV3_COND shape : {CONV3_COND.shape}")
 
                 # broadcast 3
                 x[CONV3_COND] = x[CONV3_COND] + (alpha[CONV3_COND].view(-1, 1, 1) * p[CONV3_COND] )
                 r[CONV3_COND] = s[CONV3_COND].detach().clone()
                     
                 # =======================================
-                # RESTART and INVERSE CONVERGENCE CONDITION 
+                # No RESTART and INVERSE CONVERGENCE CONDITION 
                 # =======================================
                 CONV4_COND = (~RES1_COND) & (~CONV2_COND)
+
                 t[CONV4_COND] = self.applyStencilBatch(s[CONV4_COND], CONV4_COND)
                 omega[CONV4_COND] = torch.sum( torch.mul(t[CONV4_COND], s[CONV4_COND]), dim = (1, 2)) / torch.sum(torch.mul(t[CONV4_COND], t[CONV4_COND]), dim = (1, 2))
 
@@ -530,10 +532,10 @@ class OsmosisInpainting:
                 
                 # broadcast 5
                 r[CONV4_COND] = s[CONV4_COND] - (omega[CONV4_COND].view(-1, 1, 1) * t[CONV4_COND] )
-                # broadcast 6
+                
                 beta[CONV4_COND] = (alpha[CONV4_COND] / omega[CONV4_COND]) \
-                                    * torch.sum(torch.mul(r[CONV4_COND][ :, 1:self.nx+1, 1:self.ny+1], r_0[CONV4_COND][ :, 1:self.nx+1, 1:self.ny+1]), dim = (1, 2)).view(-1, 1) \
-                                    / torch.sum(torch.mul(r_old[CONV4_COND][ :, 1:self.nx+1, 1:self.ny+1], r_0[CONV4_COND][ :, 1:self.nx+1, 1:self.ny+1]), dim = (1, 2)).view(-1, 1)
+                                    * torch.sum(torch.mul(r[CONV4_COND][ :, 1:self.nx+1, 1:self.ny+1], r_0[CONV4_COND][ :, 1:self.nx+1, 1:self.ny+1]), dim = (1, 2)) \
+                                    / torch.sum(torch.mul(r_old[CONV4_COND][ :, 1:self.nx+1, 1:self.ny+1], r_0[CONV4_COND][ :, 1:self.nx+1, 1:self.ny+1]), dim = (1, 2))
             
                 # if verbose:
                 #     print(f"k : {k} , omega : {omega}, beta : {beta}")
@@ -543,7 +545,9 @@ class OsmosisInpainting:
              
                 k[~RES1_COND] += 1 
                 r_abs[~RES1_COND] = torch.norm(r[~RES1_COND][ :, 1:self.nx+1, 1:self.ny+1], dim = (1, 2), p = 'fro')
-   
+
+                print(f"k : {k}, r_abs : {r_abs}")
+
 
     # def BiCGSTAB_batched(self, B, X0=None, max_iter=10000, tol=1e-9):
     #     """
