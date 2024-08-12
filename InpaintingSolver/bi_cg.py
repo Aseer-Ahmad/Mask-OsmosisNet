@@ -121,8 +121,6 @@ class OsmosisInpainting:
 
         print(f"written to : {fname}")
 
-
-    
     def writePGMImage(self, X, filename):
         # add comments for pgm img
         cv2.imwrite(filename, X[1:-1, 1:-1])
@@ -232,7 +230,6 @@ class OsmosisInpainting:
         # create a noisy image ; avg gray val same as guidance
         return u
     
-
     def createMaskfromCanny(self):
         img = self.V.numpy().astype(np.uint8)
         print(img)
@@ -253,7 +250,6 @@ class OsmosisInpainting:
             self.analyseImage(self.mask2, "mask2")
             self.analyseImage(self.d1, "d1")
             self.analyseImage(self.d2, "d2")
-
 
     def getDriftVectors(self, verbose = False):
         """
@@ -289,7 +285,6 @@ class OsmosisInpainting:
             self.analyseImage(self.d1, "d1")
             self.analyseImage(self.d2, "d2")
             
-
     def applyStencil(self, inp, verbose = False):
         """
         inp : (batch, channel, nx, ny)
@@ -347,7 +342,8 @@ class OsmosisInpainting:
             r_0 = r = p  = b - r_0  
             r_abs = r0_abs = torch.norm(r_0[:, :, 1:self.nx+1, 1:self.ny+1], p = 'fro') # avoid boundary calculations
             
-            # print(f"k : {k} , r_abs : {r_abs}")
+            if verbose:
+                print(f"k : {k} , r_abs : {r_abs}")
 
             while k < kmax and  \
                     r_abs > eps * self.nx * self.ny and \
@@ -405,7 +401,6 @@ class OsmosisInpainting:
         
         return x
 
-
     def applyStencilBatch(self, inp, COND, verbose = False):
         """
         inp : (batch, channel, nx, ny)
@@ -440,15 +435,15 @@ class OsmosisInpainting:
 
     def BiCGSTAB_Batched(self, x, b, kmax=10000, eps=1e-9, verbose = False):
         
-        restart = torch.ones((self.batch, self.channel),  dtype=torch.bool)
+        restart = torch.ones( (self.batch, self.channel), dtype=torch.bool)
         k       = torch.zeros((self.batch, self.channel), dtype=torch.long)
-        r_abs   = torch.zeros((self.batch, self.channel), dtype=torch.long)
-        v_abs   = torch.zeros((self.batch, self.channel), dtype=torch.long)
-        r0_abs  = torch.zeros((self.batch, self.channel), dtype=torch.long)
-        sigma   = torch.zeros((self.batch, self.channel), dtype=torch.long)
-        alpha   = torch.zeros((self.batch, self.channel), dtype=torch.long)
-        omega   = torch.zeros((self.batch, self.channel), dtype=torch.long)
-        beta    = torch.zeros((self.batch, self.channel), dtype=torch.long)
+        r_abs   = torch.zeros((self.batch, self.channel), dtype=torch.float64)
+        v_abs   = torch.zeros((self.batch, self.channel), dtype=torch.float64)
+        r0_abs  = torch.zeros((self.batch, self.channel), dtype=torch.float64)
+        sigma   = torch.zeros((self.batch, self.channel), dtype=torch.float64)
+        alpha   = torch.zeros((self.batch, self.channel), dtype=torch.float64)
+        omega   = torch.zeros((self.batch, self.channel), dtype=torch.float64)
+        beta    = torch.zeros((self.batch, self.channel), dtype=torch.float64)
 
         r_0     = torch.zeros_like(x)
         r       = torch.zeros_like(x)
@@ -469,53 +464,85 @@ class OsmosisInpainting:
             restart[RES_COND] = 0
             r_0[RES_COND]     = self.applyStencilBatch(x[RES_COND], RES_COND)  
             r_0[RES_COND]     = r[RES_COND] = p[RES_COND] = b[RES_COND] - r_0[RES_COND]
-            r_abs[RES_COND]   = r0_abs[RES_COND] = torch.norm(r_0[RES_COND][:, 1:self.nx+1, 1:self.ny+1], dim = (2,3), p = "fro")
+            r_abs[RES_COND]   = r0_abs[RES_COND] = torch.norm(r_0[RES_COND][:, 1:self.nx+1, 1:self.ny+1], dim = (1, 2), p = "fro")
 
+            print(f"r_abs : {r_abs}")
             #  check if any batch, channel system fails the convergence condition
             while (k < kmax).any() and (r_abs > eps * self.nx * self.ny).any() and (restart == 0).any():
 
+                # =======================================
+                # WHILE CONVERGENCE CONDITION
+                # =======================================
+                
                 CONV_COND = (k < kmax) and (r_abs > eps * self.nx * self.ny) and (restart == 0)
 
                 v[CONV_COND] = self.applyStencilBatch(p[CONV_COND], CONV_COND)
                 # sum, norm across only batch, channel
-                sigma[CONV_COND]  = torch.sum(torch.mul(v[CONV_COND], r_0[CONV_COND]), dim = (2,3))
-                v_abs[CONV_COND]  = torch.norm(v[CONV_COND], dim = (2,3),  p = "fro")
+                sigma[CONV_COND]  = torch.sum(torch.mul(v[CONV_COND], r_0[CONV_COND]), dim = (1, 2))
+                v_abs[CONV_COND]  = torch.norm(v[CONV_COND], dim = (1, 2),  p = "fro")
               
+                # =======================================
+                # RESTART CONDITION
+                # =======================================
 
                 RES1_COND = sigma <= eps * v_abs * r0_abs
-
-                # batch, channel systems that require restart
                 restart[RES1_COND] == 1
 
-                
-                alpha[~RES1_COND] = torch.sum( torch.mul(r[~RES1_COND][ :, 1:self.nx+1, 1:self.ny+1], r_0[~RES1_COND][ :, 1:self.nx+1, 1:self.ny+1]), dim = (2,3)) / sigma[~RES1_COND]
-                s[~RES1_COND]     = r[~RES1_COND] - alpha[~RES1_COND] * v[~RES1_COND]
+                # =======================================
+                # INVERSE RESTART CONDITION : systems that dont require restart
+                # =======================================
+
+                # broadcast 1
+                # alpha[~RES1_COND] => shape : torch.Size([x])
+                alpha[~RES1_COND] = torch.sum( torch.mul(r[~RES1_COND][ :, 1:self.nx+1, 1:self.ny+1],
+                                                          r_0[~RES1_COND][ :, 1:self.nx+1, 1:self.ny+1]), dim = (1, 2)).view(-1) / sigma[~RES1_COND]
+                # broadcast 2
+                # s[~RES1_COND] => shape : torch.Size([b*c, h, w])
+                s[~RES1_COND]     = r[~RES1_COND] - (alpha[~RES1_COND].view(-1, 1, 1) * v[~RES1_COND])
                 
                 # if verbose:
                 #     print(f"k : {k} , alpha : {alpha}")
 
-                CONV2_COND = torch.norm(s[~RES1_COND][ :, 1:self.nx+1, 1:self.ny+1], dim = (2,3), p = 'fro') <= eps * self.nx * self.ny
-                CONV3_COND = CONV2_COND & (~RES1_COND)
+                # =======================================
+                # RESTART and CONVERGENCE CONDITION 
+                # =======================================
 
-                x[CONV3_COND] = x[CONV3_COND] + alpha[CONV3_COND] * p[CONV3_COND] 
+                CONV2_COND = torch.norm(s[:, :, 1:self.nx+1, 1:self.ny+1], dim = (2, 3), p = 'fro') <= eps * self.nx * self.ny
+                CONV3_COND = (~RES1_COND) & CONV2_COND
+                print(f"RES1_COND shape : {RES1_COND.shape}")
+                print(f"CONV2_COND shape : {CONV2_COND.shape}")
+                print(f"CONV3_COND shape : {CONV3_COND.shape}")
+
+                # broadcast 3
+                x[CONV3_COND] = x[CONV3_COND] + (alpha[CONV3_COND].view(-1, 1, 1) * p[CONV3_COND] )
                 r[CONV3_COND] = s[CONV3_COND].detach().clone()
                     
+                # =======================================
+                # RESTART and INVERSE CONVERGENCE CONDITION 
+                # =======================================
+                CONV4_COND = (~RES1_COND) & (~CONV2_COND)
+                t[CONV4_COND] = self.applyStencilBatch(s[CONV4_COND], CONV4_COND)
+                omega[CONV4_COND] = torch.sum( torch.mul(t[CONV4_COND], s[CONV4_COND]), dim = (1, 2)) / torch.sum(torch.mul(t[CONV4_COND], t[CONV4_COND]), dim = (1, 2))
 
-                t[~CONV3_COND] = self.applyStencilBatch(s[~CONV3_COND], ~CONV3_COND)
-                omega[~CONV3_COND] = torch.sum( torch.mul(t[~CONV3_COND], s[~CONV3_COND])) / torch.sum(torch.mul(t[~CONV3_COND], t[~CONV3_COND]))
-                                
-                x[~CONV3_COND] = x[~CONV3_COND] + alpha[~CONV3_COND] * p[~CONV3_COND] + omega[~CONV3_COND] * s[~CONV3_COND]
-                r_old[~CONV3_COND] = r[~CONV3_COND].detach().clone()
-                r[~CONV3_COND] = s[~CONV3_COND] - omega[~CONV3_COND] * t[~CONV3_COND] 
-                beta[~CONV3_COND] = (alpha[~CONV3_COND] / omega[~CONV3_COND]) * torch.sum(torch.mul(r[~CONV3_COND][ :, 1:self.nx+1, 1:self.ny+1], r_0[~CONV3_COND][ :, 1:self.nx+1, 1:self.ny+1])) / torch.sum(torch.mul(r_old[~CONV3_COND][ :, 1:self.nx+1, 1:self.ny+1], r_0[~CONV3_COND][ :, 1:self.nx+1, 1:self.ny+1]))
+                # broadcast 4                                
+                x[CONV4_COND] = x[CONV4_COND] + (alpha[CONV4_COND].view(-1, 1, 1) * p[CONV4_COND]) + (omega[CONV4_COND].view(-1, 1, 1) * s[CONV4_COND])
+                r_old[CONV4_COND] = r[CONV4_COND].detach().clone()
+                
+                # broadcast 5
+                r[CONV4_COND] = s[CONV4_COND] - (omega[CONV4_COND].view(-1, 1, 1) * t[CONV4_COND] )
+                # broadcast 6
+                beta[CONV4_COND] = (alpha[CONV4_COND] / omega[CONV4_COND]) \
+                                    * torch.sum(torch.mul(r[CONV4_COND][ :, 1:self.nx+1, 1:self.ny+1], r_0[CONV4_COND][ :, 1:self.nx+1, 1:self.ny+1]), dim = (1, 2)).view(-1, 1) \
+                                    / torch.sum(torch.mul(r_old[CONV4_COND][ :, 1:self.nx+1, 1:self.ny+1], r_0[CONV4_COND][ :, 1:self.nx+1, 1:self.ny+1]), dim = (1, 2)).view(-1, 1)
             
                 # if verbose:
                 #     print(f"k : {k} , omega : {omega}, beta : {beta}")
-
-                p[~CONV3_COND] = r[~CONV3_COND] + beta[~CONV3_COND] * (p[~CONV3_COND] - omega[~CONV3_COND] * v[~CONV3_COND])
+                
+                # broadcast 7
+                p[CONV4_COND] = r[CONV4_COND] + (beta[CONV4_COND].view(-1, 1, 1) * p[CONV4_COND]) - (omega[CONV4_COND].view(-1, 1, 1) * v[CONV4_COND])
              
                 k[~RES1_COND] += 1 
-                r_abs[~RES1_COND] = torch.norm(r[~RES1_COND][ :, 1:self.nx+1, 1:self.ny+1], dim = (2,3), p = 'fro')
+                r_abs[~RES1_COND] = torch.norm(r[~RES1_COND][ :, 1:self.nx+1, 1:self.ny+1], dim = (1, 2), p = 'fro')
    
 
     # def BiCGSTAB_batched(self, B, X0=None, max_iter=10000, tol=1e-9):

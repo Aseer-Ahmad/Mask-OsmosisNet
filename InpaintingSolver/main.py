@@ -34,7 +34,7 @@ if __name__ == '__main__':
     osmosis = OsmosisInpainting(None, V, mask, mask, offset=1, tau=1000, apply_canny=False)
     # osmosis.writePGMImage(osmosis.U[0][0].T.numpy().T, "cm-init.pgm")
     osmosis.calculateWeights(False, False, False)
-    osmosis.solve(2, save_every = 10, verbose = True)
+    osmosis.solve(1, save_every = 10, verbose = True)
 
 
     # pth = 'InpaintingSolver/test.pgm'

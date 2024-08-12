@@ -1,7 +1,7 @@
 # main.py
 import yaml
 from train import ModelTrainer
-from dataloader import BSDS300Dataset
+from CustomDataset import BSDS300Dataset
 from MaskModel.unet import UNet
 
 CONFIG_YAML = 'config.yaml'
