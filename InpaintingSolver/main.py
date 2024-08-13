@@ -24,7 +24,7 @@ def readPGMImage( pth):
 
 if __name__ == '__main__':
     u_pth = 'InpaintingSolver/kani-init.pgm'
-    v_pth = 'InpaintingSolver/kani.pgm'
+    v_pth = 'InpaintingSolver/sc.pgm'
     mask_pth  = 'InpaintingSolver/cameraman-edge.pgm'
     
     U = readPGMImage(u_pth)

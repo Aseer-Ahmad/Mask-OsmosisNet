@@ -126,7 +126,6 @@ class OsmosisInpainting:
         cv2.imwrite(filename, X[1:-1, 1:-1])
         print(f"written to : {filename}")
 
-       
     def prepareInp(self):
         """
         transposed because Weickert transposed it in his C code
@@ -475,12 +474,13 @@ class OsmosisInpainting:
                 # =======================================
                 
                 CONV_COND = (k < kmax) and (r_abs > eps * self.nx * self.ny) and (restart == 0)
+                print(f"WHILE CONVERGENCE CONDITION : {CONV_COND}")
 
                 v[CONV_COND] = self.applyStencilBatch(p[CONV_COND], CONV_COND)
-                # sum, norm across only batch, channel
                 sigma[CONV_COND]  = torch.sum(torch.mul(v[CONV_COND], r_0[CONV_COND]), dim = (1, 2))
                 v_abs[CONV_COND]  = torch.norm(v[CONV_COND], dim = (1, 2),  p = "fro")
               
+                print(f"k : {k}, sigma : {sigma}, vabs : {v_abs}")
                 # =======================================
                 # RESTART CONDITION
                 # =======================================
@@ -488,6 +488,7 @@ class OsmosisInpainting:
                 RES1_COND = sigma <= eps * v_abs * r0_abs
                 restart[RES1_COND] == 1
 
+                print(f"RESTART CONDITION : {RES1_COND}")
                 # =======================================
                 # INVERSE RESTART CONDITION : systems that dont require restart
                 # =======================================
@@ -547,60 +548,4 @@ class OsmosisInpainting:
                 r_abs[~RES1_COND] = torch.norm(r[~RES1_COND][ :, 1:self.nx+1, 1:self.ny+1], dim = (1, 2), p = 'fro')
 
                 print(f"k : {k}, r_abs : {r_abs}")
-
-
-    # def BiCGSTAB_batched(self, B, X0=None, max_iter=10000, tol=1e-9):
-    #     """
-    #     Solve AX = B using BiCGStab method without preconditioning for batched, multi-channel inputs.
-        
-    #     Args:
-    #     A: coefficient tensor of shape (batch, channel, nx, ny)
-    #     B: right-hand side tensor of shape (batch, channel, ny, m)
-    #     X0: initial guess tensor (if None, use zeros)
-    #     max_iter: maximum number of iterations
-    #     tol: tolerance for convergence
-        
-    #     Returns:
-    #     X: solution tensor of shape (batch, channel, nx, m)
-    #     info: convergence information (0: converged, 1: not converged)
-    #     """
-
-    #     print(f"\nstarting BiCGStab")
-        
-
-    #     B = B.to(torch.float64)
-    #     batch, channel, nx, ny = B.shape
-        
-    #     if X0 is None:
-    #         X = torch.zeros_like(B) # torch.zeros(batch, channel, nx, ny, dtype=torch.float64)
-    #     else:
-    #         X = X0.clone().to(torch.float64)
-        
-    #     R = B - self.applyStencil(X) # torch.matmul(A, X)
-    #     R_tilde = R.clone()
-    #     rho = alpha = omega = torch.ones(batch, channel, 1, 1, dtype=torch.float64)
-    #     V = P = torch.zeros_like(X)
-        
-    #     for i in range(max_iter):
-    #         rho_new = torch.sum(R_tilde * R, dim=(-2, -1), keepdim=True)
-    #         beta = (rho_new / rho) * (alpha / omega)
-    #         P = R + beta * (P - omega * V)
-    #         V = self.applyStencil(P) # torch.matmul(A, P)
-    #         alpha = rho_new / torch.sum(R_tilde * V, dim=(-2, -1), keepdim=True)
-    #         H = X + alpha * P
-    #         S = R - alpha * V
-    #         T = self.applyStencil(S) # torch.matmul(A, S)
-    #         omega = torch.sum(T * S, dim=(-2, -1), keepdim=True) / torch.sum(T * T, dim=(-2, -1), keepdim=True)
-    #         X = H + omega * S
-    #         R = S - omega * T
-            
-    #         rho = rho_new
-            
-    #         residual_norm = torch.norm(R.reshape(batch, channel, -1), dim=-1)
-
-    #         print(f"Iteration {i+1} , residual norm : {residual_norm}")
-
-    #         if torch.all(residual_norm < tol):
-    #             return X, 0
-        
-    #     return X, 1
+                
