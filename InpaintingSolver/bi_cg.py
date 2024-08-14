@@ -74,6 +74,9 @@ class OsmosisInpainting:
                 self.U = self.U + self.offset
                 
 
+    def solveBatch(self):
+        pass
+
     def calculateWeights(self, d_verbose = False, m_verbose = False, s_verbose = False):
         self.prepareInp()
 

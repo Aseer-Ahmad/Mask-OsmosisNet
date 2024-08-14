@@ -53,6 +53,7 @@ class UNet(nn.Module):
 
         # Output layer
         self.outconv = nn.Conv2d(64, out_channels, kernel_size=1)
+        
 
 
     def forward(self, x):

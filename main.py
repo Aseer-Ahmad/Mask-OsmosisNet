@@ -54,12 +54,12 @@ def main(config):
     train_dataset, test_dataset = getDataSets(config)
     print(f"train test dataset loaded")
     print(f"train size : {len(train_dataset)}")
-    print(f"test  size : {len(train_dataset)}")
+    print(f"test  size : {len(test_dataset)}")
     
     # get model based on inp and out channels
     model = UNet(config['INP_CHANNELS'], config['OUT_CHANNELS'])
     print(f"model loaded")
-
+    print(model)
     # configure model trainer 
     trainer = ModelTrainer(
         output_dir= config['OUTPUT_DIR'],
