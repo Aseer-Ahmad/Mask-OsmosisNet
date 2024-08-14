@@ -10,6 +10,16 @@ from torchmetrics.regression import MeanSquaredError
 
 torch.set_printoptions(linewidth=2000)
 
+class InpaintingLoss():
+    """
+    Means squared loss : 
+    """
+    def __init__(self):
+        pass
+
+    def forward(self):
+        pass
+
 class OsmosisInpainting:
 
     def __init__(self, U, V, mask1, mask2, offset, tau, hx = 1, hy = 1, apply_canny = False):

@@ -7,8 +7,10 @@ import os
 
 from InpaintingSolver.bi_cg import OsmosisInpainting
 
-class MSELoss():
-
+class MaskLoss():
+    """
+    Inverse variance loss  :
+    """
     def __init__(self):
         pass
 
