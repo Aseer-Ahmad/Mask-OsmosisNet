@@ -21,8 +21,8 @@ WEIGHT_DECAY   :
 BATCH_SIZE     : 16
 OPT            : 
 SCHEDL         :
-TRAIN_BATCH    : 
-TEST_BATCH     :
+TRAIN_BATCH    : 4
+TEST_BATCH     : 4
 
 
 

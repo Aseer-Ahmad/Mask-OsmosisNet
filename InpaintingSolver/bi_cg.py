@@ -431,7 +431,6 @@ class OsmosisInpainting:
 
         return temp
 
-
     def BiCGSTAB_Batched(self, x, b, kmax=10000, eps=1e-9, verbose = False):
         
         restart = torch.ones( (self.batch, self.channel), dtype=torch.bool)
@@ -548,4 +547,3 @@ class OsmosisInpainting:
                 r_abs[~RES1_COND] = torch.norm(r[~RES1_COND][ :, 1:self.nx+1, 1:self.ny+1], dim = (1, 2), p = 'fro')
 
                 print(f"k : {k}, r_abs : {r_abs}")
-                
