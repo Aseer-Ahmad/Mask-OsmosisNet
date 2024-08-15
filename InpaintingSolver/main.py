@@ -24,18 +24,20 @@ def readPGMImage( pth):
 
 if __name__ == '__main__':
     u_pth = 'InpaintingSolver/kani-init.pgm'
-    v_pth = 'InpaintingSolver/sc.pgm'
+    v_pth = 'InpaintingSolver/cameraman.pgm'
     mask_pth  = 'InpaintingSolver/cameraman-edge.pgm'
     
     U = readPGMImage(u_pth)
     V = readPGMImage(v_pth)
     mask = readPGMImage(mask_pth)
 
-    osmosis = OsmosisInpainting(None, V, mask, mask, offset=1, tau=1000, apply_canny=False)
-    # osmosis.writePGMImage(osmosis.U[0][0].T.numpy().T, "cm-init.pgm")
-    osmosis.calculateWeights(False, False, False)
-    osmosis.solve(1, save_every = 10, verbose = True)
+    # osmosis = OsmosisInpainting(None, V, mask, mask, offset=1, tau=1000, apply_canny=False)
+    # osmosis.calculateWeights(False, False, False)
+    # osmosis.solve(2, save_every = 10, verbose = False)
 
+    osmosis = OsmosisInpainting(None, V, mask, mask, offset=1, tau=1000, apply_canny=False)
+    osmosis.calculateWeights(False, False, False)
+    osmosis.solveBatch(5, verbose = False)
 
     # pth = 'InpaintingSolver/test.pgm'
     # V = osmosis.readPGMImage(pth)

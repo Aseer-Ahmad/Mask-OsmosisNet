@@ -60,6 +60,7 @@ def main(config):
     model = UNet(config['INP_CHANNELS'], config['OUT_CHANNELS'])
     print(f"model loaded")
     print(model)
+    
     # configure model trainer 
     trainer = ModelTrainer(
         output_dir= config['OUTPUT_DIR'],

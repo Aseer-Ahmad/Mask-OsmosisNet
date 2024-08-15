@@ -2,29 +2,36 @@ import cv2
 import torch
 import torch.nn.functional as F
 from torchvision.transforms import Pad
+from torchvision.transforms.functional import normalize
 import torchvision
 import numpy as np
 import time
 from torchmetrics.image import PeakSignalNoiseRatio
 from torchmetrics.regression import MeanSquaredError
+import torch.nn as nn
 
 torch.set_printoptions(linewidth=2000)
 
-class InpaintingLoss():
+class InpaintingLoss(nn.Module):
     """
     Means squared loss : 
     """
     def __init__(self):
-        pass
+        super(InpaintingLoss, self).__init__()
 
-    def forward(self):
-        pass
+    def forward(self, U, V):
+        return torch.mean((U - V)**2)
 
 class OsmosisInpainting:
 
     def __init__(self, U, V, mask1, mask2, offset, tau, hx = 1, hy = 1, apply_canny = False):
         # (b, c, h, w)
         self.V       = V + offset  # guidance image
+        self.batch   = V.size(0) 
+        self.channel = V.size(1) 
+        self.nx      = V.size(2) 
+        self.ny      = V.size(3) 
+        
         if U is not None:
             self.U   = U + offset  # original image
         else:
@@ -33,12 +40,7 @@ class OsmosisInpainting:
         self.mask2   = mask2
         self.offset  = offset
         self.tau     = tau
-        
-        self.batch   = V.size(0) 
-        self.channel = V.size(1) 
-        self.nx      = V.size(2) 
-        self.ny      = V.size(3) 
-        
+                
         # pixel sizes x and y direction
         self.hx      = hx
         self.hy      = hy    
@@ -62,7 +64,7 @@ class OsmosisInpainting:
             print(f"ITERATION : {i+1}")
 
             st = time.time()
-            X = self.BiCGSTAB_Batched(x = self.U, b = X, kmax = 10000, eps = 1e-9, verbose=verbose)
+            X = self.BiCGSTAB(x = self.U, b = X, batch = 0, kmax = 10000, eps = 1e-9, verbose=verbose)
             et = time.time()
             tt += (et-st)
             self.U = X.detach().clone()
@@ -77,15 +79,48 @@ class OsmosisInpainting:
             if i % self.save_every == 0:
                 self.U = self.U - self.offset
                 
-                fname = f"kani_{str(i+1)}.pgm"
+                fname = f"solved_{str(i+1)}.pgm"
                 self.writePGMImage(self.U[0][0].numpy().T, fname)
                 # self.writeToPGM(fname = fname, t = self.U[0][0].T, comments= comm)
-
                 self.U = self.U + self.offset
                 
 
-    def solveBatch(self):
-        pass
+    def solveBatch(self, kmax = 2, verbose = False):
+
+        tt = 0
+
+        for batch in range(self.batch):
+
+            B = self.U[batch].unsqueeze(0)
+            U = B.detach().clone()
+
+            print(f"batch item : {batch+1} / {self.batch}")
+            st = time.time()
+
+            for i in range(kmax):
+                print(f"\rITERATION : {i+1}", end='', flush=True)        
+                B = self.BiCGSTAB(x = U, b = B, batch = batch, kmax = 10000, eps = 1e-9, verbose=verbose)
+                U = B.detach().clone()
+
+            et = time.time()
+            tt += (et-st)
+    
+            print(f"\ntotal time to solution : {str(tt)} sec\n")
+            self.U[batch] = U[0]
+        
+
+        # normalize solution and guidance 
+        U = self.normalize(self.U)
+        V = self.normalize(self.V)
+
+        fname = f"solved_{str(i+1)}.pgm"
+        self.writePGMImage(U[0][0].numpy().T, fname)
+
+        # calculate loss self.U and self.V
+        mse = InpaintingLoss()
+        loss = mse(U,V)
+        print(f"loss : {loss}")
+            
 
     def calculateWeights(self, d_verbose = False, m_verbose = False, s_verbose = False):
         self.prepareInp()
@@ -101,8 +136,12 @@ class OsmosisInpainting:
         
         print()
 
-    def normalize(self):
-        pass
+    def normalize(self, X):
+        X = X - torch.amin(X, dim=(2,3)).view(self.batch,self.channel,1,1)
+        X = X / torch.amax(X, dim=(2,3)).view(self.batch,self.channel,1,1)
+        X = X * 255
+        return X
+        
 
     def readPGMImage(self, pth):
         pgm = cv2.imread(pth, cv2.IMREAD_GRAYSCALE) 
@@ -142,7 +181,6 @@ class OsmosisInpainting:
     def prepareInp(self):
         """
         transposed because Weickert transposed it in his C code
-        V is casted float32 since conv2d only accepts that
         """
         pad_mirror = Pad(1, padding_mode = "symmetric")
 
@@ -151,6 +189,7 @@ class OsmosisInpainting:
 
         self.V     = pad_mirror(self.V)
         self.V     = torch.transpose(self.V, 2, 3)
+        # V is casted float32 since conv2d only accepts that
         # self.V     = self.V.type(torch.float32)  
 
         if self.mask1 != None :
@@ -170,7 +209,6 @@ class OsmosisInpainting:
         
         print(f"analyzing {name}")
         
-        comm += f"min  : {str(torch.min(x).item())}\n"
         comm += f"min  : {str(torch.min(x).item())}\n"
         comm += f"max  : {str(torch.max(x).item())}\n"
         comm += f"mean : {str(torch.mean(x).item())}\n"
@@ -234,10 +272,10 @@ class OsmosisInpainting:
         return metrics
 
     def getInit_U(self):
-        m  = torch.mean(self.V)
+        m  = torch.mean(self.V, dim = (2,3))
 
         # create a flat image ; avg gray val same as guidance
-        u  = torch.zeros_like(self.V) + m
+        u  = torch.zeros_like(self.V) + m.view(self.batch, self.channel, 1, 1)
 
         # create a noisy image ; avg gray val same as guidance
         return u
@@ -297,7 +335,7 @@ class OsmosisInpainting:
             self.analyseImage(self.d1, "d1")
             self.analyseImage(self.d2, "d2")
             
-    def applyStencil(self, inp, verbose = False):
+    def applyStencil(self, inp, batch, verbose = False):
         """
         inp : (batch, channel, nx, ny)
         """
@@ -306,19 +344,19 @@ class OsmosisInpainting:
 
         temp       = torch.zeros_like(inp)
 
-        center     = torch.mul(self.boo[:, :, 1:self.nx+1, 1:self.ny+1],
+        center     = torch.mul(self.boo[batch, :, 1:self.nx+1, 1:self.ny+1],
                             inp[:, :, 1:self.nx+1, 1:self.ny+1])    
          
-        left       = torch.mul(self.bmo[:, :, 1:self.nx+1, 1:self.ny+1],
+        left       = torch.mul(self.bmo[batch, :, 1:self.nx+1, 1:self.ny+1],
                             inp[:, :, :self.nx, 1:self.ny+1])
         
-        down       = torch.mul(self.bom[:, :, 1:self.nx+1, 1:self.ny+1],
+        down       = torch.mul(self.bom[batch, :, 1:self.nx+1, 1:self.ny+1],
                             inp[:, :, 1:self.nx+1, 0:self.ny])
         
-        up         = torch.mul(self.bop[:, :, 1:self.nx+1, 1:self.ny+1],
+        up         = torch.mul(self.bop[batch, :, 1:self.nx+1, 1:self.ny+1],
                             inp[:, :, 1:self.nx+1, 2:self.ny+2])
         
-        right      = torch.mul(self.bpo[:, :, 1:self.nx+1, 1:self.ny+1],
+        right      = torch.mul(self.bpo[batch, :, 1:self.nx+1, 1:self.ny+1],
                             inp[:, :, 2:self.nx+2, 1:self.ny+1])
         
         temp[:, :, 1:self.nx+1, 1:self.ny+1 ] = center + left + right + up + down
@@ -333,7 +371,7 @@ class OsmosisInpainting:
         t[:, :, 1:self.nx+1, 1 :self.ny+1] = x[:, :, 1:self.nx+1, 1 :self.ny+1]
         return t
 
-    def BiCGSTAB(self, x, b, kmax=10000, eps=1e-9, verbose = False):
+    def BiCGSTAB(self, x, b, batch, kmax=10000, eps=1e-9, verbose = False):
         """
         Biconjugate gradient stabilised method without preconditioning for
         solving a linear system A x = b with an unsymmetric, pentadiagonal
@@ -350,7 +388,7 @@ class OsmosisInpainting:
             
             restart = 0
             
-            r_0 = self.applyStencil(x)  
+            r_0 = self.applyStencil(x, batch)  
             r_0 = r = p  = b - r_0  
             r_abs = r0_abs = torch.norm(r_0[:, :, 1:self.nx+1, 1:self.ny+1], p = 'fro') # avoid boundary calculations
             
@@ -361,7 +399,7 @@ class OsmosisInpainting:
                     r_abs > eps * self.nx * self.ny and \
                     restart == 0:
                 
-                v = self.applyStencil(p) # output contains zero boundaries
+                v = self.applyStencil(p, batch) # output contains zero boundaries
                 sigma = torch.sum( torch.mul(v, r_0))
                 v_abs = torch.norm(v, p = 'fro') # avoid boundary pixel cal
                 
@@ -391,7 +429,7 @@ class OsmosisInpainting:
                     
                     else :
 
-                        t = self.applyStencil(s)
+                        t = self.applyStencil(s, batch)
                         omega = torch.sum( torch.mul(t, s)) / torch.sum(torch.mul(t, t))
                                         
                         x = x + alpha * p + omega * s
@@ -409,7 +447,7 @@ class OsmosisInpainting:
                     
                     if verbose:
                         print(f"k : {k} , RESIDUAL : {r_abs}")
-        print()
+
         
         return x
 
