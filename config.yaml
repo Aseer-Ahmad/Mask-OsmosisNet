@@ -11,7 +11,7 @@ TRAIN_FILENAME : iids_train.txt
 TEST_FILENAME  : iids_test.txt
 ROOT_DIR       : dataset/BSDS300-images/BSDS300/images/
 
-IMG_SIZE       : 256 
+IMG_SIZE       : 400 
 INP_CHANNELS   : 1
 OUT_CHANNELS   : 1
 
@@ -20,8 +20,8 @@ LR             :
 WEIGHT_DECAY   :
 OPT            : 
 SCHEDL         :
-TRAIN_BATCH    : 4
-TEST_BATCH     : 4
+TRAIN_BATCH    : 8
+TEST_BATCH     : 8
 
 
 

@@ -36,6 +36,7 @@ class OsmosisInpainting:
             self.U   = U + offset  # original image
         else:
             self.U   = self.getInit_U() + offset
+
         self.mask1   = mask1
         self.mask2   = mask2
         self.offset  = offset
@@ -85,7 +86,7 @@ class OsmosisInpainting:
                 self.U = self.U + self.offset
                 
 
-    def solveBatch(self, kmax = 2, verbose = False):
+    def solveBatch(self, kmax = 2, save_batch = True, verbose = False):
 
         tt = 0
         mse = InpaintingLoss()
@@ -99,10 +100,11 @@ class OsmosisInpainting:
             st = time.time()
 
             for i in range(kmax):
-                loss = mse(self.normalize(U), self.normalize(self.V))
-                print(f"\rITERATION : {i+1}, loss : {loss.item()}", end='', flush=True)        
                 B = self.BiCGSTAB(x = U, b = B, batch = batch, kmax = 10000, eps = 1e-9, verbose=verbose)
                 U = B.detach().clone()
+                loss = mse( self.normalize(U), self.normalize(self.V))
+                # loss = mse(U, self.V)
+                print(f"ITERATION : {i+1}, loss : {loss.item()}")        
 
             et = time.time()
             tt += (et-st)
@@ -110,16 +112,17 @@ class OsmosisInpainting:
             print(f"\ntotal time to solution : {str(tt)} sec\n")
             self.U[batch] = U[0]
         
-        # normalize solution and guidance 
+            if save_batch:
+                fname = f"solved_{batch}.pgm"
+                self.writePGMImage(self.U[batch][0].numpy().T, fname)
+
+        # normalize solution and guidance
         U = self.normalize(self.U)
         V = self.normalize(self.V)
 
-        fname = f"solved_{str(i+1)}.pgm"
-        self.writePGMImage(U[0][0].numpy().T, fname)
-
         # calculate loss self.U and self.V
         loss = mse(U,V)
-        print(f"solved with final loss : {loss}")
+        print(f"solved U : {U.shape} with guidance V : {V.shape} loss : {loss}")
             
 
     def calculateWeights(self, d_verbose = False, m_verbose = False, s_verbose = False):
@@ -137,9 +140,10 @@ class OsmosisInpainting:
         print()
 
     def normalize(self, X):
-        X = X - torch.amin(X, dim=(2,3)).view(self.batch,self.channel,1,1)
-        X = X / torch.amax(X, dim=(2,3)).view(self.batch,self.channel,1,1)
-        X = X * 255
+        b, c, _ , _ = X.shape
+        X = X - torch.amin(X, dim=(2,3)).view(b,c,1,1)
+        X = X / torch.amax(X, dim=(2,3)).view(b,c,1,1)
+
         return X
         
 

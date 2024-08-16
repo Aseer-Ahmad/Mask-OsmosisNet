@@ -102,21 +102,29 @@ class ModelTrainer():
 
             running_loss = 0.0
             
-            for i, x in enumerate(train_dataloader): 
+            for i, X in enumerate(train_dataloader): 
                 
-                # output = model(x)                
+                # output = model(X)                
                 # print(output.shape)
+
+                print(f"Osmosis solver for input : {X.shape}")
+                osmosis = OsmosisInpainting(None, X, None, None, offset=1, tau=10, apply_canny=False)
+                osmosis.calculateWeights(False, False, False)
+                osmosis.solveBatch(100, save_batch = True, verbose = False)
+
+                break
+            break
             
-                if (i+1) % save_every == 0:
-                    print("saving checkpoint")
-                    self.saveCheckpoint(model, optimizer, epoch)
+            #     if (i+1) % save_every == 0:
+            #         print("saving checkpoint")
+            #         self.saveCheckpoint(model, optimizer, epoch)
 
-                if (i+1) % val_every == 0:
-                    print("validating on test dataset")
-                    self.validate(model, test_dataset)
+            #     if (i+1) % val_every == 0:
+            #         print("validating on test dataset")
+            #         self.validate(model, test_dataset)
 
-                print(f'Epoch {epoch}/{epochs} , Step {i}/{len(train_dataloader)} ')
+            #     print(f'Epoch {epoch}/{epochs} , Step {i}/{len(train_dataloader)} ')
 
-            epoch_loss = running_loss / train_dataset.__len__()
-            print('Epoch [{}/{}], Loss: {:.4f}'.format(epoch+1, epochs, epoch_loss))
+            # epoch_loss = running_loss / train_dataset.__len__()
+            # print('Epoch [{}/{}], Loss: {:.4f}'.format(epoch+1, epochs, epoch_loss))
 
