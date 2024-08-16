@@ -79,7 +79,7 @@ class OsmosisInpainting:
             if i % self.save_every == 0:
                 self.U = self.U - self.offset
                 
-                fname = f"solved_{str(i+1)}.pgm"
+                fname = f"kani_{str(i+1)}.pgm"
                 self.writePGMImage(self.U[0][0].numpy().T, fname)
                 # self.writeToPGM(fname = fname, t = self.U[0][0].T, comments= comm)
                 self.U = self.U + self.offset
@@ -88,6 +88,7 @@ class OsmosisInpainting:
     def solveBatch(self, kmax = 2, verbose = False):
 
         tt = 0
+        mse = InpaintingLoss()
 
         for batch in range(self.batch):
 
@@ -98,7 +99,8 @@ class OsmosisInpainting:
             st = time.time()
 
             for i in range(kmax):
-                print(f"\rITERATION : {i+1}", end='', flush=True)        
+                loss = mse(self.normalize(U), self.normalize(self.V))
+                print(f"\rITERATION : {i+1}, loss : {loss.item()}", end='', flush=True)        
                 B = self.BiCGSTAB(x = U, b = B, batch = batch, kmax = 10000, eps = 1e-9, verbose=verbose)
                 U = B.detach().clone()
 
@@ -108,7 +110,6 @@ class OsmosisInpainting:
             print(f"\ntotal time to solution : {str(tt)} sec\n")
             self.U[batch] = U[0]
         
-
         # normalize solution and guidance 
         U = self.normalize(self.U)
         V = self.normalize(self.V)
@@ -117,9 +118,8 @@ class OsmosisInpainting:
         self.writePGMImage(U[0][0].numpy().T, fname)
 
         # calculate loss self.U and self.V
-        mse = InpaintingLoss()
         loss = mse(U,V)
-        print(f"loss : {loss}")
+        print(f"solved with final loss : {loss}")
             
 
     def calculateWeights(self, d_verbose = False, m_verbose = False, s_verbose = False):
@@ -389,7 +389,7 @@ class OsmosisInpainting:
             restart = 0
             
             r_0 = self.applyStencil(x, batch)  
-            r_0 = r = p  = b - r_0  
+            r_0 = r = p  = self.zeroPad(b - r_0)  
             r_abs = r0_abs = torch.norm(r_0[:, :, 1:self.nx+1, 1:self.ny+1], p = 'fro') # avoid boundary calculations
             
             if verbose:
