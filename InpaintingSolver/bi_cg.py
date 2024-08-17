@@ -24,7 +24,7 @@ class InpaintingLoss(nn.Module):
 
 class OsmosisInpainting:
 
-    def __init__(self, U, V, mask1, mask2, offset, tau, hx = 1, hy = 1, apply_canny = False):
+    def __init__(self, U, V, mask1, mask2, offset, tau, hx = 1, hy = 1, device = None, apply_canny = False):
         # (b, c, h, w)
         self.V       = V + offset  # guidance image
         self.batch   = V.size(0) 
@@ -50,7 +50,7 @@ class OsmosisInpainting:
         self.save_every  = 10
         self.apply_canny = apply_canny
 
-        self.device = None
+        self.device = device
         
     def solve(self, kmax = 2, save_every = 10, verbose = False):
         
@@ -93,8 +93,8 @@ class OsmosisInpainting:
 
         for batch in range(self.batch):
 
-            B = self.U[batch].unsqueeze(0)
-            U = B.detach().clone()
+            B = self.U[batch].unsqueeze(0).to(self.device)
+            U = B.detach().clone().to(self.device)
 
             print(f"batch item : {batch+1} / {self.batch}")
             st = time.time()
@@ -139,14 +139,14 @@ class OsmosisInpainting:
         
         print()
 
-    def normalize(self, X):
+    def normalize(self, X, scale = 1.):
         b, c, _ , _ = X.shape
         X = X - torch.amin(X, dim=(2,3)).view(b,c,1,1)
         X = X / torch.amax(X, dim=(2,3)).view(b,c,1,1)
+        X = X * scale
 
         return X
         
-
     def readPGMImage(self, pth):
         pgm = cv2.imread(pth, cv2.IMREAD_GRAYSCALE) 
         pgm_T = torch.tensor(pgm, dtype = torch.float64)
@@ -222,11 +222,11 @@ class OsmosisInpainting:
         
     def getStencilMatrices(self, verbose = False):
 
-        self.boo  = torch.zeros_like(self.V)# but weickert init. has ones
-        self.bop  = torch.zeros_like(self.V)# neighbour entries for [i+1,j]
-        self.bpo  = torch.zeros_like(self.V)# neighbour entries for [i,j+1]
-        self.bmo  = torch.zeros_like(self.V)# neighbour entries for [i-1,j]
-        self.bom  = torch.zeros_like(self.V)# neighbour entries for [i,j-1]
+        self.boo  = torch.zeros_like(self.V, device = self.device)# C++ weickert init. has ones
+        self.bop  = torch.zeros_like(self.V, device = self.device)# neighbour entries for [i+1,j]
+        self.bpo  = torch.zeros_like(self.V, device = self.device)# neighbour entries for [i,j+1]
+        self.bmo  = torch.zeros_like(self.V, device = self.device)# neighbour entries for [i-1,j]
+        self.bom  = torch.zeros_like(self.V, device = self.device)# neighbour entries for [i,j-1]
 
         #time savers
         rx  = self.tau / (2.0 * self.hx)
@@ -235,10 +235,10 @@ class OsmosisInpainting:
         ryy = self.tau / (self.hy * self.hy)
 
         # x direction filter ; this is a backward difference kernel hence the extra 0 
-        f1 = torch.tensor([1., -1., 0.], dtype = torch.float64).reshape(1, 1, 3, 1)
+        f1 = torch.tensor([1., -1., 0.], dtype = torch.float64, device = self.device).reshape(1, 1, 3, 1)
         
         # y direction filter ; this is a backward difference kernel hence the extra 0 
-        f2 = torch.tensor([1., -1., 0.], dtype = torch.float64).reshape(1, 1, 1, 3)
+        f2 = torch.tensor([1., -1., 0.], dtype = torch.float64, device = self.device).reshape(1, 1, 1, 3)
 
         # osmosis weights 
         boo = 1. + 2. * (rxx + ryy) \
@@ -279,7 +279,7 @@ class OsmosisInpainting:
         m  = torch.mean(self.V, dim = (2,3))
 
         # create a flat image ; avg gray val same as guidance
-        u  = torch.zeros_like(self.V) + m.view(self.batch, self.channel, 1, 1)
+        u  = torch.zeros_like(self.V, device = self.device) + m.view(self.batch, self.channel, 1, 1)
 
         # create a noisy image ; avg gray val same as guidance
         return u
@@ -311,16 +311,16 @@ class OsmosisInpainting:
         # compute d1 = [-1/hx 1/hx] ∗ V / [.5 .5] ∗ v 
         # compute d2 = [-1/hy 1/hy].T ∗ V / [.5 .5].T ∗ v 
         """
-        self.d1  = torch.zeros_like(self.V, dtype = torch.float64)
-        self.d2  = torch.zeros_like(self.V, dtype = torch.float64)
+        self.d1  = torch.zeros_like(self.V, dtype = torch.float64, device = self.device)
+        self.d2  = torch.zeros_like(self.V, dtype = torch.float64, device = self.device)
                 
         # row-direction filters  
-        f1 = torch.tensor([-1./self.hx, 1./self.hx], dtype = torch.float64).reshape(1, 1, 2, 1)
-        f2 = torch.tensor([.5, .5], dtype = torch.float64).reshape(1, 1, 2, 1)
+        f1 = torch.tensor([-1./self.hx, 1./self.hx], dtype = torch.float64, device = self.device).reshape(1, 1, 2, 1)
+        f2 = torch.tensor([.5, .5], dtype = torch.float64, device = self.device).reshape(1, 1, 2, 1)
         
         # col-direction filters
-        f3 = torch.tensor([-1./self.hy, 1./self.hy], dtype = torch.float64).reshape(1, 1, 1, 2)
-        f4 = torch.tensor([.5, .5], dtype = torch.float64).reshape(1, 1, 1, 2)
+        f3 = torch.tensor([-1./self.hy, 1./self.hy], dtype = torch.float64, device = self.device).reshape(1, 1, 1, 2)
+        f4 = torch.tensor([.5, .5], dtype = torch.float64, device = self.device).reshape(1, 1, 1, 2)
 
         d1 = F.conv2d(self.V, f1) / F.conv2d(self.V, f2)
         d2 = F.conv2d(self.V, f3) / F.conv2d(self.V, f4) 
@@ -346,7 +346,7 @@ class OsmosisInpainting:
         pad_mirror = Pad(1, padding_mode = "symmetric")
         inp        = pad_mirror(inp[:, :, 1:self.nx+1, 1:self.ny+1])
 
-        temp       = torch.zeros_like(inp)
+        temp       = torch.zeros_like(inp, device = self.device)
 
         center     = torch.mul(self.boo[batch, :, 1:self.nx+1, 1:self.ny+1],
                             inp[:, :, 1:self.nx+1, 1:self.ny+1])    
@@ -371,7 +371,7 @@ class OsmosisInpainting:
         return temp
 
     def zeroPad(self, x):
-        t = torch.zeros_like(x)
+        t = torch.zeros_like(x, device = self.device)
         t[:, :, 1:self.nx+1, 1 :self.ny+1] = x[:, :, 1:self.nx+1, 1 :self.ny+1]
         return t
 
