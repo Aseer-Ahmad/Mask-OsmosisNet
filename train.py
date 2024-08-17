@@ -107,10 +107,10 @@ class ModelTrainer():
                 # output = model(X)                
                 # print(output.shape)
 
-                # print(f"Osmosis solver for input : {X.shape}")
-                # osmosis = OsmosisInpainting(None, X, None, None, offset=1, tau=10, device = self.device, apply_canny=False)
-                # osmosis.calculateWeights(False, False, False)
-                # osmosis.solveBatch(100, save_batch = True, verbose = False)
+                print(f"Osmosis solver for input : {X.shape}")
+                osmosis = OsmosisInpainting(None, X, None, None, offset=1, tau=10, device = self.device, apply_canny=False)
+                osmosis.calculateWeights(False, False, False)
+                osmosis.solveBatch(100, save_batch = False, verbose = False)
             
                 if (i+1) % save_every == 0:
                     print("saving checkpoint")

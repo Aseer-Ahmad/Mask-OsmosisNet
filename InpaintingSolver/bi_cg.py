@@ -31,7 +31,9 @@ class OsmosisInpainting:
         self.channel = V.size(1) 
         self.nx      = V.size(2) 
         self.ny      = V.size(3) 
-        
+
+        self.device = device
+
         if U is not None:
             self.U   = U + offset  # original image
         else:
@@ -50,7 +52,6 @@ class OsmosisInpainting:
         self.save_every  = 10
         self.apply_canny = apply_canny
 
-        self.device = device
         
     def solve(self, kmax = 2, save_every = 10, verbose = False):
         
