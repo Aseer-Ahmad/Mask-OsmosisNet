@@ -1,21 +1,23 @@
 #train.py
 from torch.utils.data import DataLoader
 from torch.optim import AdamW, Adam, SGD
+from torch.optim.lr_scheduler import ExponentialLR, MultiStepLR, LambdaLR
 import torch
+import torch.nn as nn
 
 import os
 
 from InpaintingSolver.bi_cg import OsmosisInpainting
 
-class MaskLoss():
+class MaskLoss(nn.Module):
     """
-    Inverse variance loss  :
+    Inverse variance loss 
     """
     def __init__(self):
-        pass
+        super(MaskLoss, self).__init__()
 
-    def forward(self):
-        pass
+    def forward(self, X, eps = 1e-6):
+        return torch.mean(1. / (torch.var(X, dim=(2,3)) + eps) )
 
 class ModelTrainer():
 
@@ -24,7 +26,7 @@ class ModelTrainer():
         self.output_dir= output_dir
         self.optimizer= optimizer
         self.scheduler= scheduler
-        self.learning_rate= lr
+        self.lr= lr
         self.weight_decay= weight_decay
         self.train_batch_size = train_batch_size
         self.test_batch_size = test_batch_size
@@ -42,11 +44,23 @@ class ModelTrainer():
               
         return opt
 
-    def getScheduler(self):
-        pass
+    def getScheduler(self, optim):
+        
+        schdl = None
 
-    def validate(self, model, test_dataset):
-        pass
+        if self.scheduler == "exp":
+            schdl = ExponentialLR(optim, gamma=0.9)
+        
+        elif self.scheduler == "multiStep":
+            schdl = MultiStepLR(optim, milestones=[30,80], gamma=0.1)
+
+        elif self.scheduler == "multiStep":
+            lambda1 = lambda epoch: epoch // 30
+            lambda2 = lambda epoch: 0.95 ** epoch
+            schdl = LambdaLR(optim, lr_lambda=[lambda1, lambda2])
+
+        return schdl
+    
 
     def loadCheckpoint(self, model, optimizer, path):
         
@@ -79,12 +93,15 @@ class ModelTrainer():
 
         return train_dataloader, test_dataloader
 
+    def validate(self, model, test_dataset):
+        pass
+
     def train(self, model, epochs, resume_checkpoint_file, save_every , val_every, train_dataset ,test_dataset):
         
         train_dataloader, test_dataloader = self.getDataloaders(train_dataset, test_dataset)
 
         optimizer = self.getOptimizer(model)
-        scheduler = self.getScheduler()
+        scheduler = self.getScheduler(optimizer)
         print(f"optimizer : {self.optimizer}, scheduler : {self.scheduler} loaded")
 
         if resume_checkpoint_file != None:
@@ -92,9 +109,15 @@ class ModelTrainer():
             model, optimizer = self.loadCheckpoint(model, optimizer, resume_checkpoint_file)
             print(f"model, opt, schdl loaded from checkpoint")
 
+
+        print(f"optimizer : {optimizer}")
+        print(f"scheduler : {scheduler}")
+
         model = model.double()
         model.to(self.device)
         model.train()
+
+        loss = MaskLoss()
 
         print("\nbeginning training ...")
 
@@ -104,14 +127,23 @@ class ModelTrainer():
             
             for i, X in enumerate(train_dataloader): 
                 
+                optimizer.zero_grad()
+
                 # output = model(X)                
                 # print(output.shape)
 
-                print(f"Osmosis solver for input : {X.shape}")
-                osmosis = OsmosisInpainting(None, X, None, None, offset=1, tau=10, device = self.device, apply_canny=False)
-                osmosis.calculateWeights(False, False, False)
-                osmosis.solveBatch(100, save_batch = False, verbose = False)
+                # loss(output)
+                # loss.backward()
+
+                # print(f"\nOsmosis solver for input : {X.shape}")
+                # osmosis = OsmosisInpainting(None, X, None, None, offset=1, tau=10, device = self.device, apply_canny=False)
+                # osmosis.calculateWeights(False, False, False)
+                # osmosis.solveBatch(100, save_batch = False, verbose = False)
             
+                loss.backward()
+                optimizer.step()
+
+
                 if (i+1) % save_every == 0:
                     print("saving checkpoint")
                     self.saveCheckpoint(model, optimizer, epoch)
@@ -121,6 +153,8 @@ class ModelTrainer():
                     self.validate(model, test_dataset)
 
                 print(f'Epoch {epoch}/{epochs} , Step {i}/{len(train_dataloader)} ')
+
+            scheduler.step()
 
             epoch_loss = running_loss / train_dataset.__len__()
             print('Epoch [{}/{}], Loss: {:.4f}'.format(epoch+1, epochs, epoch_loss))
