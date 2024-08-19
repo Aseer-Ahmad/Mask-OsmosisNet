@@ -61,6 +61,8 @@ def main(config):
     print(f"model loaded")
     print(model)
     
+    #print model summary
+    
     # configure model trainer 
     trainer = ModelTrainer(
         output_dir= config['OUTPUT_DIR'],
@@ -77,6 +79,7 @@ def main(config):
     trainer.train(
         model = model,
         epochs = config['EPOCHS'],
+        loss_reg = config['LOSS_REG'],
         resume_checkpoint_file = config['RESUME_CHECKPOINT'],
         save_every = config['SAVE_EVERY'], 
         val_every = config['VAL_EVERY'],

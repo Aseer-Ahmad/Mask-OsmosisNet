@@ -93,10 +93,32 @@ class ModelTrainer():
 
         return train_dataloader, test_dataloader
 
-    def validate(self, model, test_dataset):
-        pass
+    def validate(self, model, test_dataloader, loss_reg):
+        
+        running_loss = 0.0
+        maskloss = MaskLoss()
+        td_len = len(test_dataloader)
 
-    def train(self, model, epochs, resume_checkpoint_file, save_every , val_every, train_dataset ,test_dataset):
+        with torch.no_grad():
+            for i, X in enumerate(test_dataloader):
+
+                X = X.to(self.device)
+                mask = model(X)                
+                invloss = maskloss(mask)
+
+                print(f"\nOsmosis solver for input : {X.shape}")
+                osmosis = OsmosisInpainting(None, X, mask, mask, offset=1, tau=10, device = self.device, apply_canny=False)
+                osmosis.calculateWeights(False, False, False)
+                mseloss = osmosis.solveBatch(100, save_batch = False, verbose = False)
+
+                reg_loss = invloss + loss_reg * mseloss
+
+                running_loss += reg_loss
+            
+        print(f"validation loss : {running_loss / (i*td_len)}")
+
+
+    def train(self, model, epochs, loss_reg, resume_checkpoint_file, save_every , val_every, train_dataset ,test_dataset):
         
         train_dataloader, test_dataloader = self.getDataloaders(train_dataset, test_dataset)
 
@@ -117,7 +139,7 @@ class ModelTrainer():
         model.to(self.device)
         model.train()
 
-        loss = MaskLoss()
+        maskloss = MaskLoss()
 
         print("\nbeginning training ...")
 
@@ -129,18 +151,19 @@ class ModelTrainer():
                 
                 optimizer.zero_grad()
 
-                # output = model(X)                
-                # print(output.shape)
+                X = X.to(self.device)
+                mask = model(X)                
+                invloss = maskloss(mask)
 
-                # loss(output)
-                # loss.backward()
+                # invloss.backward()
 
-                # print(f"\nOsmosis solver for input : {X.shape}")
-                # osmosis = OsmosisInpainting(None, X, None, None, offset=1, tau=10, device = self.device, apply_canny=False)
-                # osmosis.calculateWeights(False, False, False)
-                # osmosis.solveBatch(100, save_batch = False, verbose = False)
-            
-                loss.backward()
+                print(f"\nOsmosis solver for input : {X.shape}")
+                osmosis = OsmosisInpainting(None, X, mask, mask, offset=1, tau=10, device = self.device, apply_canny=False)
+                osmosis.calculateWeights(False, False, False)
+                mseloss = osmosis.solveBatch(100, save_batch = False, verbose = False)
+
+                reg_loss = invloss + loss_reg * mseloss
+                reg_loss.backward()
                 optimizer.step()
 
 
@@ -150,7 +173,7 @@ class ModelTrainer():
 
                 if (i+1) % val_every == 0:
                     print("validating on test dataset")
-                    self.validate(model, test_dataset)
+                    self.validate(model, test_dataloader, loss_reg)
 
                 print(f'Epoch {epoch}/{epochs} , Step {i}/{len(train_dataloader)} ')
 
