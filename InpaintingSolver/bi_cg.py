@@ -124,6 +124,8 @@ class OsmosisInpainting:
         # calculate loss self.U and self.V
         loss = mse(U,V)
         print(f"solved U : {U.shape} with guidance V : {V.shape} loss : {loss}")
+
+        return loss
             
     def calculateWeights(self, d_verbose = False, m_verbose = False, s_verbose = False):
         self.prepareInp()
