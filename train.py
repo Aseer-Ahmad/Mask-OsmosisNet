@@ -149,22 +149,22 @@ class ModelTrainer():
             
             for i, X in enumerate(train_dataloader): 
                 
-                optimizer.zero_grad()
+                # optimizer.zero_grad()
 
-                X = X.to(self.device)
-                mask = model(X)                
-                invloss = maskloss(mask)
+                # X = X.to(self.device)
+                # mask = model(X)                
+                # invloss = maskloss(mask)
 
-                # invloss.backward()
+                # # invloss.backward()
 
-                print(f"\nOsmosis solver for input : {X.shape}")
-                osmosis = OsmosisInpainting(None, X, mask, mask, offset=1, tau=10, device = self.device, apply_canny=False)
-                osmosis.calculateWeights(False, False, False)
-                mseloss = osmosis.solveBatch(100, save_batch = False, verbose = False)
+                # print(f"\nOsmosis solver for input : {X.shape}")
+                # osmosis = OsmosisInpainting(None, X, mask, mask, offset=1, tau=10, device = self.device, apply_canny=False)
+                # osmosis.calculateWeights(False, False, False)
+                # mseloss = osmosis.solveBatch(100, save_batch = False, verbose = False)
 
-                reg_loss = invloss + loss_reg * mseloss
-                reg_loss.backward()
-                optimizer.step()
+                # reg_loss = invloss + loss_reg * mseloss
+                # reg_loss.backward()
+                # optimizer.step()
 
 
                 if (i+1) % save_every == 0:

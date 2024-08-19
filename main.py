@@ -3,6 +3,7 @@ import yaml
 from train import ModelTrainer
 from CustomDataset import BSDS300Dataset
 from MaskModel.unet import UNet
+from torchsummary import summary
 
 CONFIG_YAML = 'config.yaml'
 
@@ -59,10 +60,11 @@ def main(config):
     # get model based on inp and out channels
     model = UNet(config['INP_CHANNELS'], config['OUT_CHANNELS'])
     print(f"model loaded")
-    print(model)
     
     #print model summary
-    
+    print(f"model summary")
+    summary(model, input_size=(config['INP_CHANNELS'], config['IMG_SIZE'], config['IMG_SIZE']))
+
     # configure model trainer 
     trainer = ModelTrainer(
         output_dir= config['OUTPUT_DIR'],
