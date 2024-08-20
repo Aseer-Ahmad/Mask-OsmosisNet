@@ -7,8 +7,8 @@ wget https://www2.eecs.berkeley.edu/Research/Projects/CS/vision/bsds/BSDS300-ima
 ```
 
 Make the structure as follows : 
-dataset/BSDS300-images/BSDS300/images/
-- train
-- test
-- iids_test.txt
-- iids_train.txt
+--dataset/BSDS300-images/BSDS300/images/
+  |-- train
+  |-- test
+  |-- iids_test.txt
+  |-- iids_train.txt
