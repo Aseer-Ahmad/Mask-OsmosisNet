@@ -51,6 +51,8 @@ def getDataSets(config):
 
 def main(config):
 
+    print(f"CONFIG : \n{config}\n")
+
     # get train , test Dataset classes
     train_dataset, test_dataset = getDataSets(config)
     print(f"train test dataset loaded")
@@ -76,7 +78,6 @@ def main(config):
         test_batch_size = config['TEST_BATCH']
     )
     print(f"trainer configurations set")
-    print(f"CONFIG : \n{config}\n")
 
     trainer.train(
         model = model,

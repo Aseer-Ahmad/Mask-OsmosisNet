@@ -9,7 +9,7 @@ OUTPUT_DIR : unet-bsds300
 # DATA PARMS
 TRAIN_FILENAME : iids_train.txt
 TEST_FILENAME  : iids_test.txt
-ROOT_DIR       : dataset/BSDS300-images/BSDS300/images/
+ROOT_DIR       : dataset\BSDS300\images\
 
 IMG_SIZE       : 64 
 INP_CHANNELS   : 1

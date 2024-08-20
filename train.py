@@ -31,6 +31,7 @@ class ModelTrainer():
         self.train_batch_size = train_batch_size
         self.test_batch_size = test_batch_size
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(f"device : {self.device}")
 
     def getOptimizer(self, model):
         
@@ -149,20 +150,22 @@ class ModelTrainer():
             
             for i, X in enumerate(train_dataloader): 
                 
+                print(f'Epoch {epoch}/{epochs} , Step {i}/{len(train_dataloader)} ')
+
                 optimizer.zero_grad()
 
                 X = X.to(self.device)
                 mask = model(X)                
                 invloss = maskloss(mask)
+                print(f"mask invLoss : {invloss} ,", end='')
 
-                # invloss.backward()
-
-                print(f"\nOsmosis solver for input : {X.shape}")
                 osmosis = OsmosisInpainting(None, X, mask, mask, offset=1, tau=10, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(False, False, False)
                 mseloss = osmosis.solveBatch(100, save_batch = False, verbose = False)
 
                 reg_loss = invloss + loss_reg * mseloss
+                print(f"reg_loss : {reg_loss}")
+
                 reg_loss.backward()
                 optimizer.step()
 
@@ -175,8 +178,6 @@ class ModelTrainer():
                 if (i+1) % val_every == 0:
                     print("validating on test dataset")
                     self.validate(model, test_dataloader, loss_reg)
-
-                print(f'Epoch {epoch}/{epochs} , Step {i}/{len(train_dataloader)} ')
 
             scheduler.step()
 
