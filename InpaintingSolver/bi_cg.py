@@ -20,7 +20,8 @@ class InpaintingLoss(nn.Module):
         super(InpaintingLoss, self).__init__()
 
     def forward(self, U, V):
-        return torch.mean((U - V)**2)
+        nxny = U.shape[2] * U.shape[3]
+        return torch.mean(torch.norm(U-V, p = 2, dim = (2,3))**2 / nxny)
 
 class OsmosisInpainting:
 
