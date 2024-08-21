@@ -87,7 +87,7 @@ class OsmosisInpainting:
                 self.U = self.U + self.offset
                 
 
-    def solveBatch(self, kmax = 2, save_batch = True, verbose = False):
+    def solveBatch(self, kmax = 2, save_batch = False, verbose = False):
 
         tt = 0
         mse = InpaintingLoss()
@@ -97,7 +97,9 @@ class OsmosisInpainting:
             B = self.U[batch].unsqueeze(0).to(self.device)
             U = B.detach().clone().to(self.device)
 
-            print(f"batch item : {batch+1} / {self.batch}")
+            if verbose:
+                print(f"batch item : {batch+1} / {self.batch}")
+    
             st = time.time()
 
             for i in range(kmax):
@@ -105,12 +107,14 @@ class OsmosisInpainting:
                 U = B.detach().clone()
                 loss = mse( self.normalize(U), self.normalize(self.V))
                 # loss = mse(U, self.V)
-                print(f"ITERATION : {i+1}, loss : {loss.item()}")        
+                # print(f"ITERATION : {i+1}, loss : {loss.item()}")        
 
             et = time.time()
             tt += (et-st)
     
-            print(f"\ntotal time to solution : {str(tt)} sec\n")
+            if verbose:
+                print(f"\ntotal time to solution : {str(tt)} sec\n")
+
             self.U[batch] = U[0]
         
             if save_batch:
@@ -123,7 +127,7 @@ class OsmosisInpainting:
 
         # calculate loss self.U and self.V
         loss = mse(U,V)
-        print(f"solved U : {U.shape} with guidance V : {V.shape} loss : {loss}")
+        print(f"mse loss for reconstruction : {loss}, ", end='')
 
         return loss
             
@@ -131,13 +135,13 @@ class OsmosisInpainting:
         self.prepareInp()
 
         self.getDriftVectors(d_verbose)
-        print(f"drift vectors calculated")
+        # print(f"drift vectors calculated")
 
-        # self.applyMask(m_verbose)
+        self.applyMask(m_verbose)
         # print(f"mask applied to drift vectors")
 
         self.getStencilMatrices(s_verbose)
-        print(f"stencils weights calculated")
+        # print(f"stencils weights calculated")
         
         print()
 

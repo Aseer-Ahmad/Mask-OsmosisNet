@@ -51,6 +51,8 @@ def getDataSets(config):
 
 def main(config):
 
+    print(f"CONFIG : \n{config}\n")
+
     # get train , test Dataset classes
     train_dataset, test_dataset = getDataSets(config)
     print(f"train test dataset loaded")
@@ -76,12 +78,12 @@ def main(config):
         test_batch_size = config['TEST_BATCH']
     )
     print(f"trainer configurations set")
-    print(f"CONFIG : \n{config}\n")
 
     trainer.train(
         model = model,
         epochs = config['EPOCHS'],
         loss_reg = config['LOSS_REG'],
+        mask_density = config['MASK_DEN'],
         resume_checkpoint_file = config['RESUME_CHECKPOINT'],
         save_every = config['SAVE_EVERY'], 
         val_every = config['VAL_EVERY'],
