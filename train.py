@@ -12,12 +12,26 @@ from InpaintingSolver.bi_cg import OsmosisInpainting
 class MaskLoss(nn.Module):
     """
     Inverse variance loss 
+    1 / ( var^2  + eps) 
     """
     def __init__(self):
         super(MaskLoss, self).__init__()
 
     def forward(self, X, eps = 1e-6):
         return torch.mean(1. / (torch.var(X, dim=(2,3)) + eps) )
+
+class DensityLoss(nn.Module):
+    """
+    Density loss 
+    | ||c||1 / (nx * ny)  - d | 
+    """
+    def __init__(self, density = 0.1):
+        super(DensityLoss, self).__init__()
+        self.density = density
+
+    def forward(self, X, eps = 1e-6):
+        h, w = X.shape[2], X.shape[3]
+        return torch.norm(X, p = 1, dim = (2, 3)) - self.density
 
 class ModelTrainer():
 
@@ -94,7 +108,7 @@ class ModelTrainer():
 
         return train_dataloader, test_dataloader
 
-    def maskBinarize(self):
+    def hardRoundBinarize(self, mask):
         pass
 
     def validate(self, model, test_dataloader, loss_reg):
@@ -109,6 +123,9 @@ class ModelTrainer():
                 X = X.to(self.device)
                 mask = model(X)                
                 invloss = maskloss(mask)
+
+                # mask binarize
+                mask = self.hardRoundBinarize(mask)
 
                 print(f"\nOsmosis solver for input : {X.shape}")
                 osmosis = OsmosisInpainting(None, X, mask, mask, offset=1, tau=10, device = self.device, apply_canny=False)
@@ -162,7 +179,7 @@ class ModelTrainer():
                 invloss = maskloss(mask)
                 print(f"mask invLoss : {invloss} ,", end='')
 
-                # mask binarize
+                # binarize
 
                 osmosis = OsmosisInpainting(None, X, mask, mask, offset=1, tau=10, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(False, False, False)
