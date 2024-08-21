@@ -23,6 +23,6 @@ SCHEDL         : exp
 TRAIN_BATCH    : 8
 TEST_BATCH     : 8
 LOSS_REG       : 0.001
-
+MASK_DEN       : 0.1
 
 

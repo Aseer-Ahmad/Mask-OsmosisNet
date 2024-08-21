@@ -100,5 +100,6 @@ class UNet(nn.Module):
 
         # Output layer
         out = self.outconv(xd42)
+        out = torch.special.expit(out)
 
         return out

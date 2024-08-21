@@ -94,6 +94,9 @@ class ModelTrainer():
 
         return train_dataloader, test_dataloader
 
+    def maskBinarize(self):
+        pass
+
     def validate(self, model, test_dataloader, loss_reg):
         
         running_loss = 0.0
@@ -119,7 +122,7 @@ class ModelTrainer():
         print(f"validation loss : {running_loss / (i*td_len)}")
 
 
-    def train(self, model, epochs, loss_reg, resume_checkpoint_file, save_every , val_every, train_dataset ,test_dataset):
+    def train(self, model, epochs, loss_reg, mask_density, resume_checkpoint_file, save_every , val_every, train_dataset ,test_dataset):
         
         train_dataloader, test_dataloader = self.getDataloaders(train_dataset, test_dataset)
 
@@ -159,6 +162,8 @@ class ModelTrainer():
                 invloss = maskloss(mask)
                 print(f"mask invLoss : {invloss} ,", end='')
 
+                # mask binarize
+
                 osmosis = OsmosisInpainting(None, X, mask, mask, offset=1, tau=10, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(False, False, False)
                 mseloss = osmosis.solveBatch(100, save_batch = False, verbose = False)
@@ -183,4 +188,6 @@ class ModelTrainer():
 
             epoch_loss = running_loss / train_dataset.__len__()
             print('Epoch [{}/{}], Loss: {:.4f}'.format(epoch+1, epochs, epoch_loss))
+
+        # save config file to output dir
 
