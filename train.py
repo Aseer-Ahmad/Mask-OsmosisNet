@@ -170,7 +170,7 @@ class ModelTrainer():
             
             for i, X in enumerate(train_dataloader, start = 1): 
                 
-                print(f'Epoch {epoch}/{epochs} , Step {i}/{len(train_dataloader)} ')
+                print(f'Epoch {epoch}/{epochs} , batch {i}/{len(train_dataloader)} ')
 
                 optimizer.zero_grad()
 
