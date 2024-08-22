@@ -93,6 +93,8 @@ class OsmosisInpainting:
         tt = 0
         mse = InpaintingLoss()
 
+        total_loss = 0.
+
         for batch in range(self.batch):
 
             B = self.U[batch].unsqueeze(0).to(self.device)
@@ -106,13 +108,13 @@ class OsmosisInpainting:
             for i in range(kmax):
                 B = self.BiCGSTAB(x = U, b = B, batch = batch, kmax = 10000, eps = 1e-9, verbose=verbose)
                 U = B.detach().clone()
-                loss = mse( self.normalize(U), self.normalize(self.V))
-                # loss = mse(U, self.V)
                 # print(f"ITERATION : {i+1}, loss : {loss.item()}")        
 
             et = time.time()
             tt += (et-st)
-    
+
+            # loss = mse( self.normalize(U), self.normalize(self.V))
+
             if verbose:
                 print(f"\ntotal time to solution : {str(tt)} sec\n")
 
