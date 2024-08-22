@@ -95,6 +95,8 @@ class OsmosisInpainting:
 
         total_loss = 0.
 
+        st = time.time()
+
         for batch in range(self.batch):
 
             B = self.U[batch].unsqueeze(0).to(self.device)
@@ -103,20 +105,12 @@ class OsmosisInpainting:
             if verbose:
                 print(f"batch item : {batch+1} / {self.batch}")
     
-            st = time.time()
 
             for i in range(kmax):
                 B = self.BiCGSTAB(x = U, b = B, batch = batch, kmax = 10000, eps = 1e-9, verbose=verbose)
                 U = B.detach().clone()
+                # loss = mse( self.normalize(U), self.normalize(self.V))
                 # print(f"ITERATION : {i+1}, loss : {loss.item()}")        
-
-            et = time.time()
-            tt += (et-st)
-
-            # loss = mse( self.normalize(U), self.normalize(self.V))
-
-            if verbose:
-                print(f"\ntotal time to solution : {str(tt)} sec\n")
 
             self.U[batch] = U[0]
         
@@ -124,15 +118,17 @@ class OsmosisInpainting:
                 fname = f"solved_{batch}.pgm"
                 self.writePGMImage(self.U[batch][0].numpy().T, fname)
 
+        et = time.time()
+        tt += (et-st)
+
         # normalize solution and guidance
         U = self.normalize(self.U)
         V = self.normalize(self.V)
-
+        
         # calculate loss self.U and self.V
-        loss = mse(U,V)
-        print(f"mse loss : {loss}, ", end='')
+        loss = mse(U, V)
 
-        return loss
+        return loss , tt
             
     def calculateWeights(self, d_verbose = False, m_verbose = False, s_verbose = False):
         self.prepareInp()

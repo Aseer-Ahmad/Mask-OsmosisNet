@@ -4,6 +4,7 @@ from torch.optim import AdamW, Adam, SGD
 from torch.optim.lr_scheduler import ExponentialLR, MultiStepLR, LambdaLR
 import torch
 import torch.nn as nn
+import time
 
 import os
 
@@ -76,7 +77,14 @@ class ModelTrainer():
 
         return schdl
     
+    def check_gpu_memory():
+        gpu_mem = torch.cuda.memory_allocated() / 1e6
+        gpu_mem_max = torch.cuda.max_memory_allocated() / 1e6
 
+        print(f"GPU Memory Allocated: {gpu_mem} MB")
+        print(f"GPU Max Memory Allocated: {gpu_mem_max} MB")
+        return gpu_mem, gpu_mem_max
+    
     def loadCheckpoint(self, model, optimizer, path):
         
         checkpoint = torch.load(path)
@@ -168,43 +176,54 @@ class ModelTrainer():
 
             running_loss = 0.0
             
-            for i, X in enumerate(train_dataloader, start = 1): 
+            # gu mem usage
+
+            st = time.time()
+            
+            for i, (X, X_norm) in enumerate(train_dataloader, start = 1): 
                 
                 print(f'Epoch {epoch}/{epochs} , batch {i}/{len(train_dataloader)} ')
 
-                optimizer.zero_grad()
-
                 X = X.to(self.device)
-                mask = model(X)                
+                X_norm = X_norm.to(self.device)
+
+                mask = model(X_norm)                
                 mask = self.hardRoundBinarize(mask)
                 loss1 = denLoss(mask)
                 print(f"density loss : {loss1}, ", end='')
 
                 osmosis = OsmosisInpainting(None, X, mask, mask, offset=1, tau=10, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(False, False, False)
-                loss2 = osmosis.solveBatch(100, save_batch = False, verbose = False)
+                loss2, tts = osmosis.solveBatch(100, save_batch = False, verbose = False)
+                print(f"mse loss : {loss2}, solver time : {str(tts)} sec , ", end='')
 
-                total_loss = loss1 + alpha * loss2
+                total_loss = loss2 + loss1 * alpha 
                 print(f"total loss : {total_loss}, " , end = '')
 
                 total_loss.backward()
                 optimizer.step()
 
+                optimizer.zero_grad()
+
                 running_loss += total_loss
                 print(f"running loss : {running_loss / i}")
 
-                if (i+1) % save_every == 0:
+                if (i) % save_every == 0:
                     print("saving checkpoint")
                     self.saveCheckpoint(model, optimizer, epoch)
 
-                if (i+1) % val_every == 0:
-                    print("validating on test dataset")
-                    self.validate(model, test_dataloader, mask_density, alpha)
-
             scheduler.step()
 
-            epoch_loss = running_loss / train_dataset.__len__()
+            et = time.time()
+            print(f"total time for batch : {str((et-st) / 60)} min")
+
+            epoch_loss = running_loss / train_dataloader.__len__()
             print('Epoch [{}/{}], Loss: {:.4f}'.format(epoch+1, epochs, epoch_loss))
+
+            if (epoch + 1) % val_every == 0:
+                print("validating on test dataset")
+                self.validate(model, test_dataloader, mask_density, alpha)
+
 
         # save config file to output dir
 

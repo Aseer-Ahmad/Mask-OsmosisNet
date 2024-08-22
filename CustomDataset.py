@@ -38,5 +38,9 @@ class BSDS300Dataset(Dataset):
         # resizing ; Tobias paper cropped images
         tensor = transforms.Resize((self.img_size, self.img_size), antialias = True)(tensor)     
 
-        return tensor
+        # normalized
+        tensor_norm = tensor - torch.amin(tensor, dim=(1,2)).view(1,1,1)
+        tensor_norm = tensor_norm / torch.amax(tensor_norm, dim=(1,2)).view(1,1,1)
+
+        return (tensor, tensor_norm)
     

@@ -17,12 +17,17 @@ OUT_CHANNELS   : 1
 
 # HYPER PARAMS
 LR             : 0.001
-WEIGHT_DECAY   : 0.009
-OPT            : Adam
+WEIGHT_DECAY   : 0.9
+MOMENTUM       : 0.9
+OPT            : SGD
 SCHEDL         : exp
 TRAIN_BATCH    : 8
 TEST_BATCH     : 8
-ALPHA          : 0.1
+ALPHA          : 0.01
 MASK_DEN       : 0.1
 BIN_METH       : QUANT
 
+#solver params
+OFFSET         :
+TAU            :
+ITERATIONS     :
