@@ -81,7 +81,8 @@ def main(config):
     trainer.train(
         model = model,
         epochs = config['EPOCHS'],
-        loss_reg = config['LOSS_REG'],
+        alpha = config['ALPHA'],
+        mask_density = config['MASK_DEN'],
         resume_checkpoint_file = config['RESUME_CHECKPOINT'],
         save_every = config['SAVE_EVERY'], 
         val_every = config['VAL_EVERY'],

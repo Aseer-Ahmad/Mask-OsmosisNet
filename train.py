@@ -111,10 +111,12 @@ class ModelTrainer():
     def hardRoundBinarize(self, mask):
         return torch.floor(mask + 0.5)
 
-    def validate(self, model, test_dataloader, alpha):
+    def validate(self, model, test_dataloader, density, alpha):
         
         running_loss = 0.0
         maskloss = MaskLoss()
+        denLoss  = DensityLoss(density)
+
         td_len = len(test_dataloader)
 
         with torch.no_grad():
@@ -122,19 +124,16 @@ class ModelTrainer():
 
                 X = X.to(self.device)
                 mask = model(X)                
-                invloss = maskloss(mask)
-
-                # mask binarize
                 mask = self.hardRoundBinarize(mask)
+                loss1 = denLoss(mask)
 
-                print(f"\nOsmosis solver for input : {X.shape}")
                 osmosis = OsmosisInpainting(None, X, mask, mask, offset=1, tau=10, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(False, False, False)
                 loss2 = osmosis.solveBatch(100, save_batch = False, verbose = False)
 
-                reg_loss = invloss + alpha * loss2
+                total_loss = loss1 + alpha * loss2
 
-                running_loss += reg_loss
+                running_loss += total_loss
             
         print(f"validation loss : {running_loss / (i*td_len)}")
 
@@ -161,7 +160,7 @@ class ModelTrainer():
         model.train()
 
         maskloss = MaskLoss()
-        denLoss  = DensityLoss(density = 0.1)
+        denLoss  = DensityLoss(density = mask_density)
 
         print("\nbeginning training ...")
 
@@ -169,7 +168,7 @@ class ModelTrainer():
 
             running_loss = 0.0
             
-            for i, X in enumerate(train_dataloader): 
+            for i, X in enumerate(train_dataloader, start = 1): 
                 
                 print(f'Epoch {epoch}/{epochs} , Step {i}/{len(train_dataloader)} ')
 
@@ -179,19 +178,20 @@ class ModelTrainer():
                 mask = model(X)                
                 mask = self.hardRoundBinarize(mask)
                 loss1 = denLoss(mask)
-                print(f"mask density loss : {loss1}, ", end='')
+                print(f"density loss : {loss1}, ", end='')
 
                 osmosis = OsmosisInpainting(None, X, mask, mask, offset=1, tau=10, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(False, False, False)
                 loss2 = osmosis.solveBatch(100, save_batch = False, verbose = False)
 
-                reg_loss = loss1 + alpha * loss2
-                print(f"reg_loss : {reg_loss}")
+                total_loss = loss1 + alpha * loss2
+                print(f"total loss : {total_loss}, " , end = '')
 
-                reg_loss.backward()
+                total_loss.backward()
                 optimizer.step()
 
-                running_loss += reg_loss
+                running_loss += total_loss
+                print(f"running loss : {running_loss / i}")
 
                 if (i+1) % save_every == 0:
                     print("saving checkpoint")
@@ -199,7 +199,7 @@ class ModelTrainer():
 
                 if (i+1) % val_every == 0:
                     print("validating on test dataset")
-                    self.validate(model, test_dataloader, alpha)
+                    self.validate(model, test_dataloader, mask_density, alpha)
 
             scheduler.step()
 

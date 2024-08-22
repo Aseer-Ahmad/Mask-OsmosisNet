@@ -130,7 +130,7 @@ class OsmosisInpainting:
 
         # calculate loss self.U and self.V
         loss = mse(U,V)
-        print(f"mse loss for reconstruction : {loss}, ", end='')
+        print(f"mse loss : {loss}, ", end='')
 
         return loss
             
@@ -146,8 +146,6 @@ class OsmosisInpainting:
         self.getStencilMatrices(s_verbose)
         # print(f"stencils weights calculated")
         
-        print()
-
     def normalize(self, X, scale = 1.):
         b, c, _ , _ = X.shape
         X = X - torch.amin(X, dim=(2,3)).view(b,c,1,1)
