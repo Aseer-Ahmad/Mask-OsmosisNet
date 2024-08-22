@@ -119,6 +119,10 @@ class ModelTrainer():
     def hardRoundBinarize(self, mask):
         return torch.floor(mask + 0.5)
 
+    def mean_density(self, mask):
+        return torch.mean(torch.norm(mask, p = 1, dim = (2, 3)) / (mask.shape[2]*mask.shape[3]))
+
+
     def validate(self, model, test_dataloader, density, alpha):
         
         running_loss = 0.0
@@ -189,8 +193,9 @@ class ModelTrainer():
 
                 mask = model(X_norm)                
                 mask = self.hardRoundBinarize(mask)
+                avg_den = self.mean_density(mask)
                 loss1 = denLoss(mask)
-                print(f"density loss : {loss1}, ", end='')
+                print(f"density loss : {loss1}, avg_den : {avg_den}, ", end='')
 
                 osmosis = OsmosisInpainting(None, X, mask, mask, offset=1, tau=10, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(False, False, False)

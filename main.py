@@ -2,7 +2,8 @@
 import yaml
 from train import ModelTrainer
 from CustomDataset import BSDS300Dataset
-from MaskModel.unet import UNet
+# from MaskModel.unet import UNet
+from MaskModel.unet_model import UNet
 from torchsummary import summary
 
 CONFIG_YAML = 'config.yaml'
