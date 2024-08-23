@@ -195,15 +195,12 @@ class ModelTrainer():
                 mask = self.hardRoundBinarize(mask)
                 avg_den = self.mean_density(mask)
                 loss1 = denLoss(mask)
-                print(f"density loss : {loss1}, avg_den : {avg_den}, ", end='')
 
-                osmosis = OsmosisInpainting(None, X, mask, mask, offset=1, tau=10, device = self.device, apply_canny=False)
+                osmosis = OsmosisInpainting(None, X, mask, mask, offset=1, tau=700, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(False, False, False)
-                loss2, tts = osmosis.solveBatch(100, save_batch = False, verbose = False)
-                print(f"mse loss : {loss2}, solver time : {str(tts)} sec , ", end='')
+                loss2, tts = osmosis.solveBatch(100, save_batch = True, verbose = False)
 
                 total_loss = loss2 + loss1 * alpha 
-                print(f"total loss : {total_loss}, " , end = '')
 
                 total_loss.backward()
                 optimizer.step()
@@ -211,6 +208,9 @@ class ModelTrainer():
                 optimizer.zero_grad()
 
                 running_loss += total_loss
+                print(f"density loss : {loss1}, avg_den : {avg_den}, ", end='')
+                print(f"mse loss : {loss2}, solver time : {str(tts)} sec , ", end='')
+                print(f"total loss : {total_loss}, " , end = '')
                 print(f"running loss : {running_loss / i}")
 
                 if (i) % save_every == 0:

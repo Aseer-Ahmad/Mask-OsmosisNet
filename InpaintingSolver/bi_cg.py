@@ -40,8 +40,13 @@ class OsmosisInpainting:
         else:
             self.U   = self.getInit_U() + offset
 
-        self.mask1   = mask1
-        self.mask2   = mask2
+        if mask1 is None or mask2 is None:
+            self.mask1 = torch.ones_like(V)
+            self.mask2 = torch.ones_like(V)
+        else :
+            self.mask1   = mask1
+            self.mask2   = mask2
+
         self.offset  = offset
         self.tau     = tau
                 
@@ -88,7 +93,7 @@ class OsmosisInpainting:
                 self.U = self.U + self.offset
                 
 
-    def solveBatch(self, kmax = 2, save_batch = False, verbose = False):
+    def solveBatch(self, kmax = 10000, save_batch = False, verbose = False):
 
         tt = 0
         mse = InpaintingLoss()
@@ -99,25 +104,30 @@ class OsmosisInpainting:
 
         for batch in range(self.batch):
 
+            V = self.V[batch].unsqueeze(0).to(self.device)
             B = self.U[batch].unsqueeze(0).to(self.device)
             U = B.detach().clone().to(self.device)
-
+            init = B.detach().clone().to(self.device)
+            
             if verbose:
-                print(f"batch item : {batch+1} / {self.batch}")
-    
+                print(f"batch item : {batch+1} / {self.batch}")    
 
             for i in range(kmax):
                 B = self.BiCGSTAB(x = U, b = B, batch = batch, kmax = 10000, eps = 1e-9, verbose=verbose)
                 U = B.detach().clone()
-                # loss = mse( self.normalize(U), self.normalize(self.V))
-                # print(f"ITERATION : {i+1}, loss : {loss.item()}")        
+                loss = mse( self.normalize(U), self.normalize(V))
+                print(f"\rITERATION : {i+1}, loss : {loss.item()}", end ='', flush=True)        
+            print()
+            if save_batch:
+                fname = f"solved_.pgm"
+                out = torch.cat( ( (self.V - self.offset)[batch][0], 
+                                (self.mask1 * 255.)[batch][0], 
+                                (init-self.offset)[0][0],
+                                self.normalize(U-self.offset, scale=255.)[0][0] ), dim  = 0)
+                self.writePGMImage(out.cpu().detach().numpy().T, fname)
 
             self.U[batch] = U[0]
         
-            if save_batch:
-                fname = f"solved_{batch}.pgm"
-                self.writePGMImage(self.U[batch][0].numpy().T, fname)
-
         et = time.time()
         tt += (et-st)
 
@@ -183,7 +193,7 @@ class OsmosisInpainting:
     def writePGMImage(self, X, filename):
         # add comments for pgm img
         cv2.imwrite(filename, X[1:-1, 1:-1])
-        print(f"written to : {filename}")
+        # print(f"written to : {filename}")
 
     def prepareInp(self):
         """
@@ -282,7 +292,7 @@ class OsmosisInpainting:
         m  = torch.mean(self.V, dim = (2,3))
 
         # create a flat image ; avg gray val same as guidance
-        u  = torch.zeros_like(self.V, device = self.device) + m.view(self.batch, self.channel, 1, 1)
+        u  = torch.ones_like(self.V, device = self.device) * m.view(self.batch, self.channel, 1, 1)
 
         # create a noisy image ; avg gray val same as guidance
         return u

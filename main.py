@@ -73,7 +73,7 @@ def main(config):
         output_dir= config['OUTPUT_DIR'],
         optimizer= config['OPT'],
         scheduler= config['SCHEDL'],
-        lr= config['LR'],
+        lr = config['LR'],
         weight_decay= config['WEIGHT_DECAY'], 
         train_batch_size = config['TRAIN_BATCH'],
         test_batch_size = config['TEST_BATCH']
