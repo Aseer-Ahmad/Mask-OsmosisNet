@@ -274,6 +274,7 @@ class ModelTrainer():
                 print(f"density loss : {loss3}, ", end='')
                 print(f"mse loss : {loss2}, solver time : {str(tts)} sec , ", end='')
                 print(f"total loss : {total_loss}, " , end = '')
+                print(f"running loss : {running_loss / i}" )
 
                 if (i) % save_every == 0:
                     print("saving checkpoint")
@@ -281,12 +282,13 @@ class ModelTrainer():
 
                 # update plot and save
                 clist = [l for l in range(1, len(loss1_list) + 1)]
+                save_plot([loss1_list, loss2_list, loss3_list, running_loss_list], clist, ["invloss", "mse", "denloss"], os.path.join(self.output_dir, "all_losses.png"))
                 save_plot([running_loss_list], clist, ["running loss"], os.path.join(self.output_dir, "runloss.png"))
                 save_plot([loss1_list], clist, ["invariance loss"], os.path.join(self.output_dir, "invloss.png"))
                 save_plot([loss2_list], clist, ["mse loss"], os.path.join(self.output_dir, "mseloss.png"))
                 save_plot([loss3_list], clist, ["density loss"], os.path.join(self.output_dir, "denloss.png"))
                 save_plot([gradnorm_list], clist, ["grad norm"], os.path.join(self.output_dir, "gradnorm.png"))
-
+                
             et = time.time()
             print(f"total time for batch : {str((et-st) / 60)} min")
 
@@ -295,10 +297,7 @@ class ModelTrainer():
             print('Epoch [{}/{}], Loss: {:.4f}'.format(epoch+1, epochs, epoch_loss))
             save_plot([epochloss_list], [i for i in range(epoch+1)], ["epoch loss"], os.path.join(self.output_dir, "epochloss.png"))
 
-            if (epoch + 1) % val_every == 0:
-                print("validating on test dataset")
-                self.validate(model, test_dataloader, mask_density, alpha)
-
-
-        # save config file to output dir
+            # if (epoch + 1) % val_every == 0:
+            #     print("validating on test dataset")
+            #     self.validate(model, test_dataloader, mask_density, alpha)
 

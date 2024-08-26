@@ -7,6 +7,7 @@ from MaskModel.unet_model import UNet
 from torchsummary import summary
 import os
 import shutil
+import sys
 
 CONFIG_YAML = 'config.yaml'
 
@@ -54,13 +55,15 @@ def getDataSets(config):
 
 def main(config):
 
-    print(f"CONFIG : \n{config}\n")
-
-    # make exp directories
+    # make experiment directory
     exp_path = os.path.join(config["OUTPUT_DIR"], config["EXP_NAME"])
     if not os.path.isdir(exp_path):
         os.makedirs(exp_path)
-    print("experiment directory '%s' created" % exp_path)
+    
+    # sys.stdout = open(os.path.join(exp_path, 'output.txt'),'wt')
+
+    print(f"CONFIG : \n{config}\n")
+
     shutil.copyfile(CONFIG_YAML, os.path.join(exp_path, CONFIG_YAML))
 
     # get train , test Dataset classes
