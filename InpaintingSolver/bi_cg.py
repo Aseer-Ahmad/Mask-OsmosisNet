@@ -303,15 +303,18 @@ class OsmosisInpainting:
         edge = cv2.Canny(img, 100, 150 )
         print(edge) 
 
-    def binarizeMask(self):
+    def hardRoundBinarize(self):
         if self.mask1 != None and self.mask2 != None:
-            self.mask1 = (self.mask1 > 0).float()
-            self.mask2 = (self.mask2 > 0).float()
+            self.mask1 =  torch.floor(self.mask1 + 0.5)
+            self.mask2 =  torch.floor(self.mask2 + 0.5)
             
     def applyMask(self , verbose = False):
-        self.binarizeMask() 
+        
+        # self.hardRoundBinarize() 
+
         self.d1 = torch.mul(self.d1, self.mask1)
         self.d2 = torch.mul(self.d2, self.mask2)
+
         if verbose:
             self.analyseImage(self.mask1, "mask1")
             self.analyseImage(self.mask2, "mask2")

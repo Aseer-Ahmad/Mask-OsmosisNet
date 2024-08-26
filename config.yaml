@@ -16,15 +16,15 @@ INP_CHANNELS   : 1
 OUT_CHANNELS   : 1
 
 # HYPER PARAMS
-LR             : 0.001
-WEIGHT_DECAY   : 0.9
+LR             : 0.01
+WEIGHT_DECAY   : 0.
 MOMENTUM       : 0.9
 OPT            : SGD
 SCHEDL         : exp
-TRAIN_BATCH    : 4
-TEST_BATCH     : 4
+TRAIN_BATCH    : 8
+TEST_BATCH     : 8
 ALPHA          : 0.01
-MASK_DEN       : 0.1
+MASK_DEN       : 0.3
 BIN_METH       : QUANT
 
 #solver params
