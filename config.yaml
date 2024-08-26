@@ -4,7 +4,7 @@ RESUME_CHECKPOINT :
 SAVE_EVERY : 10
 VAL_EVERY : 10
 OUTPUT_DIR : unet-bsds300
-
+EXP_NAME : test_1
 
 # DATA PARMS
 TRAIN_FILENAME : iids_train.txt
@@ -16,10 +16,10 @@ INP_CHANNELS   : 1
 OUT_CHANNELS   : 1
 
 # HYPER PARAMS
-LR             : 0.01
+LR             : 0.0001
 WEIGHT_DECAY   : 0.
 MOMENTUM       : 0.9
-OPT            : SGD
+OPT            : Adam
 SCHEDL         : exp
 TRAIN_BATCH    : 8
 TEST_BATCH     : 8

@@ -5,6 +5,7 @@ from torch.optim.lr_scheduler import ExponentialLR, MultiStepLR, LambdaLR
 import torch
 import torch.nn as nn
 import time
+import matplotlib.pyplot as plt
 
 import os
 
@@ -19,7 +20,7 @@ class InvarianceLoss(nn.Module):
         super(InvarianceLoss, self).__init__()
 
     def forward(self, mask, eps = 1e-6):
-        return torch.mean(1. / (torch.var(mask, dim=(2,3))**2 + eps) )
+        return torch.mean(1. / (torch.var(mask, dim=(2,3)) + eps) )
 
 class DensityLoss(nn.Module):
     """
@@ -34,6 +35,28 @@ class DensityLoss(nn.Module):
         h, w = mask.shape[2], mask.shape[3]
         return torch.mean( torch.abs( (torch.norm(mask, p = 1, dim = (2, 3))/ (h*w)) 
                                      - self.density) )
+
+def save_plot(loss_lists, x, legend_list, save_path):
+    """
+    Plots multiple data series from y against x and saves the plot.
+
+    Parameters:
+    x (list): A list of x-values.
+    y (list of lists): A list containing lists of y-values.
+    save_path (str): Path to save the resulting plot.
+    """
+    # Create the plot
+    plt.figure(figsize=(10, 6))
+    
+    for y_series in loss_lists:
+        plt.plot(x, y_series)
+
+    plt.xlabel('iter')
+    plt.legend(legend_list, loc="best")
+    plt.grid(True)
+    plt.savefig(save_path)
+    plt.close()
+
 
 class ModelTrainer():
 
@@ -97,9 +120,6 @@ class ModelTrainer():
 
     def saveCheckpoint(self, model, optimizer, epoch):
         
-        if not os.path.exists(self.output_dir):
-            os.makedirs(self.output_dir)
-
         torch.save({
             'model_state_dict': model.state_dict(),
             # 'optimizer_state_dict': optimizer.state_dict(),
@@ -159,6 +179,7 @@ class ModelTrainer():
             total_norm += param_norm.item() ** 2
         total_norm = total_norm ** 0.5
         print(f"Total gradient norm: {total_norm}")
+        return total_norm
 
     # Register a hook to inspect gradients
     def inspect_gradients(self, module, grad_input, grad_output):
@@ -176,6 +197,10 @@ class ModelTrainer():
 
     def train(self, model, epochs, alpha, mask_density, resume_checkpoint_file, save_every , val_every, train_dataset ,test_dataset):
         
+        # loss lists
+        loss1_list, loss2_list, loss3_list, gradnorm_list, running_loss_list = [], [], [], [], []
+        epochloss_list = []
+
         train_dataloader, test_dataloader = self.getDataloaders(train_dataset, test_dataset)
 
         optimizer = self.getOptimizer(model)
@@ -197,8 +222,8 @@ class ModelTrainer():
         model.apply(self.initialize_weights_he)
 
         # Attach hooks to layers
-        for layer in model.children():
-            layer.register_full_backward_hook(self.inspect_gradients)
+        # for layer in model.children():
+        #     layer.register_full_backward_hook(self.inspect_gradients)
 
         invLoss = InvarianceLoss()
         denLoss  = DensityLoss(density = mask_density)
@@ -232,29 +257,43 @@ class ModelTrainer():
                 total_loss = loss2 + loss3 + loss1 * alpha 
                 total_loss.backward()
 
-                self.check_gradients(model)
+                total_norm = self.check_gradients(model)
                 
                 optimizer.step()
                 scheduler.step()
                 optimizer.zero_grad()
 
                 running_loss += total_loss
+
+                loss1_list.append(loss1.item())
+                loss2_list.append(loss2.item())
+                loss3_list.append(loss3.item())
+                running_loss_list.append((running_loss / i).item())
+                gradnorm_list.append(total_norm)
                 print(f"invariance loss : {loss1}, avg_den : {self.mean_density(mask)}, ", end='')
                 print(f"density loss : {loss3}, ", end='')
                 print(f"mse loss : {loss2}, solver time : {str(tts)} sec , ", end='')
                 print(f"total loss : {total_loss}, " , end = '')
-                print(f"running loss : {running_loss / i}")
 
                 if (i) % save_every == 0:
                     print("saving checkpoint")
                     self.saveCheckpoint(model, optimizer, epoch)
 
+                # update plot and save
+                clist = [l for l in range(1, len(loss1_list) + 1)]
+                save_plot([running_loss_list], clist, ["running loss"], os.path.join(self.output_dir, "runloss.png"))
+                save_plot([loss1_list], clist, ["invariance loss"], os.path.join(self.output_dir, "invloss.png"))
+                save_plot([loss2_list], clist, ["mse loss"], os.path.join(self.output_dir, "mseloss.png"))
+                save_plot([loss3_list], clist, ["density loss"], os.path.join(self.output_dir, "denloss.png"))
+                save_plot([gradnorm_list], clist, ["grad norm"], os.path.join(self.output_dir, "gradnorm.png"))
 
             et = time.time()
             print(f"total time for batch : {str((et-st) / 60)} min")
 
             epoch_loss = running_loss / train_dataloader.__len__()
+            epochloss_list.append(epoch_loss)
             print('Epoch [{}/{}], Loss: {:.4f}'.format(epoch+1, epochs, epoch_loss))
+            save_plot([epochloss_list], [i for i in range(epoch+1)], ["epoch loss"], os.path.join(self.output_dir, "epochloss.png"))
 
             if (epoch + 1) % val_every == 0:
                 print("validating on test dataset")
