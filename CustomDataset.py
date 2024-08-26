@@ -35,8 +35,20 @@ class BSDS300Dataset(Dataset):
         image = cv2.imread(img_pth, cv2.IMREAD_GRAYSCALE) 
         tensor = torch.tensor(image, dtype = torch.float64).unsqueeze(0)
 
+        # data_transforms = transforms.Compose([transforms.Resize((self.img_size, self.img_size), antialias = True),
+        #                                 transforms.Normalize(mean = [0.485, 0.456, 0.406], std = [0.229, 0.224, 0.225])
+        #                               ])
+
         # resizing ; Tobias paper cropped images
         tensor = transforms.Resize((self.img_size, self.img_size), antialias = True)(tensor)     
+        # https://stackoverflow.com/questions/65699020/calculate-standard-deviation-for-grayscale-imagenet-pixel-values-with-rotation-m
+        # tensor_transformed = transforms.Normalize(mean = [0.44531356896770125], std = [0.2692461874154524])(tensor)
+        tensor_transformed = transforms.Normalize(mean = [0.], std = [1.])(tensor)
 
-        return tensor
+        # normalized
+        # tensor_norm = tensor - torch.amin(tensor, dim=(1,2)).view(1,1,1)
+        # tensor_norm = tensor_norm / torch.amax(tensor_norm, dim=(1,2)).view(1,1,1)
+        
+
+        return (tensor, tensor_transformed)
     

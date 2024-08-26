@@ -2,7 +2,8 @@
 import yaml
 from train import ModelTrainer
 from CustomDataset import BSDS300Dataset
-from MaskModel.unet import UNet
+# from MaskModel.unet import UNet
+from MaskModel.unet_model import UNet
 from torchsummary import summary
 
 CONFIG_YAML = 'config.yaml'
@@ -51,6 +52,8 @@ def getDataSets(config):
 
 def main(config):
 
+    print(f"CONFIG : \n{config}\n")
+
     # get train , test Dataset classes
     train_dataset, test_dataset = getDataSets(config)
     print(f"train test dataset loaded")
@@ -70,18 +73,18 @@ def main(config):
         output_dir= config['OUTPUT_DIR'],
         optimizer= config['OPT'],
         scheduler= config['SCHEDL'],
-        lr= config['LR'],
+        lr = config['LR'],
         weight_decay= config['WEIGHT_DECAY'], 
         train_batch_size = config['TRAIN_BATCH'],
         test_batch_size = config['TEST_BATCH']
     )
     print(f"trainer configurations set")
-    print(f"CONFIG : \n{config}\n")
 
     trainer.train(
         model = model,
         epochs = config['EPOCHS'],
-        loss_reg = config['LOSS_REG'],
+        alpha = config['ALPHA'],
+        mask_density = config['MASK_DEN'],
         resume_checkpoint_file = config['RESUME_CHECKPOINT'],
         save_every = config['SAVE_EVERY'], 
         val_every = config['VAL_EVERY'],

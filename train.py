@@ -4,21 +4,22 @@ from torch.optim import AdamW, Adam, SGD
 from torch.optim.lr_scheduler import ExponentialLR, MultiStepLR, LambdaLR
 import torch
 import torch.nn as nn
+import time
 
 import os
 
 from InpaintingSolver.bi_cg import OsmosisInpainting
 
-class MaskLoss(nn.Module):
+class InvarianceLoss(nn.Module):
     """
     Inverse variance loss 
     1 / ( var^2  + eps) 
     """
     def __init__(self):
-        super(MaskLoss, self).__init__()
+        super(InvarianceLoss, self).__init__()
 
-    def forward(self, X, eps = 1e-6):
-        return torch.mean(1. / (torch.var(X, dim=(2,3)) + eps) )
+    def forward(self, mask, eps = 1e-6):
+        return torch.mean(1. / (torch.var(mask, dim=(2,3))**2 + eps) )
 
 class DensityLoss(nn.Module):
     """
@@ -29,9 +30,10 @@ class DensityLoss(nn.Module):
         super(DensityLoss, self).__init__()
         self.density = density
 
-    def forward(self, X, eps = 1e-6):
-        h, w = X.shape[2], X.shape[3]
-        return torch.mean( torch.abs( (torch.norm(X, p = 1, dim = (2, 3)) / (h*w)) - self.density) )
+    def forward(self, mask, eps = 1e-6):
+        h, w = mask.shape[2], mask.shape[3]
+        return torch.mean( torch.abs( (torch.norm(mask, p = 1, dim = (2, 3))/ (h*w)) 
+                                     - self.density) )
 
 class ModelTrainer():
 
@@ -52,7 +54,7 @@ class ModelTrainer():
         opt = None
         
         if self.optimizer == "Adam":
-            opt = Adam(model.parameters(), lr=self.lr, weight_decay = self.weight_decay)
+            opt = Adam(model.parameters(), lr=self.lr, betas=(0.9, 0.999), eps=1e-08, weight_decay = self.weight_decay)
 
         elif self.optimizer == "SGD":
             opt = SGD(model.parameters(), lr=self.lr, momentum = self.weight_decay)
@@ -69,14 +71,21 @@ class ModelTrainer():
         elif self.scheduler == "multiStep":
             schdl = MultiStepLR(optim, milestones=[30,80], gamma=0.1)
 
-        elif self.scheduler == "multiStep":
+        elif self.scheduler == "lambdaLR":
             lambda1 = lambda epoch: epoch // 30
             lambda2 = lambda epoch: 0.95 ** epoch
-            schdl = LambdaLR(optim, lr_lambda=[lambda1, lambda2])
+            schdl = LambdaLR(optim, lr_lambda=[lambda2])
 
         return schdl
     
+    def check_gpu_memory():
+        gpu_mem = torch.cuda.memory_allocated() / 1e6
+        gpu_mem_max = torch.cuda.max_memory_allocated() / 1e6
 
+        print(f"GPU Memory Allocated: {gpu_mem} MB")
+        print(f"GPU Max Memory Allocated: {gpu_mem_max} MB")
+        return gpu_mem, gpu_mem_max
+    
     def loadCheckpoint(self, model, optimizer, path):
         
         checkpoint = torch.load(path)
@@ -93,7 +102,7 @@ class ModelTrainer():
 
         torch.save({
             'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
+            # 'optimizer_state_dict': optimizer.state_dict(),
             }, os.path.join(self.output_dir, f"ckp_epoch_{str(epoch)}.pt"))
         
 
@@ -111,32 +120,58 @@ class ModelTrainer():
     def hardRoundBinarize(self, mask):
         return torch.floor(mask + 0.5)
 
-    def validate(self, model, test_dataloader, alpha):
+    def mean_density(self, mask):
+        return torch.mean(torch.norm(mask, p = 1, dim = (2, 3)) / (mask.shape[2]*mask.shape[3]))
+
+
+    def validate(self, model, test_dataloader, density, alpha):
         
         running_loss = 0.0
-        maskloss = MaskLoss()
+        maskloss = InvarianceLoss()
+        denLoss  = DensityLoss(density)
+
         td_len = len(test_dataloader)
 
         with torch.no_grad():
             for i, X in enumerate(test_dataloader):
 
                 X = X.to(self.device)
-                mask = model(X)                
-                invloss = maskloss(mask)
+                mask = model(X) 
+                # mask = self.hardRoundBinarize(mask)
+                loss1 = denLoss(mask)
 
-                # mask binarize
-                mask = self.hardRoundBinarize(mask)
-
-                print(f"\nOsmosis solver for input : {X.shape}")
                 osmosis = OsmosisInpainting(None, X, mask, mask, offset=1, tau=10, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(False, False, False)
                 loss2 = osmosis.solveBatch(100, save_batch = False, verbose = False)
 
-                reg_loss = invloss + alpha * loss2
+                total_loss = loss1 + alpha * loss2
 
-                running_loss += reg_loss
+                running_loss += total_loss
             
         print(f"validation loss : {running_loss / (i*td_len)}")
+
+    # Function to check for exploding/vanishing gradients
+    def check_gradients(self, model):
+        total_norm = 0
+        for p in model.parameters():
+            param_norm = p.grad.detach().data.norm(2)  # L2 norm of gradients
+            print(f"gradient norm in {p.name} layer : {param_norm.item()}")
+            total_norm += param_norm.item() ** 2
+        total_norm = total_norm ** 0.5
+        print(f"Total gradient norm: {total_norm}")
+
+    # Register a hook to inspect gradients
+    def inspect_gradients(self, module, grad_input, grad_output):
+        print(f"Layer: {module}")
+        print(f"grad_input: {grad_input}")
+        print(f"grad_output: {grad_output}\n")
+
+    def initialize_weights_he(self, m):
+        if isinstance(m, nn.Conv2d):
+            print(f"initializing weights using Kaiming/He Initialization")
+            nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            if m.bias is not None:
+                nn.init.constant_(m.bias, 0)
 
 
     def train(self, model, epochs, alpha, mask_density, resume_checkpoint_file, save_every , val_every, train_dataset ,test_dataset):
@@ -159,9 +194,14 @@ class ModelTrainer():
         model = model.double()
         model.to(self.device)
         model.train()
+        model.apply(self.initialize_weights_he)
 
-        maskloss = MaskLoss()
-        denLoss  = DensityLoss(density = 0.1)
+        # Attach hooks to layers
+        for layer in model.children():
+            layer.register_full_backward_hook(self.inspect_gradients)
+
+        invLoss = InvarianceLoss()
+        denLoss  = DensityLoss(density = mask_density)
 
         print("\nbeginning training ...")
 
@@ -169,42 +209,57 @@ class ModelTrainer():
 
             running_loss = 0.0
             
-            for i, X in enumerate(train_dataloader): 
-                
-                print(f'Epoch {epoch}/{epochs} , Step {i}/{len(train_dataloader)} ')
+            # gpu mem usage
 
-                optimizer.zero_grad()
+            st = time.time()
+            
+            for i, (X, X_norm) in enumerate(train_dataloader, start = 1): 
+                
+                print(f'Epoch {epoch}/{epochs} , batch {i}/{len(train_dataloader)} ')
 
                 X = X.to(self.device)
-                mask = model(X)                
-                mask = self.hardRoundBinarize(mask)
-                loss1 = denLoss(mask)
-                print(f"mask density loss : {loss1}, ", end='')
+                X_norm = X_norm.to(self.device)
 
-                osmosis = OsmosisInpainting(None, X, mask, mask, offset=1, tau=10, device = self.device, apply_canny=False)
+                mask = model(X_norm) # non-binary [0,1]
+                loss1 = invLoss(mask)
+                mask = self.hardRoundBinarize(mask) # binarized {0,1}
+                loss3 = denLoss(mask)
+
+                osmosis = OsmosisInpainting(None, X, mask, mask, offset=1, tau=700, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(False, False, False)
-                loss2 = osmosis.solveBatch(100, save_batch = False, verbose = False)
+                loss2, tts = osmosis.solveBatch(100, save_batch = True, verbose = False)
 
-                reg_loss = loss1 + alpha * loss2
-                print(f"reg_loss : {reg_loss}")
+                total_loss = loss2 + loss3 + loss1 * alpha 
+                total_loss.backward()
 
-                reg_loss.backward()
+                self.check_gradients(model)
+                
                 optimizer.step()
+                scheduler.step()
+                optimizer.zero_grad()
 
-                running_loss += reg_loss
+                running_loss += total_loss
+                print(f"invariance loss : {loss1}, avg_den : {self.mean_density(mask)}, ", end='')
+                print(f"density loss : {loss3}, ", end='')
+                print(f"mse loss : {loss2}, solver time : {str(tts)} sec , ", end='')
+                print(f"total loss : {total_loss}, " , end = '')
+                print(f"running loss : {running_loss / i}")
 
-                if (i+1) % save_every == 0:
+                if (i) % save_every == 0:
                     print("saving checkpoint")
                     self.saveCheckpoint(model, optimizer, epoch)
 
-                if (i+1) % val_every == 0:
-                    print("validating on test dataset")
-                    self.validate(model, test_dataloader, alpha)
 
-            scheduler.step()
+            et = time.time()
+            print(f"total time for batch : {str((et-st) / 60)} min")
 
-            epoch_loss = running_loss / train_dataset.__len__()
+            epoch_loss = running_loss / train_dataloader.__len__()
             print('Epoch [{}/{}], Loss: {:.4f}'.format(epoch+1, epochs, epoch_loss))
+
+            if (epoch + 1) % val_every == 0:
+                print("validating on test dataset")
+                self.validate(model, test_dataloader, mask_density, alpha)
+
 
         # save config file to output dir
 

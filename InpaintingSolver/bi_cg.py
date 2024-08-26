@@ -40,8 +40,13 @@ class OsmosisInpainting:
         else:
             self.U   = self.getInit_U() + offset
 
-        self.mask1   = mask1
-        self.mask2   = mask2
+        if mask1 is None or mask2 is None:
+            self.mask1 = torch.ones_like(V)
+            self.mask2 = torch.ones_like(V)
+        else :
+            self.mask1   = mask1
+            self.mask2   = mask2
+
         self.offset  = offset
         self.tau     = tau
                 
@@ -88,51 +93,52 @@ class OsmosisInpainting:
                 self.U = self.U + self.offset
                 
 
-    def solveBatch(self, kmax = 2, save_batch = False, verbose = False):
+    def solveBatch(self, kmax = 10000, save_batch = False, verbose = False):
 
         tt = 0
         mse = InpaintingLoss()
 
         total_loss = 0.
 
+        st = time.time()
+
         for batch in range(self.batch):
 
+            V = self.V[batch].unsqueeze(0).to(self.device)
             B = self.U[batch].unsqueeze(0).to(self.device)
             U = B.detach().clone().to(self.device)
-
+            init = B.detach().clone().to(self.device)
+            
             if verbose:
-                print(f"batch item : {batch+1} / {self.batch}")
-    
-            st = time.time()
+                print(f"batch item : {batch+1} / {self.batch}")    
 
             for i in range(kmax):
                 B = self.BiCGSTAB(x = U, b = B, batch = batch, kmax = 10000, eps = 1e-9, verbose=verbose)
                 U = B.detach().clone()
-                # print(f"ITERATION : {i+1}, loss : {loss.item()}")        
-
-            et = time.time()
-            tt += (et-st)
-
-            # loss = mse( self.normalize(U), self.normalize(self.V))
-
-            if verbose:
-                print(f"\ntotal time to solution : {str(tt)} sec\n")
+                loss = mse( self.normalize(U), self.normalize(V))
+                print(f"\rITERATION : {i+1}, loss : {loss.item()}", end ='', flush=True)        
+            print()
+            if save_batch:
+                fname = f"solved_.pgm"
+                out = torch.cat( ( (self.V - self.offset)[batch][0], 
+                                (self.mask1 * 255.)[batch][0], 
+                                (init-self.offset)[0][0],
+                                self.normalize(U-self.offset, scale=255.)[0][0] ), dim  = 0)
+                self.writePGMImage(out.cpu().detach().numpy().T, fname)
 
             self.U[batch] = U[0]
         
-            if save_batch:
-                fname = f"solved_{batch}.pgm"
-                self.writePGMImage(self.U[batch][0].numpy().T, fname)
+        et = time.time()
+        tt += (et-st)
 
         # normalize solution and guidance
         U = self.normalize(self.U)
         V = self.normalize(self.V)
-
+        
         # calculate loss self.U and self.V
-        loss = mse(U,V)
-        print(f"mse loss for reconstruction : {loss}, ", end='')
+        loss = mse(U, V)
 
-        return loss
+        return loss , tt
             
     def calculateWeights(self, d_verbose = False, m_verbose = False, s_verbose = False):
         self.prepareInp()
@@ -146,8 +152,6 @@ class OsmosisInpainting:
         self.getStencilMatrices(s_verbose)
         # print(f"stencils weights calculated")
         
-        print()
-
     def normalize(self, X, scale = 1.):
         b, c, _ , _ = X.shape
         X = X - torch.amin(X, dim=(2,3)).view(b,c,1,1)
@@ -189,7 +193,7 @@ class OsmosisInpainting:
     def writePGMImage(self, X, filename):
         # add comments for pgm img
         cv2.imwrite(filename, X[1:-1, 1:-1])
-        print(f"written to : {filename}")
+        # print(f"written to : {filename}")
 
     def prepareInp(self):
         """
@@ -288,7 +292,7 @@ class OsmosisInpainting:
         m  = torch.mean(self.V, dim = (2,3))
 
         # create a flat image ; avg gray val same as guidance
-        u  = torch.zeros_like(self.V, device = self.device) + m.view(self.batch, self.channel, 1, 1)
+        u  = torch.ones_like(self.V, device = self.device) * m.view(self.batch, self.channel, 1, 1)
 
         # create a noisy image ; avg gray val same as guidance
         return u
@@ -299,15 +303,18 @@ class OsmosisInpainting:
         edge = cv2.Canny(img, 100, 150 )
         print(edge) 
 
-    def binarizeMask(self):
+    def hardRoundBinarize(self):
         if self.mask1 != None and self.mask2 != None:
-            self.mask1 = (self.mask1 > 0).float()
-            self.mask2 = (self.mask2 > 0).float()
+            self.mask1 =  torch.floor(self.mask1 + 0.5)
+            self.mask2 =  torch.floor(self.mask2 + 0.5)
             
     def applyMask(self , verbose = False):
-        self.binarizeMask() 
+        
+        # self.hardRoundBinarize() 
+
         self.d1 = torch.mul(self.d1, self.mask1)
         self.d2 = torch.mul(self.d2, self.mask2)
+
         if verbose:
             self.analyseImage(self.mask1, "mask1")
             self.analyseImage(self.mask2, "mask2")
