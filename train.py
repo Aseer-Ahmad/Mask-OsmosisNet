@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import time
 import matplotlib.pyplot as plt
-
+import numpy as np
 import os
 
 from InpaintingSolver.bi_cg import OsmosisInpainting
@@ -282,7 +282,7 @@ class ModelTrainer():
 
                 # update plot and save
                 clist = [l for l in range(1, len(loss1_list) + 1)]
-                save_plot([loss1_list, loss2_list, loss3_list, running_loss_list], clist, ["invloss", "mse", "denloss"], os.path.join(self.output_dir, "all_losses.png"))
+                save_plot([np.log(loss1_list), np.log(loss2_list), np.log(loss3_list), np.log(running_loss_list)], clist, ["invloss", "mse", "denloss", "runningloss"], os.path.join(self.output_dir, "all_losses.png"))
                 save_plot([running_loss_list], clist, ["running loss"], os.path.join(self.output_dir, "runloss.png"))
                 save_plot([loss1_list], clist, ["invariance loss"], os.path.join(self.output_dir, "invloss.png"))
                 save_plot([loss2_list], clist, ["mse loss"], os.path.join(self.output_dir, "mseloss.png"))
@@ -293,7 +293,7 @@ class ModelTrainer():
             print(f"total time for batch : {str((et-st) / 60)} min")
 
             epoch_loss = running_loss / train_dataloader.__len__()
-            epochloss_list.append(epoch_loss)
+            epochloss_list.append(epoch_loss.item())
             print('Epoch [{}/{}], Loss: {:.4f}'.format(epoch+1, epochs, epoch_loss))
             save_plot([epochloss_list], [i for i in range(epoch+1)], ["epoch loss"], os.path.join(self.output_dir, "epochloss.png"))
 
