@@ -35,13 +35,12 @@ class UNet(nn.Module):
         x = self.up4(x, x1)
         logits = self.outc(x)
         prob = torch.special.expit(logits)
+        prob = self.scaleDensity(prob)
         return prob
     
-    # def scaleDensity(self, prob):
-    #     h, w = prob.shape[2], prob.shape[3]
-    #     mask = torch.floor(prob + 0.5)
-
-    #     if torch.norm(mask, p = 1, dim = (2, 3))/ (h*w)
+    def scaleDensity(self, inp):
+        b, c, h, w = inp.shape
+        return (0.1 * inp) / ( (torch.norm(inp, p = 1, dim = (2, 3)).view(b, c, 1, 1)) / (h*w) + 1e-9)
     
     def use_checkpointing(self):
         self.inc = torch.utils.checkpoint(self.inc)

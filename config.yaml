@@ -4,7 +4,7 @@ RESUME_CHECKPOINT :
 SAVE_EVERY : 10
 VAL_EVERY : 10
 OUTPUT_DIR : unet-imgnet
-EXP_NAME : test_1
+EXP_NAME : test6
 
 # DATA PARMS
 TRAIN_FILENAME : iids_train.txt
@@ -31,3 +31,5 @@ BIN_METH       : QUANT
 OFFSET         :
 TAU            :
 ITERATIONS     :
+NOTE           : scaling prob to density ; alpha removed from dens ; loss(binaried input again) 
+                 

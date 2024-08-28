@@ -1,3 +1,5 @@
+import gc
+import sys
 import cv2
 import torch
 import torch.nn.functional as F
@@ -12,17 +14,29 @@ import torch.nn as nn
 
 torch.set_printoptions(linewidth=2000)
 
-class InpaintingLoss(nn.Module):
+class MSELoss(nn.Module):
     """
     Means squared loss : 
     """
     def __init__(self):
-        super(InpaintingLoss, self).__init__()
+        super(MSELoss, self).__init__()
 
     def forward(self, U, V):
         nxny = U.shape[2] * U.shape[3]
         return torch.mean(torch.norm(U-V, p = 2, dim = (2,3))**2 / nxny)
 
+def get_variable_memory_usage():
+    variables = gc.get_objects()  # Get all objects tracked by the garbage collector
+    for var in variables:
+        try:
+            var_size = sys.getsizeof(var) / (1024 * 1024)  # Get the size of the variable
+            var_name = [k for k, v in locals().items() if id(v) == id(var)]
+            # if var_name:  # If the variable name exists
+            #     print(f"{var_name[0]}: {var_size} bytes")
+        except:
+            # Ignore objects that cannot be sized or traced back to a name
+            pass
+        
 class OsmosisInpainting:
 
     def __init__(self, U, V, mask1, mask2, offset, tau, hx = 1, hy = 1, device = None, apply_canny = False):
@@ -96,7 +110,7 @@ class OsmosisInpainting:
     def solveBatch(self, kmax = 10000, save_batch = False, verbose = False):
 
         tt = 0
-        mse = InpaintingLoss()
+        mse = MSELoss()
 
         total_loss = 0.
 
@@ -104,20 +118,21 @@ class OsmosisInpainting:
 
         for batch in range(self.batch):
 
-            V = self.V[batch].unsqueeze(0).to(self.device)
-            B = self.U[batch].unsqueeze(0).to(self.device)
-            U = B.detach().clone().to(self.device)
-            init = B.detach().clone().to(self.device)
+            V = self.V[batch].unsqueeze(0)
+            B = self.U[batch].unsqueeze(0)
+            U = B      #.detach().clone().to(self.device)
+            # init = B.detach().clone().to(self.device)
             
             if verbose:
                 print(f"batch item : {batch+1} / {self.batch}")    
 
             for i in range(kmax):
                 B = self.BiCGSTAB(x = U, b = B, batch = batch, kmax = 10000, eps = 1e-9, verbose=verbose)
-                U = B.detach().clone()
+                U = B     #.detach().clone()
                 loss = mse( self.normalize(U), self.normalize(V))
-                print(f"\rITERATION : {i+1}, loss : {loss.item()}", end ='', flush=True)        
+                print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)        
             print()
+
             if save_batch:
                 fname = f"solved_.pgm"
                 out = torch.cat( ( (self.V - self.offset)[batch][0], 
@@ -130,7 +145,7 @@ class OsmosisInpainting:
         
         et = time.time()
         tt += (et-st)
-
+                
         # normalize solution and guidance
         U = self.normalize(self.U)
         V = self.normalize(self.V)
@@ -155,7 +170,7 @@ class OsmosisInpainting:
     def normalize(self, X, scale = 1.):
         b, c, _ , _ = X.shape
         X = X - torch.amin(X, dim=(2,3)).view(b,c,1,1)
-        X = X / torch.amax(X, dim=(2,3)).view(b,c,1,1)
+        X = X / (torch.amax(X, dim=(2,3)).view(b,c,1,1) + 1e-7)
         X = X * scale
 
         return X
@@ -311,7 +326,6 @@ class OsmosisInpainting:
     def applyMask(self , verbose = False):
         
         # self.hardRoundBinarize() 
-
         self.d1 = torch.mul(self.d1, self.mask1)
         self.d2 = torch.mul(self.d2, self.mask2)
 
@@ -445,7 +459,7 @@ class OsmosisInpainting:
                         
                         # x, r contains boundaries
                         x = x + alpha * p 
-                        r = s.detach().clone()
+                        r = s
                     
                     else :
 
@@ -453,7 +467,7 @@ class OsmosisInpainting:
                         omega = torch.sum( torch.mul(t, s)) / torch.sum(torch.mul(t, t))
                                         
                         x = x + alpha * p + omega * s
-                        r_old = r.detach().clone()
+                        r_old = r
                         r = s - omega * t 
                         beta = (alpha / omega) * torch.sum(torch.mul(r[:, :, 1:self.nx+1, 1:self.ny+1], r_0[:, :, 1:self.nx+1, 1:self.ny+1])) / torch.sum(torch.mul(r_old[:, :, 1:self.nx+1, 1:self.ny+1], r_0[:, :, 1:self.nx+1, 1:self.ny+1]))
                     
@@ -468,7 +482,6 @@ class OsmosisInpainting:
                     if verbose:
                         print(f"k : {k} , RESIDUAL : {r_abs}")
 
-        
         return x
 
     def applyStencilBatch(self, inp, COND, verbose = False):
