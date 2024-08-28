@@ -122,7 +122,7 @@ class OsmosisInpainting:
                 fname = f"solved_.pgm"
                 out = torch.cat( ( (self.V - self.offset)[batch][0], 
                                 (self.mask1 * 255.)[batch][0], 
-                                (init-self.offset)[0][0],
+                                # (init-self.offset)[0][0],
                                 self.normalize(U-self.offset, scale=255.)[0][0] ), dim  = 0)
                 self.writePGMImage(out.cpu().detach().numpy().T, fname)
 

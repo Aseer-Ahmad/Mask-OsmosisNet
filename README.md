@@ -9,7 +9,7 @@ wget https://www2.eecs.berkeley.edu/Research/Projects/CS/vision/bsds/BSDS300-ima
 Make the structure as follows : 
 ```bash
 ├───dataset
-    └───BSDS300
+    └───MAIN_FOLDER_NAME
         └───images
             ├───test
             ├───train

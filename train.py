@@ -33,7 +33,7 @@ class DensityLoss(nn.Module):
 
     def forward(self, mask, eps = 1e-6):
         h, w = mask.shape[2], mask.shape[3]
-        return torch.mean( torch.abs( (torch.norm(mask, p = 1, dim = (2, 3))/ (h*w)) 
+        return torch.mean( ( (torch.norm(mask, p = 1, dim = (2, 3))/ (h*w)) 
                                      - self.density) )
 
 def save_plot(loss_lists, x, legend_list, save_path):
@@ -254,7 +254,7 @@ class ModelTrainer():
                 osmosis.calculateWeights(False, False, False)
                 loss2, tts = osmosis.solveBatch(100, save_batch = True, verbose = False)
 
-                total_loss = loss2 + loss3 + loss1 * alpha 
+                total_loss = loss2 + loss3 * alpha + loss1 * alpha 
                 total_loss.backward()
 
                 total_norm = self.check_gradients(model)
