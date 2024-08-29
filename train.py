@@ -166,7 +166,6 @@ class ModelTrainer():
                 osmosis = OsmosisInpainting(None, X, mask, mask, offset=1, tau=10, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(False, False, False)
                 loss2 = osmosis.solveBatch(100, save_batch = False, verbose = False)
-
                 total_loss = loss1 + alpha * loss2
 
                 running_loss += total_loss
@@ -260,7 +259,9 @@ class ModelTrainer():
                 osmosis = OsmosisInpainting(None, X, mask_detach, mask_detach, offset=1, tau=700, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(False, False, False)
                 loss2, tts = osmosis.solveBatch(100, save_batch = True, verbose = False)
-                                
+                if torch.isnan(loss2):
+                    print(f"input X : {X}")
+
                 total_loss = loss2 + loss3 + loss1 * alpha 
                 total_loss.backward()
 

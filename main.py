@@ -61,7 +61,7 @@ def main(config):
         os.makedirs(exp_path)
     
     # to print to a file
-    # sys.stdout = open(os.path.join(exp_path, 'output.txt'),'wt')
+    sys.stdout = open(os.path.join(exp_path, 'output.txt'),'wt')
 
     print(f"CONFIG : \n{config}\n")
 

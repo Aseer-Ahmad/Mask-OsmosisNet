@@ -23,7 +23,7 @@ class MSELoss(nn.Module):
 
     def forward(self, U, V):
         nxny = U.shape[2] * U.shape[3]
-        return torch.mean(torch.norm(U-V, p = 2, dim = (2,3))**2 / nxny)
+        return torch.nanmean(torch.norm(U-V, p = 2, dim = (2,3))**2 / nxny)
 
         
 class OsmosisInpainting:
@@ -110,15 +110,19 @@ class OsmosisInpainting:
             V = self.V[batch].unsqueeze(0).detach().clone()
             B = self.U[batch].unsqueeze(0).detach().clone()
             U = B.detach().clone()   #.detach().clone().to(self.device)
-            # init = B.detach().clone().to(self.device)
+            init = B.detach().clone().to(self.device)
             
             if verbose:
                 print(f"batch item : {batch+1} / {self.batch}")    
 
             for i in range(kmax):
                 B = self.BiCGSTAB(x = U, b = B, batch = batch, kmax = 10000, eps = 1e-9, verbose=verbose)
-                U = B     #.detach().clone()
+                U = B
                 loss = mse( self.normalize(U), self.normalize(V))
+                if torch.isnan(loss):
+                    print(f"U : {U}") 
+                    print(f"norm U : {self.normalize(U)}")    
+                    print(f"init : {init}")         
                 print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)        
             print()
 
@@ -141,7 +145,8 @@ class OsmosisInpainting:
         
         # calculate loss self.U and self.V
         loss = mse(U, V)
-
+        
+        
         return loss , tt
             
     def calculateWeights(self, d_verbose = False, m_verbose = False, s_verbose = False):
@@ -432,8 +437,9 @@ class OsmosisInpainting:
                 if sigma <= eps * v_abs * r0_abs:
 
                     restart = 1
-                    if verbose:
-                        print(f"restarting ... k : {k} , sigma : {sigma} , vabs : {v_abs}")
+                    k += 1
+                    # if verbose:
+                    print(f"restarting ... k : {k} , sigma : {sigma} , vabs : {v_abs}")
 
                 else :
 
