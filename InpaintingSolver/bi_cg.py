@@ -25,17 +25,6 @@ class MSELoss(nn.Module):
         nxny = U.shape[2] * U.shape[3]
         return torch.mean(torch.norm(U-V, p = 2, dim = (2,3))**2 / nxny)
 
-def get_variable_memory_usage():
-    variables = gc.get_objects()  # Get all objects tracked by the garbage collector
-    for var in variables:
-        try:
-            var_size = sys.getsizeof(var) / (1024 * 1024)  # Get the size of the variable
-            var_name = [k for k, v in locals().items() if id(v) == id(var)]
-            # if var_name:  # If the variable name exists
-            #     print(f"{var_name[0]}: {var_size} bytes")
-        except:
-            # Ignore objects that cannot be sized or traced back to a name
-            pass
         
 class OsmosisInpainting:
 
@@ -118,9 +107,9 @@ class OsmosisInpainting:
 
         for batch in range(self.batch):
 
-            V = self.V[batch].unsqueeze(0)
-            B = self.U[batch].unsqueeze(0)
-            U = B      #.detach().clone().to(self.device)
+            V = self.V[batch].unsqueeze(0).detach().clone()
+            B = self.U[batch].unsqueeze(0).detach().clone()
+            U = B.detach().clone()   #.detach().clone().to(self.device)
             # init = B.detach().clone().to(self.device)
             
             if verbose:

@@ -248,7 +248,7 @@ class ModelTrainer():
                 
                 print(f'Epoch {epoch}/{epochs} , batch {i}/{len(train_dataloader)} ')
 
-                X = X.detach().clone().to(self.device)
+                X = X.to(self.device)
                 X_norm = X_norm.to(self.device)
 
                 mask = model(X_norm) # non-binary [0,1]
@@ -256,12 +256,11 @@ class ModelTrainer():
                 mask = self.hardRoundBinarize(mask) # binarized {0,1}
                 loss3 = denLoss(mask)
 
-                osmosis = OsmosisInpainting(None, X, mask, mask, offset=1, tau=700, device = self.device, apply_canny=False)
+                mask_detach = mask.detach().clone()
+                osmosis = OsmosisInpainting(None, X, mask_detach, mask_detach, offset=1, tau=700, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(False, False, False)
                 loss2, tts = osmosis.solveBatch(100, save_batch = True, verbose = False)
-                
-                get_variable_memory_usage()
-                
+                                
                 total_loss = loss2 + loss3 + loss1 * alpha 
                 total_loss.backward()
 
