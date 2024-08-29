@@ -262,7 +262,7 @@ class ModelTrainer():
                 if torch.isnan(loss2):
                     print(f"input X : {X}")
 
-                total_loss = loss2 + loss3 + loss1 * alpha 
+                total_loss = loss2 + loss3 * 0.1 + loss1 * alpha 
                 total_loss.backward()
 
                 total_norm = self.check_gradients(model)

@@ -75,10 +75,10 @@ class OsmosisInpainting:
             print(f"ITERATION : {i+1}")
 
             st = time.time()
-            X = self.BiCGSTAB(x = self.U, b = X, batch = 0, kmax = 10000, eps = 1e-9, verbose=verbose)
+            X, _, _ = self.BiCGSTAB(x = self.U, b = X, batch = 0, kmax = 10000, eps = 1e-9, verbose=verbose)
             et = time.time()
             tt += (et-st)
-            self.U = X.detach().clone()
+            self.U = X
             
             comm = self.analyseImage(self.U, f"evolving U at iter {i}")
             comm += f"time for iteration : {str(et-st)} sec\n"
@@ -90,13 +90,44 @@ class OsmosisInpainting:
             if i % self.save_every == 0:
                 self.U = self.U - self.offset
                 
-                fname = f"kani_{str(i+1)}.pgm"
+                fname = f"camera_{str(i+1)}.pgm"
                 self.writePGMImage(self.U[0][0].numpy().T, fname)
                 # self.writeToPGM(fname = fname, t = self.U[0][0].T, comments= comm)
                 self.U = self.U + self.offset
                 
+    def solveBatchProcess(self, kmax = 2, save_batch = 10, verbose = False):
+        
+        X = self.U.detach().clone()
+        print(self.analyseImage(X, f"Initial img"))
+        print()
+        tt = 0
 
-    def solveBatch(self, kmax = 10000, save_batch = False, verbose = False):
+        for i in range(kmax):
+            print(f"ITERATION : {i+1}")
+
+            st = time.time()
+            X = self.BiCGSTAB_Batched(x = self.U, b = X, batch = 0, kmax = 10000, eps = 1e-9, verbose=verbose)
+            et = time.time()
+            tt += (et-st)
+            self.U = X
+            
+            comm = self.analyseImage(self.U, f"evolving U at iter {i}")
+            comm += f"time for iteration : {str(et-st)} sec\n"
+            comm += f"total time         : {str(tt)} sec\n"
+            #calculate metrics
+            comm += self.getMetrics()
+            print(comm)
+
+            if i % self.save_every == 0:
+                self.U = self.U - self.offset
+                
+                fname = f"camera_{str(i+1)}.pgm"
+                self.writePGMImage(self.U[0][0].numpy().T, fname)
+                # self.writeToPGM(fname = fname, t = self.U[0][0].T, comments= comm)
+                self.U = self.U + self.offset
+
+
+    def solveBatch(self, kmax , save_batch = False, verbose = False):
 
         tt = 0
         mse = MSELoss()
@@ -115,15 +146,28 @@ class OsmosisInpainting:
             if verbose:
                 print(f"batch item : {batch+1} / {self.batch}")    
 
+            loss = 0.
+            count  = 5
             for i in range(kmax):
-                B = self.BiCGSTAB(x = U, b = B, batch = batch, kmax = 10000, eps = 1e-9, verbose=verbose)
+                B, restart, k = self.BiCGSTAB(x = U, b = B, batch = batch, kmax = 10000, eps = 1e-9, verbose=verbose)
                 U = B
+
+                # for systems stuck at the same loss
+                if torch.abs(mse( self.normalize(U), self.normalize(V)) - loss) < 1e-5:
+                    count -= 1
+
                 loss = mse( self.normalize(U), self.normalize(V))
+
                 if torch.isnan(loss):
                     print(f"U : {U}") 
                     print(f"norm U : {self.normalize(U)}")    
                     print(f"init : {init}")         
                 print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)        
+                
+                # for systems that are stuck in restart ; skill solving those systems
+                if count == 0 or (restart == 1 and k == 10000):
+                    break
+
             print()
 
             if save_batch:
@@ -438,8 +482,8 @@ class OsmosisInpainting:
 
                     restart = 1
                     k += 1
-                    # if verbose:
-                    print(f"restarting ... k : {k} , sigma : {sigma} , vabs : {v_abs}")
+                    if verbose:
+                        print(f"restarting ... k : {k} , sigma : {sigma} , vabs : {v_abs}")
 
                 else :
 
@@ -477,7 +521,7 @@ class OsmosisInpainting:
                     if verbose:
                         print(f"k : {k} , RESIDUAL : {r_abs}")
 
-        return x
+        return x, restart, k
 
     def applyStencilBatch(self, inp, COND, verbose = False):
         """

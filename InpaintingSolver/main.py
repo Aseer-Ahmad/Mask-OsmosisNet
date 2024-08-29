@@ -31,14 +31,14 @@ if __name__ == '__main__':
     V = readPGMImage(v_pth)
     mask = readPGMImage(mask_pth)
 
-    # osmosis = OsmosisInpainting(None, V, mask, mask, offset=1, tau=10, apply_canny=False)
-    # osmosis.calculateWeights(False, False, False)
-    # osmosis.solve(1000, save_every = 1000, verbose = False)
+    osmosis = OsmosisInpainting(None, V, None, None, offset=1, tau=10, apply_canny=False)
+    osmosis.calculateWeights(False, False, False)
+    osmosis.solve(1000, save_every = 1000, verbose = False)
 
     # V = V.repeat(4, 1, 1, 1)
-    osmosis = OsmosisInpainting(None, V, mask, mask, offset=1, tau=10, device = None, apply_canny=False)
-    osmosis.calculateWeights(False, False, False)
-    osmosis.solveBatch(10, save_batch = False, verbose = False)
+    # osmosis = OsmosisInpainting(None, V, None, None, offset=1, tau=10, device = None, apply_canny=False)
+    # osmosis.calculateWeights(False, False, False)
+    # osmosis.solveBatchProcess(10, save_batch = False, verbose = True)
 
     # pth = 'InpaintingSolver/test.pgm'
     # V = osmosis.readPGMImage(pth)
