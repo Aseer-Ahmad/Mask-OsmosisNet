@@ -4,7 +4,7 @@ RESUME_CHECKPOINT :
 SAVE_EVERY : 10
 VAL_EVERY : 10
 OUTPUT_DIR : unet-imgnet
-EXP_NAME : test7
+EXP_NAME : test8
 
 # DATA PARMS
 TRAIN_FILENAME : iids_train.txt

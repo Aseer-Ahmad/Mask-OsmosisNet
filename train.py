@@ -258,7 +258,11 @@ class ModelTrainer():
                 mask_detach = mask.detach().clone()
                 osmosis = OsmosisInpainting(None, X, mask_detach, mask_detach, offset=1, tau=700, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(False, False, False)
-                loss2, tts = osmosis.solveBatch(100, save_batch = True, verbose = False)
+                # loss2, tts = osmosis.solveBatch(100, save_batch = True, verbose = False)
+                osmosis.solveBatchProcess(100, save_batch = False, verbose = True)
+
+                break
+
                 if torch.isnan(loss2):
                     print(f"input X : {X}")
 
