@@ -99,33 +99,47 @@ class OsmosisInpainting:
     def solveBatchProcess(self, kmax = 100, save_batch = False, verbose = False):
         
         X = self.U.detach().clone()
-        print(self.analyseImage(X, f"Initial img"))
-        print()
+        U = self.U.detach().clone()
         tt = 0
+        
+        mse = MSELoss()
+
+        st = time.time()
 
         for i in range(kmax):
-            print(f"\n\n\n\nITERATION : {i+1}")
+            print(f"ITERATION : {i+1}")
 
-            st = time.time()
-            X = self.BiCGSTAB_Batched(x = self.U, b = X, kmax = 10000, eps = 1e-9, verbose=verbose)
-            et = time.time()
-            tt += (et-st)
-            self.U = X
+            X = self.BiCGSTAB_Batched(x = U, b = X, kmax = 10000, eps = 1e-9, verbose=verbose)
+            U = X
             
-            comm = self.analyseImage(self.U, f"evolving U at iter {i}")
-            comm += f"time for iteration : {str(et-st)} sec\n"
-            comm += f"total time         : {str(tt)} sec\n"
-            #calculate metrics
-            comm += self.getMetrics()
-            print(comm)
+            
+        et = time.time()
+        tt += (et-st)
+        
+        # comm = f"time for iteration : {str(et-st)} sec\n"
+        # comm += f"total time         : {str(tt)} sec\n"
+        # comm += self.getMetrics()
+        # print(comm)
+
+        self.U = X
 
         if save_batch:
             fname = f"solved_b.pgm"
-            out = torch.cat( ( (self.V - self.offset)[0][0], 
-                            # (self.mask1 * 255.)[0][0], 
+            out = torch.cat( ( (self.V.reshape(self.batch*(self.nx+2), self.ny+2) - self.offset), 
+                            (self.mask1 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
                             # (init-self.offset)[0][0],
-                            self.normalize(self.U-self.offset, scale=255.)[0][0] ), dim  = 0)
+                            self.normalize(self.U-self.offset, scale=255.).reshape(self.batch*(self.nx+2), self.ny+2)),
+                            dim  = 1)
             self.writePGMImage(out.cpu().detach().numpy().T, fname)
+
+        # normalize solution and guidance
+        U = self.normalize(self.U)
+        V = self.normalize(self.V)
+        
+        # calculate loss self.U and self.V
+        loss = mse(U, V)
+
+        return loss, tt
 
 
     def solveBatch(self, kmax , save_batch = False, verbose = False):
@@ -153,7 +167,7 @@ class OsmosisInpainting:
                 B, restart, k = self.BiCGSTAB(x = U, b = B, batch = batch, kmax = 10000, eps = 1e-9, verbose=verbose)
                 U = B
 
-                # for systems stuck at the same loss
+                # for systems stuck at the same loss for over [5] iterations
                 if torch.abs(mse( self.normalize(U), self.normalize(V)) - loss) < 1e-5:
                     count -= 1
 
@@ -165,7 +179,7 @@ class OsmosisInpainting:
                     print(f"init : {init}")         
                 print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)        
                 
-                # for systems that are stuck in restart ; skill solving those systems
+                # for systems that are stuck in restart ; skip solving those systems
                 if count == 0 or (restart == 1 and k == 10000):
                     break
 
@@ -596,7 +610,7 @@ class OsmosisInpainting:
             print(f"r_abs : {r_abs}")
         # check if any batch, channel system fails the convergence condition
 
-        while (k < kmax).any() and (r_abs > eps * self.nx * self.ny).any(): # and (restart == 0).any():
+        while ((k < kmax) & (r_abs > eps * self.nx * self.ny)).any(): # and (restart == 0).any():
 
             # =======================================
             # WHILE CONVERGENCE CONDITION
@@ -704,7 +718,7 @@ class OsmosisInpainting:
             k[NOT_RES_COND] += 1 
             r_abs[NOT_RES_COND] = torch.norm(r[NOT_RES_COND][ :, 1:self.nx+1, 1:self.ny+1], dim = (1, 2), p = 'fro')
 
-            if verbose:
-                print(f"k : {k}, RESIDUAL : {r_abs}")
+            # if verbose:
+            print(f"k : {k}, RESIDUAL : {r_abs}")
 
         return x

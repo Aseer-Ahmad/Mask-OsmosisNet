@@ -38,6 +38,7 @@ if __name__ == '__main__':
 
     # V = V.repeat(4, 1, 1, 1)
     V = torch.cat((V, V1), dim = 0)
+    print(V.shape)
 
     osmosis = OsmosisInpainting(None, V, None, None, offset=1, tau=10, device = None, apply_canny=False)
     osmosis.calculateWeights(False, False, False)
