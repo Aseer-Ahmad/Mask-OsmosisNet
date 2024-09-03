@@ -592,11 +592,6 @@ class OsmosisInpainting:
         omega   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device)
         beta    = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device)
 
-        r_abs_init = torch.zeros( (self.batch, self.channel), device = self.device)
-        r_abs_last = torch.zeros( (self.batch, self.channel), device = self.device)
-        r_abs_skip = torch.zeros( (self.batch, self.channel), device = self.device)
-        stagnant_count = torch.zeros( (self.batch, self.channel), device = self.device)
-
         r_0     = torch.zeros_like(x)
         r       = torch.zeros_like(x)
         r_old   = torch.zeros_like(x)
@@ -605,20 +600,23 @@ class OsmosisInpainting:
         s       = torch.zeros_like(x)
         t       = torch.zeros_like(x)
 
+        # variables to check info. to skip solving systems 
+        r_abs_init = torch.zeros( (self.batch, self.channel), device = self.device)
+        r_abs_last = torch.zeros( (self.batch, self.channel), device = self.device)
+        r_abs_skip = torch.zeros( (self.batch, self.channel), device = self.device)
+        stagnant_count = torch.zeros( (self.batch, self.channel), device = self.device)
+
 
         RES_COND = restart == 1
-        # using condition to select only those batch, channel that required restart
+        # using condition to select only those batch, channel that required restart ; NOR REQUIRED anymore
         restart[RES_COND] = 0
         r_0[RES_COND]     = self.applyStencilBatch(x[RES_COND], RES_COND)  
         r_0[RES_COND]     = r[RES_COND] = p[RES_COND] = self.zeroPadBatch(b[RES_COND] - r_0[RES_COND])
         r_abs[RES_COND]   = r0_abs[RES_COND] = torch.norm(r_0[RES_COND][:, 1:self.nx+1, 1:self.ny+1], dim = (1, 2), p = "fro")
 
-        # r_abs_init = r_abs.detach().clone()
-        # r_abs_last = r_abs
 
         if verbose:
             print(f"r_abs : {r_abs}")
-        # check if any batch, channel system fails the convergence condition
 
         while ( (k < kmax) & (r_abs > eps * self.nx * self.ny) ).any(): # and (restart == 0).any():
 
@@ -744,7 +742,7 @@ class OsmosisInpainting:
 
             # rabs have blown above 1e10 or
             # is nan or 
-            # has stagnated ( 0. ) above 200 iter
+            # has stagnated ( 0. ) above 200 iter or
             # rabs change is not in the magnitude of log10 for 200 iter
             BREAK_COND = (CONV_COND) & ((torch.isnan(r_abs)) | 
                                         (r_abs_diff_init < -1e10) | 
