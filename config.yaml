@@ -21,8 +21,8 @@ WEIGHT_DECAY   : 0.
 MOMENTUM       : 0.9
 OPT            : Adam
 SCHEDL         : lambdaLR
-TRAIN_BATCH    : 8
-TEST_BATCH     : 8
+TRAIN_BATCH    : 32
+TEST_BATCH     : 32
 ALPHA          : 0.001
 MASK_DEN       : 0.1
 BIN_METH       : QUANT

@@ -12,8 +12,8 @@ from torchmetrics.image import PeakSignalNoiseRatio
 from torchmetrics.regression import MeanSquaredError
 import torch.nn as nn
 
-torch.set_printoptions(linewidth=2000)
-torch.set_printoptions(precision=16)
+torch.set_printoptions(linewidth=3000)
+torch.set_printoptions(precision=6)
 
 class MSELoss(nn.Module):
     """
@@ -96,8 +96,10 @@ class OsmosisInpainting:
                 # self.writeToPGM(fname = fname, t = self.U[0][0].T, comments= comm)
                 self.U = self.U + self.offset
                 
-    def solveBatchProcess(self, kmax = 100, save_batch = False, verbose = False):
+    def solveBatchParallel(self, kmax = 100, save_batch = False, verbose = False):
         
+        RESIDUAL_CHECK_FLAGS = torch.zeros((self.batch, self.channel), device = self.device)
+                
         X = self.U.detach().clone()
         U = self.U.detach().clone()
         tt = 0
@@ -107,11 +109,11 @@ class OsmosisInpainting:
         st = time.time()
 
         for i in range(kmax):
-            print(f"ITERATION : {i+1}")
 
-            X = self.BiCGSTAB_Batched(x = U, b = X, kmax = 10000, eps = 1e-9, verbose=verbose)
+            X = self.BiCGSTAB_Batched(x = U, b = X, kmax = 3000, eps = 1e-9, verbose=verbose)
             U = X
-            
+            loss = mse( self.normalize(U), self.normalize(self.V))
+            print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)        
             
         et = time.time()
         tt += (et-st)
@@ -142,7 +144,7 @@ class OsmosisInpainting:
         return loss, tt
 
 
-    def solveBatch(self, kmax , save_batch = False, verbose = False):
+    def solveBatchSeq(self, kmax , save_batch = False, verbose = False):
 
         tt = 0
         mse = MSELoss()
@@ -212,13 +214,16 @@ class OsmosisInpainting:
         self.prepareInp()
 
         self.getDriftVectors(d_verbose)
-        print(f"drift vectors calculated")
+        if d_verbose:
+            print(f"drift vectors calculated")
 
         self.applyMask(m_verbose)
-        print(f"mask applied to drift vectors")
+        if m_verbose:
+            print(f"mask applied to drift vectors")
 
         self.getStencilMatrices(s_verbose)
-        print(f"stencils weights calculated")
+        if s_verbose:
+            print(f"stencils weights calculated")
         
     def normalize(self, X, scale = 1.):
         b, c, _ , _ = X.shape
@@ -587,6 +592,11 @@ class OsmosisInpainting:
         omega   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device)
         beta    = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device)
 
+        r_abs_init = torch.zeros( (self.batch, self.channel), device = self.device)
+        r_abs_last = torch.zeros( (self.batch, self.channel), device = self.device)
+        r_abs_skip = torch.zeros( (self.batch, self.channel), device = self.device)
+        stagnant_count = torch.zeros( (self.batch, self.channel), device = self.device)
+
         r_0     = torch.zeros_like(x)
         r       = torch.zeros_like(x)
         r_old   = torch.zeros_like(x)
@@ -596,9 +606,6 @@ class OsmosisInpainting:
         t       = torch.zeros_like(x)
 
 
-        # check if any of restart is True or not
-        # while restart.any():    
-
         RES_COND = restart == 1
         # using condition to select only those batch, channel that required restart
         restart[RES_COND] = 0
@@ -606,11 +613,14 @@ class OsmosisInpainting:
         r_0[RES_COND]     = r[RES_COND] = p[RES_COND] = self.zeroPadBatch(b[RES_COND] - r_0[RES_COND])
         r_abs[RES_COND]   = r0_abs[RES_COND] = torch.norm(r_0[RES_COND][:, 1:self.nx+1, 1:self.ny+1], dim = (1, 2), p = "fro")
 
+        # r_abs_init = r_abs.detach().clone()
+        # r_abs_last = r_abs
+
         if verbose:
             print(f"r_abs : {r_abs}")
         # check if any batch, channel system fails the convergence condition
 
-        while ((k < kmax) & (r_abs > eps * self.nx * self.ny)).any(): # and (restart == 0).any():
+        while ( (k < kmax) & (r_abs > eps * self.nx * self.ny) ).any(): # and (restart == 0).any():
 
             # =======================================
             # WHILE CONVERGENCE CONDITION
@@ -620,9 +630,8 @@ class OsmosisInpainting:
             if verbose:
                 print(f"WHILE CONVERGENCE CONDITION :\n {CONV_COND}")
             
-            # print(f"p : {p}")
             v[CONV_COND] = self.applyStencilBatch(p[CONV_COND], CONV_COND)
-            # print(f"V : {v}")
+
             sigma[CONV_COND]  = torch.sum(torch.mul(v[CONV_COND], r_0[CONV_COND]), dim = (1, 2))
             v_abs[CONV_COND]  = torch.norm(v[CONV_COND], dim = (1, 2),  p = "fro")
             
@@ -714,11 +723,40 @@ class OsmosisInpainting:
             # broadcast 7
             p[CONV4_COND] = r[CONV4_COND] + beta[CONV4_COND].view(-1, 1, 1) * ( p[CONV4_COND] - omega[CONV4_COND].view(-1, 1, 1) * v[CONV4_COND])
             
-            # print(f"p  : {p}")
             k[NOT_RES_COND] += 1 
             r_abs[NOT_RES_COND] = torch.norm(r[NOT_RES_COND][ :, 1:self.nx+1, 1:self.ny+1], dim = (1, 2), p = 'fro')
 
-            # if verbose:
-            print(f"k : {k}, RESIDUAL : {r_abs}")
+            # =======================================
+            # CONDITION TO SKIP SOLVING A SYTEM ; USEFUL FOR TRAINING with a NEURAL MODEL
+            # =======================================
+            
+            r_abs_diff_init  =  r_abs_init - r_abs
+            r_abs_diff_last  =  r_abs_last - r_abs
+            r_abs_last  = r_abs.detach().clone()
+            
+            STAG_COND = torch.abs(r_abs_diff_last) == 0.
+            stagnant_count[STAG_COND] += 1.
+
+            skip_num = 200.
+            if (k % skip_num == 0).any() : 
+                r_abs_diff_skip = torch.abs(torch.log10(r_abs_skip) - torch.log10(r_abs))
+                r_abs_skip  = r_abs.detach().clone()
+
+            # rabs have blown above 1e10 or
+            # is nan or 
+            # has stagnated ( 0. ) above 200 iter
+            # rabs change is not in the magnitude of log10 for 200 iter
+            BREAK_COND = (CONV_COND) & ((torch.isnan(r_abs)) | 
+                                        (r_abs_diff_init < -1e10) | 
+                                        (stagnant_count > 100) | 
+                                        ((k % skip_num == 0) & (r_abs_diff_skip < 1.))
+                                        )
+            k[BREAK_COND] += kmax
+
+            if verbose:
+                print(f"k : {k}, RESIDUAL : {r_abs}")
+            
+            # r_abs_diff_init, stagnant_count
+            print(f"{torch.cat((k, r_abs, r_abs_diff_last, CONV_COND), dim = 1)}") 
 
         return x
