@@ -735,19 +735,19 @@ class OsmosisInpainting:
             STAG_COND = torch.abs(r_abs_diff_last) == 0.
             stagnant_count[STAG_COND] += 1.
 
-            skip_num = 200.
-            if (k % skip_num == 0).any() : 
+            check_iter = 200.
+            if (k % check_iter == 0).any() : 
                 r_abs_diff_skip = torch.abs(torch.log10(r_abs_skip) - torch.log10(r_abs))
                 r_abs_skip  = r_abs.detach().clone()
 
             # rabs have blown above 1e10 or
             # is nan or 
-            # has stagnated ( 0. ) above 200 iter or
-            # rabs change is not in the magnitude of log10 for 200 iter
+            # has stagnated ( 0. ) above [#] iter or
+            # rabs change is not in the magnitude of log10 for [#] iter
             BREAK_COND = (CONV_COND) & ((torch.isnan(r_abs)) | 
                                         (r_abs_diff_init < -1e10) | 
-                                        (stagnant_count > 100) | 
-                                        ((k % skip_num == 0) & (r_abs_diff_skip < 1.))
+                                        (stagnant_count > check_iter) | 
+                                        ((k % check_iter == 0) & (r_abs_diff_skip < 1.))
                                         )
             k[BREAK_COND] += kmax
 
