@@ -7,7 +7,8 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 import cv2
 
-class BSDS300Dataset(Dataset):
+
+class MaskDataset(Dataset):
 
     def __init__(self, csv_file, root_dir, split_type, img_size):
         """
@@ -30,7 +31,7 @@ class BSDS300Dataset(Dataset):
     def __getitem__(self, idx):
 
         img_pth = os.path.join(self.root_dir, self.split_type,
-                                str(self.data_list[idx])+'.jpg')
+                                str(self.data_list[idx]))
 
         image = cv2.imread(img_pth, cv2.IMREAD_GRAYSCALE) 
         tensor = torch.tensor(image, dtype = torch.float64).unsqueeze(0)
@@ -42,8 +43,8 @@ class BSDS300Dataset(Dataset):
         # resizing ; Tobias paper cropped images
         tensor = transforms.Resize((self.img_size, self.img_size), antialias = True)(tensor)     
         # https://stackoverflow.com/questions/65699020/calculate-standard-deviation-for-grayscale-imagenet-pixel-values-with-rotation-m
-        # tensor_transformed = transforms.Normalize(mean = [0.44531356896770125], std = [0.2692461874154524])(tensor)
-        tensor_transformed = transforms.Normalize(mean = [0.], std = [1.])(tensor)
+        tensor_transformed = transforms.Normalize(mean = [0.44531356896770125], std = [0.2692461874154524])(tensor)
+        # tensor_transformed = transforms.Normalize(mean = [0.], std = [1.])(tensor)
 
         # normalized
         # tensor_norm = tensor - torch.amin(tensor, dim=(1,2)).view(1,1,1)

@@ -1,0 +1,1484 @@
+CONFIG : 
+{'EPOCHS': 10, 'RESUME_CHECKPOINT': None, 'SAVE_EVERY': 10, 'VAL_EVERY': 10, 'OUTPUT_DIR': 'unet-imgnet', 'EXP_NAME': 'test4', 'TRAIN_FILENAME': 'iids_train.txt', 'TEST_FILENAME': 'iids_test.txt', 'ROOT_DIR': 'dataset\\imagenet\\images\\', 'IMG_SIZE': 128, 'INP_CHANNELS': 1, 'OUT_CHANNELS': 1, 'LR': 0.001, 'WEIGHT_DECAY': 0.0, 'MOMENTUM': 0.9, 'OPT': 'Adam', 'SCHEDL': 'lambdaLR', 'TRAIN_BATCH': 8, 'TEST_BATCH': 8, 'ALPHA': 0.001, 'MASK_DEN': 0.1, 'BIN_METH': 'QUANT', 'OFFSET': None, 'TAU': None, 'ITERATIONS': None}
+
+train test dataset loaded
+train size : 100000
+test  size  : 1000
+model loaded
+model summary
+=================================================================
+Layer (type:depth-idx)                   Param #
+=================================================================
+??DoubleConv: 1-1                        --
+|    ??Sequential: 2-1                   --
+|    |    ??Conv2d: 3-1                  576
+|    |    ??BatchNorm2d: 3-2             128
+|    |    ??ReLU: 3-3                    --
+|    |    ??Conv2d: 3-4                  36,864
+|    |    ??BatchNorm2d: 3-5             128
+|    |    ??ReLU: 3-6                    --
+??Down: 1-2                              --
+|    ??Sequential: 2-2                   --
+|    |    ??MaxPool2d: 3-7               --
+|    |    ??DoubleConv: 3-8              221,696
+??Down: 1-3                              --
+|    ??Sequential: 2-3                   --
+|    |    ??MaxPool2d: 3-9               --
+|    |    ??DoubleConv: 3-10             885,760
+??Up: 1-4                                --
+|    ??ConvTranspose2d: 2-4              131,200
+|    ??DoubleConv: 2-5                   --
+|    |    ??Sequential: 3-11             442,880
+??Up: 1-5                                --
+|    ??ConvTranspose2d: 2-6              32,832
+|    ??DoubleConv: 2-7                   --
+|    |    ??Sequential: 3-12             110,848
+??OutConv: 1-6                           --
+|    ??Conv2d: 2-8                       65
+=================================================================
+Total params: 1,862,977
+Trainable params: 1,862,977
+Non-trainable params: 0
+=================================================================
+device : cuda
+trainer configurations set
+train and test dataloaders created
+total train batches  : 12500
+total test  batches  : 125
+optimizer : Adam, scheduler : lambdaLR loaded
+optimizer : Adam (
+Parameter Group 0
+    amsgrad: False
+    betas: (0.9, 0.999)
+    capturable: False
+    differentiable: False
+    eps: 1e-08
+    foreach: None
+    fused: None
+    initial_lr: 0.001
+    lr: 0.001
+    maximize: False
+    weight_decay: 0.0
+)
+scheduler : <torch.optim.lr_scheduler.LambdaLR object at 0x0000015D20E64B20>
+initializing weights using Kaiming/He Initialization
+initializing weights using Kaiming/He Initialization
+initializing weights using Kaiming/He Initialization
+initializing weights using Kaiming/He Initialization
+initializing weights using Kaiming/He Initialization
+initializing weights using Kaiming/He Initialization
+initializing weights using Kaiming/He Initialization
+initializing weights using Kaiming/He Initialization
+initializing weights using Kaiming/He Initialization
+initializing weights using Kaiming/He Initialization
+initializing weights using Kaiming/He Initialization
+
+beginning training ...
+Epoch 0/10 , batch 1/12500 
+gradient norm in None layer : 0.029551112753442445
+gradient norm in None layer : 0.001176289375958925
+gradient norm in None layer : 0.0011723663260821205
+gradient norm in None layer : 0.025562123590040155
+gradient norm in None layer : 0.0011866290225835865
+gradient norm in None layer : 0.0012368681537431488
+gradient norm in None layer : 0.007354155455244895
+gradient norm in None layer : 0.00027291410155846685
+gradient norm in None layer : 0.00024611590709163546
+gradient norm in None layer : 0.005965819960682826
+gradient norm in None layer : 0.0002548893086606625
+gradient norm in None layer : 0.00023024119698862496
+gradient norm in None layer : 0.002113530216229511
+gradient norm in None layer : 5.636787814460575e-05
+gradient norm in None layer : 5.522482145456874e-05
+gradient norm in None layer : 0.0019245487749132842
+gradient norm in None layer : 6.10407752951821e-05
+gradient norm in None layer : 7.295221498361797e-05
+gradient norm in None layer : 0.0022801254936968924
+gradient norm in None layer : 3.450578997685443e-05
+gradient norm in None layer : 0.006395889535155145
+gradient norm in None layer : 0.0003002305343958513
+gradient norm in None layer : 0.00027293347663847635
+gradient norm in None layer : 0.0066368488249529305
+gradient norm in None layer : 0.00034768957143440596
+gradient norm in None layer : 0.0004925901917578586
+gradient norm in None layer : 0.009859044931566245
+gradient norm in None layer : 9.117352464362015e-05
+gradient norm in None layer : 0.023700038450595626
+gradient norm in None layer : 0.00162243645248093
+gradient norm in None layer : 0.001455618150121293
+gradient norm in None layer : 0.025187675088972922
+gradient norm in None layer : 0.0074791428197692215
+gradient norm in None layer : 0.01107995432084562
+gradient norm in None layer : 0.004977322991528206
+gradient norm in None layer : 0.0017969156988136622
+Total gradient norm: 0.05679753856135569
+invariance loss : 6.419309258286114, avg_den : 0.33333587646484375, density loss : 4.259810019231101, mse loss : 0.07130511682844642, solver time : 115.36965751647949 sec , total loss : 0.08198423610596364, running loss : 0.08198423610596364
+Epoch 0/10 , batch 2/12500 
+gradient norm in None layer : 0.011565693932096367
+gradient norm in None layer : 0.0003554992280037478
+gradient norm in None layer : 0.00042012694631367986
+gradient norm in None layer : 0.006345763622748863
+gradient norm in None layer : 0.00026594328853803134
+gradient norm in None layer : 0.00029885553959727593
+gradient norm in None layer : 0.0015995659786268354
+gradient norm in None layer : 5.705326296211688e-05
+gradient norm in None layer : 5.512945715652364e-05
+gradient norm in None layer : 0.0014045454963974222
+gradient norm in None layer : 6.69826690653421e-05
+gradient norm in None layer : 5.648720322778996e-05
+gradient norm in None layer : 0.0005515787422904758
+gradient norm in None layer : 1.5000489168285473e-05
+gradient norm in None layer : 1.3236994689224855e-05
+gradient norm in None layer : 0.0005311158782211988
+gradient norm in None layer : 2.06659118511264e-05
+gradient norm in None layer : 2.0307529509957403e-05
+gradient norm in None layer : 0.0007542868433863862
+gradient norm in None layer : 1.0133467105382266e-05
+gradient norm in None layer : 0.0014964600766396888
+gradient norm in None layer : 8.15193587632208e-05
+gradient norm in None layer : 6.0729430583063454e-05
+gradient norm in None layer : 0.0017901062642073798
+gradient norm in None layer : 9.196158249802194e-05
+gradient norm in None layer : 8.879823794910103e-05
+gradient norm in None layer : 0.0025179810819441093
+gradient norm in None layer : 2.3319585537308654e-05
+gradient norm in None layer : 0.004731961560726506
+gradient norm in None layer : 0.00029396954649539195
+gradient norm in None layer : 0.00023019474515153886
+gradient norm in None layer : 0.004678161236972525
+gradient norm in None layer : 0.001361852173067979
+gradient norm in None layer : 0.0020343916248728223
+gradient norm in None layer : 0.0009869357193552349
+gradient norm in None layer : 0.0003449743293238142
+Total gradient norm: 0.01560489301743734
+invariance loss : 5.2284909518139395, avg_den : 0.487213134765625, density loss : 2.9428363223205354, mse loss : 0.0772557014982678, solver time : 115.68251132965088 sec , total loss : 0.08542702877240227, running loss : 0.08370563243918296
+Epoch 0/10 , batch 3/12500 
+gradient norm in None layer : 0.007782969730777873
+gradient norm in None layer : 0.000235232117911369
+gradient norm in None layer : 0.0002233853239974361
+gradient norm in None layer : 0.0039496569856625075
+gradient norm in None layer : 0.00018432576329950235
+gradient norm in None layer : 0.0001884296846646713
+gradient norm in None layer : 0.0010307926955569566
+gradient norm in None layer : 3.643065446704248e-05
+gradient norm in None layer : 3.806937911084453e-05
+gradient norm in None layer : 0.0008633885810283335
+gradient norm in None layer : 4.140534534340281e-05
+gradient norm in None layer : 3.44926595052515e-05
+gradient norm in None layer : 0.0003445148760480213
+gradient norm in None layer : 9.726472987917682e-06
+gradient norm in None layer : 8.698379182636553e-06
+gradient norm in None layer : 0.0003155891955328952
+gradient norm in None layer : 1.1336606272976024e-05
+gradient norm in None layer : 1.1237991834655042e-05
+gradient norm in None layer : 0.0004280352121115708
+gradient norm in None layer : 5.735046439576587e-06
+gradient norm in None layer : 0.0008326994644919187
+gradient norm in None layer : 4.875738282057841e-05
+gradient norm in None layer : 3.822647557245655e-05
+gradient norm in None layer : 0.0009847907502842897
+gradient norm in None layer : 5.37192214614039e-05
+gradient norm in None layer : 5.400547110822701e-05
+gradient norm in None layer : 0.0013461939934462936
+gradient norm in None layer : 2.0051263418833728e-05
+gradient norm in None layer : 0.002635498103010789
+gradient norm in None layer : 0.00014478708026535448
+gradient norm in None layer : 0.00014748590658488023
+gradient norm in None layer : 0.0026287996060694813
+gradient norm in None layer : 0.0004937558170046996
+gradient norm in None layer : 0.0006609458930696034
+gradient norm in None layer : 0.00033010179918696364
+gradient norm in None layer : 0.00011171389215224906
+Total gradient norm: 0.009836232262709512
+invariance loss : 5.090432375339723, avg_den : 0.5424270629882812, density loss : 2.6086371529031367, mse loss : 0.07142215006627826, solver time : 115.50529074668884 sec , total loss : 0.07912121959452112, running loss : 0.08217749482429568
+Epoch 0/10 , batch 4/12500 
+gradient norm in None layer : 0.12825317165327016
+gradient norm in None layer : 0.005541511937779295
+gradient norm in None layer : 0.004337796141550161
+gradient norm in None layer : 0.08364722426639687
+gradient norm in None layer : 0.002630505008322599
+gradient norm in None layer : 0.001994303258322259
+gradient norm in None layer : 0.010878812519445316
+gradient norm in None layer : 0.00046743054629286437
+gradient norm in None layer : 0.00031205150038694893
+gradient norm in None layer : 0.00988640578262541
+gradient norm in None layer : 0.00048686823787934036
+gradient norm in None layer : 0.0003549187733085708
+gradient norm in None layer : 0.003517152537266947
+gradient norm in None layer : 0.00011348733872832752
+gradient norm in None layer : 7.253698002320197e-05
+gradient norm in None layer : 0.003708659900980775
+gradient norm in None layer : 0.00016884740925066696
+gradient norm in None layer : 0.00011499180266448015
+gradient norm in None layer : 0.005401384295450902
+gradient norm in None layer : 8.740150623975904e-05
+gradient norm in None layer : 0.011813846129992013
+gradient norm in None layer : 0.0005417568549839261
+gradient norm in None layer : 0.00043079444716972944
+gradient norm in None layer : 0.012343323306101899
+gradient norm in None layer : 0.0006480184432571518
+gradient norm in None layer : 0.0006176891807455365
+gradient norm in None layer : 0.0170804628410575
+gradient norm in None layer : 0.00027091031025213786
+gradient norm in None layer : 0.04869461280017764
+gradient norm in None layer : 0.0027580817150359405
+gradient norm in None layer : 0.0021702544415400996
+gradient norm in None layer : 0.046763071182349826
+gradient norm in None layer : 0.005362770883442859
+gradient norm in None layer : 0.005271348051538103
+gradient norm in None layer : 0.003736133977074276
+gradient norm in None layer : 0.0009265099401375681
+Total gradient norm: 0.1703083752703338
+invariance loss : 5.967196727956434, avg_den : 0.5596847534179688, density loss : 4.968193221715809, mse loss : 0.09815225654445897, solver time : 106.79518342018127 sec , total loss : 0.10908764649413122, running loss : 0.08890503274175457
+Epoch 0/10 , batch 5/12500 
+gradient norm in None layer : 0.003168940619518369
+gradient norm in None layer : 9.827261969557059e-05
+gradient norm in None layer : 8.236578830945796e-05
+gradient norm in None layer : 0.001959782728360818
+gradient norm in None layer : 0.00011407704200532561
+gradient norm in None layer : 0.00010669367912580483
+gradient norm in None layer : 0.0006396991140863376
+gradient norm in None layer : 2.2637406485629838e-05
+gradient norm in None layer : 2.369928726471239e-05
+gradient norm in None layer : 0.0005073197199987523
+gradient norm in None layer : 2.6234981203657156e-05
+gradient norm in None layer : 2.1019024059624356e-05
+gradient norm in None layer : 0.00020016042167415234
+gradient norm in None layer : 6.528340858240004e-06
+gradient norm in None layer : 5.265397377829439e-06
+gradient norm in None layer : 0.00019596161221001026
+gradient norm in None layer : 8.636219119334534e-06
+gradient norm in None layer : 7.242804674806208e-06
+gradient norm in None layer : 0.00032659356856719465
+gradient norm in None layer : 5.457600274531811e-06
+gradient norm in None layer : 0.0005956294715540752
+gradient norm in None layer : 3.296848439117627e-05
+gradient norm in None layer : 2.6987423078482693e-05
+gradient norm in None layer : 0.0007484417645996887
+gradient norm in None layer : 5.8419835487531526e-05
+gradient norm in None layer : 5.24662873532144e-05
+gradient norm in None layer : 0.0011595269963502182
+gradient norm in None layer : 1.715768020335962e-05
+gradient norm in None layer : 0.0017237806291991594
+gradient norm in None layer : 0.00010491285272583054
+gradient norm in None layer : 9.016256762209875e-05
+gradient norm in None layer : 0.0017000136796234504
+gradient norm in None layer : 0.00045662151713673967
+gradient norm in None layer : 0.0005854708545322194
+gradient norm in None layer : 0.00031731366394889906
+gradient norm in None layer : 0.00010378323634812784
+Total gradient norm: 0.004856848554569284
+invariance loss : 4.664943037455828, avg_den : 0.5539169311523438, density loss : 2.381041708451, mse loss : 0.05935210640774087, solver time : 120.06533932685852 sec , total loss : 0.0663980911536477, running loss : 0.0844036444241332
+Epoch 0/10 , batch 6/12500 
+gradient norm in None layer : 0.0015911736844726504
+gradient norm in None layer : 7.680590503115995e-05
+gradient norm in None layer : 7.007285644897548e-05
+gradient norm in None layer : 0.0012095894896682728
+gradient norm in None layer : 5.866610376394362e-05
+gradient norm in None layer : 5.3012290418534815e-05
+gradient norm in None layer : 0.0005694888865220447
+gradient norm in None layer : 2.0591972034708858e-05
+gradient norm in None layer : 2.0014925982993684e-05
+gradient norm in None layer : 0.00044292055307504255
+gradient norm in None layer : 1.7620716588757212e-05
+gradient norm in None layer : 1.6759757287720406e-05
+gradient norm in None layer : 0.00015566581714271927
+gradient norm in None layer : 4.851473865267043e-06
+gradient norm in None layer : 4.4145649454320286e-06
+gradient norm in None layer : 0.00014325090653505784
+gradient norm in None layer : 6.2950955183394156e-06
+gradient norm in None layer : 6.032925849290481e-06
+gradient norm in None layer : 0.00024226883817011005
+gradient norm in None layer : 3.0704413675027514e-06
+gradient norm in None layer : 0.0004417221258060963
+gradient norm in None layer : 2.745976732839015e-05
+gradient norm in None layer : 1.9388268977147316e-05
+gradient norm in None layer : 0.0005440330440748155
+gradient norm in None layer : 3.573100767525484e-05
+gradient norm in None layer : 3.339355676033352e-05
+gradient norm in None layer : 0.000830829226191096
+gradient norm in None layer : 6.782140505997998e-06
+gradient norm in None layer : 0.0010228171185940225
+gradient norm in None layer : 6.053502265780692e-05
+gradient norm in None layer : 5.200984232919249e-05
+gradient norm in None layer : 0.0010630316300125058
+gradient norm in None layer : 0.00018736872550083507
+gradient norm in None layer : 0.00027093311905254707
+gradient norm in None layer : 0.00012075378440266782
+gradient norm in None layer : 4.2757050042498605e-05
+Total gradient norm: 0.002851299136548066
+invariance loss : 4.634657698383565, avg_den : 0.58221435546875, density loss : 2.1450211977026923, mse loss : 0.055292907907724106, solver time : 107.7866518497467 sec , total loss : 0.062072586803810365, running loss : 0.08068180148741272
+Epoch 0/10 , batch 7/12500 
+gradient norm in None layer : 0.004472088759468598
+gradient norm in None layer : 0.00015192193315018067
+gradient norm in None layer : 0.00011648453804960834
+gradient norm in None layer : 0.002245775766379547
+gradient norm in None layer : 0.00012744399479911389
+gradient norm in None layer : 9.138503804048421e-05
+gradient norm in None layer : 0.0010417736416213456
+gradient norm in None layer : 3.93767674334377e-05
+gradient norm in None layer : 3.6395859682209114e-05
+gradient norm in None layer : 0.0007692976175216074
+gradient norm in None layer : 3.3347451455916966e-05
+gradient norm in None layer : 2.72507735724273e-05
+gradient norm in None layer : 0.00031031817323636153
+gradient norm in None layer : 9.671073409744784e-06
+gradient norm in None layer : 8.924353435787567e-06
+gradient norm in None layer : 0.00023567182844854535
+gradient norm in None layer : 1.0026014134248127e-05
+gradient norm in None layer : 1.0562555910555509e-05
+gradient norm in None layer : 0.00034418461384260504
+gradient norm in None layer : 4.892321173277882e-06
+gradient norm in None layer : 0.000616233896659049
+gradient norm in None layer : 3.2984772133498674e-05
+gradient norm in None layer : 3.224051817543838e-05
+gradient norm in None layer : 0.0007285312106092483
+gradient norm in None layer : 6.570662831989726e-05
+gradient norm in None layer : 7.215213503315234e-05
+gradient norm in None layer : 0.0011817544291132564
+gradient norm in None layer : 1.520100155214674e-05
+gradient norm in None layer : 0.001907686015612827
+gradient norm in None layer : 0.00015297564529176096
+gradient norm in None layer : 0.00013475309414231302
+gradient norm in None layer : 0.002138708729113417
+gradient norm in None layer : 0.0001599988584299271
+gradient norm in None layer : 0.00013777693684044714
+gradient norm in None layer : 0.0001010435148205819
+gradient norm in None layer : 1.694629077806574e-05
+Total gradient norm: 0.006138875130870456
+invariance loss : 4.9468018731571926, avg_den : 0.5791168212890625, density loss : 2.5018302160937305, mse loss : 0.08991991489254753, solver time : 119.05464625358582 sec , total loss : 0.09736854698179845, running loss : 0.08306562227232496
+Epoch 0/10 , batch 8/12500 
+gradient norm in None layer : 0.002550513951301889
+gradient norm in None layer : 0.00014118582413058406
+gradient norm in None layer : 8.06724045129377e-05
+gradient norm in None layer : 0.00211986379646882
+gradient norm in None layer : 8.827299125825308e-05
+gradient norm in None layer : 8.125044885947426e-05
+gradient norm in None layer : 0.0006573658398546918
+gradient norm in None layer : 2.6245071709251547e-05
+gradient norm in None layer : 2.2115985015919624e-05
+gradient norm in None layer : 0.0005163464737002901
+gradient norm in None layer : 2.430834729647348e-05
+gradient norm in None layer : 1.9325277944941015e-05
+gradient norm in None layer : 0.00017799400930400058
+gradient norm in None layer : 5.46789543512014e-06
+gradient norm in None layer : 4.607965358289121e-06
+gradient norm in None layer : 0.00014776726424112915
+gradient norm in None layer : 7.801844322401979e-06
+gradient norm in None layer : 6.531921601864032e-06
+gradient norm in None layer : 0.00024578750414573663
+gradient norm in None layer : 3.7917921622602297e-06
+gradient norm in None layer : 0.0005419341991963391
+gradient norm in None layer : 3.43502458833425e-05
+gradient norm in None layer : 2.4566988919942607e-05
+gradient norm in None layer : 0.000717686914109363
+gradient norm in None layer : 5.158916078835935e-05
+gradient norm in None layer : 4.675118084120714e-05
+gradient norm in None layer : 0.0011286700869744795
+gradient norm in None layer : 6.590323826992134e-06
+gradient norm in None layer : 0.001835945443274763
+gradient norm in None layer : 0.00011943075720274053
+gradient norm in None layer : 9.611374111730585e-05
+gradient norm in None layer : 0.0017767601804661321
+gradient norm in None layer : 0.00014955223205495195
+gradient norm in None layer : 0.0001789389523164976
+gradient norm in None layer : 9.934737076322879e-05
+gradient norm in None layer : 2.5328366663262204e-05
+Total gradient norm: 0.004534321374590479
+invariance loss : 4.557993596488384, avg_den : 0.5675811767578125, density loss : 2.223999330296671, mse loss : 0.065259480143015, solver time : 133.08957028388977 sec , total loss : 0.07204147306980005, running loss : 0.08168760362200934
+Epoch 0/10 , batch 9/12500 
+gradient norm in None layer : 0.0014954009296110344
+gradient norm in None layer : 7.876279027203189e-05
+gradient norm in None layer : 8.06503866441368e-05
+gradient norm in None layer : 0.0011561851492224817
+gradient norm in None layer : 7.765198157886389e-05
+gradient norm in None layer : 6.554854677362451e-05
+gradient norm in None layer : 0.0005535034503371144
+gradient norm in None layer : 2.4540430688072166e-05
+gradient norm in None layer : 2.2216333290290154e-05
+gradient norm in None layer : 0.00046213541697996777
+gradient norm in None layer : 2.0168028880547128e-05
+gradient norm in None layer : 1.8300037768384084e-05
+gradient norm in None layer : 0.00015258189357993145
+gradient norm in None layer : 4.886945796311513e-06
+gradient norm in None layer : 4.4533652522746235e-06
+gradient norm in None layer : 0.00012055508003492533
+gradient norm in None layer : 5.68794537992368e-06
+gradient norm in None layer : 5.796933033966652e-06
+gradient norm in None layer : 0.00018750610548948189
+gradient norm in None layer : 3.038209340576489e-06
+gradient norm in None layer : 0.00041436662162566744
+gradient norm in None layer : 2.272534450571105e-05
+gradient norm in None layer : 2.389468703670037e-05
+gradient norm in None layer : 0.0005203167778852371
+gradient norm in None layer : 4.131355339691224e-05
+gradient norm in None layer : 4.568493738162485e-05
+gradient norm in None layer : 0.0008360917412246068
+gradient norm in None layer : 8.313631378022833e-06
+gradient norm in None layer : 0.001177494958546177
+gradient norm in None layer : 8.767884789197418e-05
+gradient norm in None layer : 8.161808167573791e-05
+gradient norm in None layer : 0.001369463078001325
+gradient norm in None layer : 0.00016554861072589199
+gradient norm in None layer : 0.00020024713767806683
+gradient norm in None layer : 0.00010473195484893128
+gradient norm in None layer : 2.8000423502943234e-05
+Total gradient norm: 0.0029483634678699076
+invariance loss : 4.5260953543829565, avg_den : 0.5605087280273438, density loss : 2.3038107728361616, mse loss : 0.05794134267474237, solver time : 108.39669609069824 sec , total loss : 0.06477124880196149, running loss : 0.07980800864200402
+Epoch 0/10 , batch 10/12500 
+gradient norm in None layer : 0.0015598128367335315
+gradient norm in None layer : 8.829582341438448e-05
+gradient norm in None layer : 7.243208744692908e-05
+gradient norm in None layer : 0.0011227169699862213
+gradient norm in None layer : 6.777860553847117e-05
+gradient norm in None layer : 5.475652159512485e-05
+gradient norm in None layer : 0.000383613736107584
+gradient norm in None layer : 1.476067631647456e-05
+gradient norm in None layer : 1.1419316527629835e-05
+gradient norm in None layer : 0.00029985273035617303
+gradient norm in None layer : 1.6535399218086544e-05
+gradient norm in None layer : 1.2388623964011323e-05
+gradient norm in None layer : 0.00010220175100871781
+gradient norm in None layer : 3.336371116844403e-06
+gradient norm in None layer : 2.5277361099341935e-06
+gradient norm in None layer : 8.266665858016231e-05
+gradient norm in None layer : 4.441088699280107e-06
+gradient norm in None layer : 4.155968779753557e-06
+gradient norm in None layer : 0.00015227514688502398
+gradient norm in None layer : 2.1908127319466745e-06
+gradient norm in None layer : 0.00030769280951483844
+gradient norm in None layer : 1.9919633823351585e-05
+gradient norm in None layer : 1.6129558987587268e-05
+gradient norm in None layer : 0.0004386869254211891
+gradient norm in None layer : 2.4596052890158473e-05
+gradient norm in None layer : 2.5185991213319994e-05
+gradient norm in None layer : 0.0006596767163843287
+gradient norm in None layer : 8.614770354311389e-06
+gradient norm in None layer : 0.0010933932835307688
+gradient norm in None layer : 9.860434793807486e-05
+gradient norm in None layer : 8.066379241965429e-05
+gradient norm in None layer : 0.0014628049787348064
+gradient norm in None layer : 0.0001335683002458279
+gradient norm in None layer : 0.00013953446849932118
+gradient norm in None layer : 6.788986733624646e-05
+gradient norm in None layer : 1.2035222926217463e-05
+Total gradient norm: 0.002847873330363399
+invariance loss : 4.506086942654525, avg_den : 0.5703582763671875, density loss : 2.195646232192126, mse loss : 0.04345693354077037, solver time : 113.44163775444031 sec , total loss : 0.05015866671561702, running loss : 0.07684307444936533
+saving checkpoint
+Epoch 0/10 , batch 11/12500 
+gradient norm in None layer : 0.001950887652769408
+gradient norm in None layer : 0.0001224751091982899
+gradient norm in None layer : 8.95199393630402e-05
+gradient norm in None layer : 0.0019829096760185204
+gradient norm in None layer : 0.0001682260450183487
+gradient norm in None layer : 0.0001098456366187122
+gradient norm in None layer : 0.0009506329763092488
+gradient norm in None layer : 4.827550145095512e-05
+gradient norm in None layer : 2.5519888506429767e-05
+gradient norm in None layer : 0.0008094690438215744
+gradient norm in None layer : 4.911671560666686e-05
+gradient norm in None layer : 2.6192025383100643e-05
+gradient norm in None layer : 0.00040540396958874066
+gradient norm in None layer : 1.3411161895527153e-05
+gradient norm in None layer : 7.707215986957766e-06
+gradient norm in None layer : 0.0002740118944836504
+gradient norm in None layer : 1.2258730286690028e-05
+gradient norm in None layer : 8.438717547417117e-06
+gradient norm in None layer : 0.0003829700845370581
+gradient norm in None layer : 5.56073508024524e-06
+gradient norm in None layer : 0.0008940461598421968
+gradient norm in None layer : 5.690693015977654e-05
+gradient norm in None layer : 4.3391644067436305e-05
+gradient norm in None layer : 0.0012329816978246453
+gradient norm in None layer : 0.00011016550838132141
+gradient norm in None layer : 9.369242414655769e-05
+gradient norm in None layer : 0.0020602005048828893
+gradient norm in None layer : 2.59601248026397e-05
+gradient norm in None layer : 0.0028584104632020184
+gradient norm in None layer : 0.0002024762092303406
+gradient norm in None layer : 0.00017124936804548444
+gradient norm in None layer : 0.003604164092713787
+gradient norm in None layer : 0.00036901930013525085
+gradient norm in None layer : 0.00039336781371108207
+gradient norm in None layer : 0.00022628186931966402
+gradient norm in None layer : 5.8026920746603605e-05
+Total gradient norm: 0.006157913947703887
+invariance loss : 4.646355730564615, avg_den : 0.56256103515625, density loss : 2.5183743760479107, mse loss : 0.04993379068214221, solver time : 144.04198050498962 sec , total loss : 0.057098520788754735, running loss : 0.07504811502567346
+Epoch 0/10 , batch 12/12500 
+gradient norm in None layer : 0.0034424125920189492
+gradient norm in None layer : 0.00010234324765132407
+gradient norm in None layer : 9.082583963924942e-05
+gradient norm in None layer : 0.0016759888819218628
+gradient norm in None layer : 0.00013696805129274358
+gradient norm in None layer : 9.037332814580744e-05
+gradient norm in None layer : 0.0010867939496634568
+gradient norm in None layer : 5.101811074102661e-05
+gradient norm in None layer : 3.228608294221627e-05
+gradient norm in None layer : 0.0008051789075280045
+gradient norm in None layer : 4.695036548570954e-05
+gradient norm in None layer : 2.9132490804580796e-05
+gradient norm in None layer : 0.00036542177541822024
+gradient norm in None layer : 1.238256000256814e-05
+gradient norm in None layer : 7.816284834692803e-06
+gradient norm in None layer : 0.00023209576680897215
+gradient norm in None layer : 1.1459519944783038e-05
+gradient norm in None layer : 6.705379643593584e-06
+gradient norm in None layer : 0.00031433881460807354
+gradient norm in None layer : 2.2502063186667516e-06
+gradient norm in None layer : 0.0006797110502261902
+gradient norm in None layer : 4.320894563582602e-05
+gradient norm in None layer : 2.747818538992916e-05
+gradient norm in None layer : 0.0008646550073066013
+gradient norm in None layer : 8.026095049649199e-05
+gradient norm in None layer : 6.640741350927702e-05
+gradient norm in None layer : 0.001419329689171129
+gradient norm in None layer : 6.018214653400252e-06
+gradient norm in None layer : 0.0020440500406243003
+gradient norm in None layer : 0.0001648320965166838
+gradient norm in None layer : 0.00013012970128549478
+gradient norm in None layer : 0.0026623149614326096
+gradient norm in None layer : 0.0002288368372556915
+gradient norm in None layer : 0.00019453422267234132
+gradient norm in None layer : 0.0001282228838008432
+gradient norm in None layer : 2.3336728346241563e-05
+Total gradient norm: 0.005610930005265258
+invariance loss : 4.543765233624544, avg_den : 0.5752182006835938, density loss : 2.216397119708337, mse loss : 0.0468391964889764, solver time : 132.03958797454834 sec , total loss : 0.05359935884230928, running loss : 0.07326071867705977
+Epoch 0/10 , batch 13/12500 
+gradient norm in None layer : 0.0007235070808110803
+gradient norm in None layer : 4.879179757479406e-05
+gradient norm in None layer : 4.181290134892686e-05
+gradient norm in None layer : 0.000652908011376857
+gradient norm in None layer : 4.2697443512490806e-05
+gradient norm in None layer : 3.181448362400756e-05
+gradient norm in None layer : 0.00023880606278659544
+gradient norm in None layer : 1.004662244293602e-05
+gradient norm in None layer : 7.082806287938041e-06
+gradient norm in None layer : 0.00018581751717857995
+gradient norm in None layer : 9.543375348952576e-06
+gradient norm in None layer : 6.97255889863663e-06
+gradient norm in None layer : 6.609905626923786e-05
+gradient norm in None layer : 2.2921614729664814e-06
+gradient norm in None layer : 1.892351370043157e-06
+gradient norm in None layer : 5.3944502116780646e-05
+gradient norm in None layer : 2.621391928514615e-06
+gradient norm in None layer : 2.233721512081616e-06
+gradient norm in None layer : 8.773891729486317e-05
+gradient norm in None layer : 1.6979479249065329e-06
+gradient norm in None layer : 0.00018314832852522572
+gradient norm in None layer : 1.1342290721707124e-05
+gradient norm in None layer : 9.525703658072669e-06
+gradient norm in None layer : 0.00023600189038097019
+gradient norm in None layer : 2.1224789195117685e-05
+gradient norm in None layer : 2.6478304749110502e-05
+gradient norm in None layer : 0.0004238119129236831
+gradient norm in None layer : 6.5612948711936824e-06
+gradient norm in None layer : 0.0006916884580474931
+gradient norm in None layer : 6.197064734215594e-05
+gradient norm in None layer : 5.036583794529889e-05
+gradient norm in None layer : 0.0008579357051229441
+gradient norm in None layer : 0.00010002657468285451
+gradient norm in None layer : 0.00011352263429973517
+gradient norm in None layer : 5.4447608289573804e-05
+gradient norm in None layer : 1.4131413775344141e-05
+Total gradient norm: 0.0016064728497843742
+invariance loss : 4.38377925508668, avg_den : 0.5643692016601562, density loss : 2.220858021930866, mse loss : 0.032035210871288355, solver time : 112.87693452835083 sec , total loss : 0.0386398481483059, running loss : 0.07059757479023256
+Epoch 0/10 , batch 14/12500 
+gradient norm in None layer : 0.002689406259683211
+gradient norm in None layer : 0.00010090095248061054
+gradient norm in None layer : 6.950613756872687e-05
+gradient norm in None layer : 0.0015954480421731005
+gradient norm in None layer : 8.20047178465238e-05
+gradient norm in None layer : 7.079833937810923e-05
+gradient norm in None layer : 0.0007427186587236948
+gradient norm in None layer : 3.3358878030314825e-05
+gradient norm in None layer : 2.94281844620498e-05
+gradient norm in None layer : 0.0005861810506445898
+gradient norm in None layer : 2.99387960395424e-05
+gradient norm in None layer : 2.595107381591218e-05
+gradient norm in None layer : 0.0002143408421594676
+gradient norm in None layer : 6.436767790656038e-06
+gradient norm in None layer : 6.915189128970296e-06
+gradient norm in None layer : 0.00014409304555446263
+gradient norm in None layer : 6.630300994372239e-06
+gradient norm in None layer : 7.170410306952331e-06
+gradient norm in None layer : 0.00019635028224452688
+gradient norm in None layer : 2.1180260794675547e-06
+gradient norm in None layer : 0.0005108135761415057
+gradient norm in None layer : 3.123923930540605e-05
+gradient norm in None layer : 3.242473664416232e-05
+gradient norm in None layer : 0.0006041911978337525
+gradient norm in None layer : 5.313258694241695e-05
+gradient norm in None layer : 6.56934681601189e-05
+gradient norm in None layer : 0.0009119953221963314
+gradient norm in None layer : 6.0910151730152784e-06
+gradient norm in None layer : 0.0014562005893723193
+gradient norm in None layer : 0.00014433048255886057
+gradient norm in None layer : 0.00011253869835348249
+gradient norm in None layer : 0.0018077266047094934
+gradient norm in None layer : 0.0001091048735675041
+gradient norm in None layer : 0.00011154239783998022
+gradient norm in None layer : 7.623148108696789e-05
+gradient norm in None layer : 2.897594267783396e-06
+Total gradient norm: 0.004210500932747814
+invariance loss : 4.521101202383592, avg_den : 0.5732421875, density loss : 2.2001540412992764, mse loss : 0.06283006575249914, solver time : 117.25000429153442 sec , total loss : 0.06955132099618201, running loss : 0.0705228423763718
+Epoch 0/10 , batch 15/12500 
+gradient norm in None layer : 0.0010206253566282003
+gradient norm in None layer : 3.5203469965081406e-05
+gradient norm in None layer : 5.2261510667028805e-05
+gradient norm in None layer : 0.0005905160655399636
+gradient norm in None layer : 5.065174286082913e-05
+gradient norm in None layer : 4.684164575350971e-05
+gradient norm in None layer : 0.00027762668275851195
+gradient norm in None layer : 1.3036908678403059e-05
+gradient norm in None layer : 1.3102085999267551e-05
+gradient norm in None layer : 0.00023024267332496902
+gradient norm in None layer : 9.73202345225965e-06
+gradient norm in None layer : 9.189823466386147e-06
+gradient norm in None layer : 7.241771100831678e-05
+gradient norm in None layer : 2.55678617888465e-06
+gradient norm in None layer : 2.5715471346312347e-06
+gradient norm in None layer : 5.853395506718675e-05
+gradient norm in None layer : 3.1486246127500707e-06
+gradient norm in None layer : 2.906932454453388e-06
+gradient norm in None layer : 9.9232273455758e-05
+gradient norm in None layer : 1.8348622586856197e-06
+gradient norm in None layer : 0.0001990592080676637
+gradient norm in None layer : 1.6067738611327537e-05
+gradient norm in None layer : 1.5441144409820775e-05
+gradient norm in None layer : 0.0002654532187025423
+gradient norm in None layer : 3.0023463086142096e-05
+gradient norm in None layer : 3.542356060941832e-05
+gradient norm in None layer : 0.0005207236008155188
+gradient norm in None layer : 6.095545011650847e-06
+gradient norm in None layer : 0.0007111577642121405
+gradient norm in None layer : 6.941559436525906e-05
+gradient norm in None layer : 5.703361216649243e-05
+gradient norm in None layer : 0.0008997371657768955
+gradient norm in None layer : 8.622054052987714e-05
+gradient norm in None layer : 9.470365170065386e-05
+gradient norm in None layer : 4.873330797724217e-05
+gradient norm in None layer : 9.663804097817255e-06
+Total gradient norm: 0.0018095372279254363
+invariance loss : 4.40524274153208, avg_den : 0.5799560546875, density loss : 2.1442905684656335, mse loss : 0.027951074501784197, solver time : 116.80199599266052 sec , total loss : 0.03450060781178191, running loss : 0.0681213600720658
+Epoch 0/10 , batch 16/12500 
+gradient norm in None layer : 0.0006575179575196362
+gradient norm in None layer : 3.5619128096275915e-05
+gradient norm in None layer : 3.343222829739346e-05
+gradient norm in None layer : 0.0006200704639913279
+gradient norm in None layer : 4.451034299579396e-05
+gradient norm in None layer : 3.2555324091070315e-05
+gradient norm in None layer : 0.00024317838387434318
+gradient norm in None layer : 9.456012760359263e-06
+gradient norm in None layer : 7.683610736812757e-06
+gradient norm in None layer : 0.00018434165976235
+gradient norm in None layer : 9.152515699783781e-06
+gradient norm in None layer : 8.29685630060031e-06
+gradient norm in None layer : 7.456217911200493e-05
+gradient norm in None layer : 2.216770705213512e-06
+gradient norm in None layer : 2.2787211042478556e-06
+gradient norm in None layer : 5.377045847889703e-05
+gradient norm in None layer : 2.460774398291522e-06
+gradient norm in None layer : 2.2665362087348564e-06
+gradient norm in None layer : 8.259236980246283e-05
+gradient norm in None layer : 2.1917963656005487e-06
+gradient norm in None layer : 0.0001932214658217797
+gradient norm in None layer : 1.4778040444995258e-05
+gradient norm in None layer : 1.222784332011627e-05
+gradient norm in None layer : 0.0002759329590611018
+gradient norm in None layer : 2.9055161029360804e-05
+gradient norm in None layer : 3.312546761717114e-05
+gradient norm in None layer : 0.0006187402102390054
+gradient norm in None layer : 5.991959296756396e-06
+gradient norm in None layer : 0.0008223131618499575
+gradient norm in None layer : 7.75195918247798e-05
+gradient norm in None layer : 5.941626624660432e-05
+gradient norm in None layer : 0.0010200660265866995
+gradient norm in None layer : 0.0001165188261634763
+gradient norm in None layer : 0.000167765842776904
+gradient norm in None layer : 7.136490683429432e-05
+gradient norm in None layer : 2.211985441146283e-05
+Total gradient norm: 0.0017897478815655777
+invariance loss : 4.4053326596283835, avg_den : 0.5698776245117188, density loss : 2.187711615038375, mse loss : 0.05425722783832307, solver time : 125.43480777740479 sec , total loss : 0.06085027211298983, running loss : 0.06766691707462355
+Epoch 0/10 , batch 17/12500 
+gradient norm in None layer : 0.0009625859776193983
+gradient norm in None layer : 3.475510924495732e-05
+gradient norm in None layer : 2.394994281183701e-05
+gradient norm in None layer : 0.0006325843048027992
+gradient norm in None layer : 4.437195299355501e-05
+gradient norm in None layer : 3.327315095616598e-05
+gradient norm in None layer : 0.0002940592545177184
+gradient norm in None layer : 1.294509971068728e-05
+gradient norm in None layer : 1.0700883387720954e-05
+gradient norm in None layer : 0.0002249856963799361
+gradient norm in None layer : 1.0891244599521479e-05
+gradient norm in None layer : 9.96479499047104e-06
+gradient norm in None layer : 7.18637779765941e-05
+gradient norm in None layer : 2.646303705658024e-06
+gradient norm in None layer : 2.763963275669814e-06
+gradient norm in None layer : 5.6286095753032534e-05
+gradient norm in None layer : 2.9761032841204487e-06
+gradient norm in None layer : 2.5090838663791764e-06
+gradient norm in None layer : 9.25842993883794e-05
+gradient norm in None layer : 1.8913401873021663e-06
+gradient norm in None layer : 0.00020619092386884935
+gradient norm in None layer : 1.58507099767735e-05
+gradient norm in None layer : 1.2066618955904143e-05
+gradient norm in None layer : 0.00028295413759458246
+gradient norm in None layer : 3.084874632345784e-05
+gradient norm in None layer : 2.975036400156942e-05
+gradient norm in None layer : 0.0005876030033963027
+gradient norm in None layer : 4.905099113976629e-06
+gradient norm in None layer : 0.0007891995616532507
+gradient norm in None layer : 6.986558061064987e-05
+gradient norm in None layer : 5.5610568284842176e-05
+gradient norm in None layer : 0.0009674737418883362
+gradient norm in None layer : 0.00011098350114777243
+gradient norm in None layer : 0.00016071479715367578
+gradient norm in None layer : 6.912728231251759e-05
+gradient norm in None layer : 2.1854273338386347e-05
+Total gradient norm: 0.0018885046690318942
+invariance loss : 4.348479995610333, avg_den : 0.5688629150390625, density loss : 2.1819032591686165, mse loss : 0.03562977917710841, solver time : 107.57291102409363 sec , total loss : 0.04216016243188736, running loss : 0.0661665197426979
+Epoch 0/10 , batch 18/12500 
+gradient norm in None layer : 0.002419881140954969
+gradient norm in None layer : 9.006037938302019e-05
+gradient norm in None layer : 5.5939823296625875e-05
+gradient norm in None layer : 0.001443877589380686
+gradient norm in None layer : 0.00016302683750223296
+gradient norm in None layer : 9.123685094074558e-05
+gradient norm in None layer : 0.00048024785171878816
+gradient norm in None layer : 1.9879632064456842e-05
+gradient norm in None layer : 1.53394976104584e-05
+gradient norm in None layer : 0.0004747354935281324
+gradient norm in None layer : 2.6166128841831643e-05
+gradient norm in None layer : 1.855522346549161e-05
+gradient norm in None layer : 0.00016012729327191457
+gradient norm in None layer : 5.925691181871265e-06
+gradient norm in None layer : 3.2895079732273577e-06
+gradient norm in None layer : 0.0001534783157860814
+gradient norm in None layer : 1.2766505955006618e-05
+gradient norm in None layer : 6.941452518031708e-06
+gradient norm in None layer : 0.00038541092976817574
+gradient norm in None layer : 1.6686079414755759e-06
+gradient norm in None layer : 0.0007238466470086594
+gradient norm in None layer : 4.711266883092496e-05
+gradient norm in None layer : 3.5577592767632697e-05
+gradient norm in None layer : 0.0010699912002031795
+gradient norm in None layer : 9.38276137797769e-05
+gradient norm in None layer : 7.67999476957079e-05
+gradient norm in None layer : 0.002306945198056569
+gradient norm in None layer : 7.652029800941051e-06
+gradient norm in None layer : 0.002749325340977674
+gradient norm in None layer : 0.0002255247258772247
+gradient norm in None layer : 0.00016308466348915983
+gradient norm in None layer : 0.003378021763375994
+gradient norm in None layer : 0.00022610266419285086
+gradient norm in None layer : 0.0002714012284888769
+gradient norm in None layer : 0.00016364945162543416
+gradient norm in None layer : 3.242246942692236e-05
+Total gradient norm: 0.005903506388327934
+invariance loss : 4.373455168102351, avg_den : 0.5732650756835938, density loss : 2.1677448657529355, mse loss : 0.03481965528115429, solver time : 125.05261969566345 sec , total loss : 0.041360855315009576, running loss : 0.064788427274493
+Epoch 0/10 , batch 19/12500 
+gradient norm in None layer : 0.0008711818278669063
+gradient norm in None layer : 2.7745173489382917e-05
+gradient norm in None layer : 1.8428466818873972e-05
+gradient norm in None layer : 0.0004701509307141777
+gradient norm in None layer : 4.938988969570469e-05
+gradient norm in None layer : 3.1861267135734864e-05
+gradient norm in None layer : 0.0002105905802237767
+gradient norm in None layer : 1.0395182879664172e-05
+gradient norm in None layer : 8.096439658383132e-06
+gradient norm in None layer : 0.00020176772270092018
+gradient norm in None layer : 1.2698525597342202e-05
+gradient norm in None layer : 8.225371767668421e-06
+gradient norm in None layer : 7.302096379252611e-05
+gradient norm in None layer : 3.048840258923366e-06
+gradient norm in None layer : 1.7459239020748415e-06
+gradient norm in None layer : 6.977514289132304e-05
+gradient norm in None layer : 5.077249309481539e-06
+gradient norm in None layer : 3.7335853355766803e-06
+gradient norm in None layer : 0.000134711596518475
+gradient norm in None layer : 1.2620063214306397e-06
+gradient norm in None layer : 0.00027817671831825545
+gradient norm in None layer : 1.8003162222845478e-05
+gradient norm in None layer : 1.3730973620119659e-05
+gradient norm in None layer : 0.0003473103684654068
+gradient norm in None layer : 3.1576647298147886e-05
+gradient norm in None layer : 2.9009494916766772e-05
+gradient norm in None layer : 0.0007237393342699421
+gradient norm in None layer : 3.9751352488784115e-06
+gradient norm in None layer : 0.0008529103231801962
+gradient norm in None layer : 7.282285091974897e-05
+gradient norm in None layer : 5.441257815940083e-05
+gradient norm in None layer : 0.0010818675940793914
+gradient norm in None layer : 0.00010025989156803154
+gradient norm in None layer : 0.00012813142227289696
+gradient norm in None layer : 6.837890699151294e-05
+gradient norm in None layer : 1.812495096806993e-05
+Total gradient norm: 0.0019391312497520504
+invariance loss : 4.312871052610393, avg_den : 0.5812301635742188, density loss : 2.1066643193199805, mse loss : 0.0432562667884864, solver time : 131.35547995567322 sec , total loss : 0.049675802160416775, running loss : 0.0639930259526995
+Epoch 0/10 , batch 20/12500 
+gradient norm in None layer : 0.0006969131712572908
+gradient norm in None layer : 3.7918278202083114e-05
+gradient norm in None layer : 2.595206187944015e-05
+gradient norm in None layer : 0.0005566379682959669
+gradient norm in None layer : 6.568149760258853e-05
+gradient norm in None layer : 3.220178143107001e-05
+gradient norm in None layer : 0.00017248833326981972
+gradient norm in None layer : 7.83413085532975e-06
+gradient norm in None layer : 7.720088347269408e-06
+gradient norm in None layer : 0.00015813546849102956
+gradient norm in None layer : 1.0215605637970741e-05
+gradient norm in None layer : 6.813777994638772e-06
+gradient norm in None layer : 5.024416404541754e-05
+gradient norm in None layer : 2.263936168639305e-06
+gradient norm in None layer : 1.6119762360317906e-06
+gradient norm in None layer : 6.123669073614357e-05
+gradient norm in None layer : 4.215592951421106e-06
+gradient norm in None layer : 2.4871660744604895e-06
+gradient norm in None layer : 0.0001447946348187121
+gradient norm in None layer : 1.488558295990705e-06
+gradient norm in None layer : 0.00026446784274584474
+gradient norm in None layer : 1.4564810931932446e-05
+gradient norm in None layer : 9.381523312888922e-06
+gradient norm in None layer : 0.0003652825878763274
+gradient norm in None layer : 3.5429792280320576e-05
+gradient norm in None layer : 2.8566120270794057e-05
+gradient norm in None layer : 0.0008531187019936243
+gradient norm in None layer : 5.366938329882552e-06
+gradient norm in None layer : 0.0010683560826091943
+gradient norm in None layer : 8.027904354932496e-05
+gradient norm in None layer : 5.432284464343583e-05
+gradient norm in None layer : 0.001241110223605485
+gradient norm in None layer : 0.00012073510445244416
+gradient norm in None layer : 0.00015349935701543103
+gradient norm in None layer : 8.308226289389261e-05
+gradient norm in None layer : 2.1103499923841074e-05
+Total gradient norm: 0.002134363870397738
+invariance loss : 4.295485816138525, avg_den : 0.578155517578125, density loss : 2.10870135391753, mse loss : 0.02002336302141641, solver time : 112.94383192062378 sec , total loss : 0.026427550191472464, running loss : 0.062114752164638146
+saving checkpoint
+Epoch 0/10 , batch 21/12500 
+gradient norm in None layer : 0.001168939120019192
+gradient norm in None layer : 4.476369602886468e-05
+gradient norm in None layer : 3.130011693125636e-05
+gradient norm in None layer : 0.000659357603727822
+gradient norm in None layer : 4.4003000587677786e-05
+gradient norm in None layer : 2.482590872047614e-05
+gradient norm in None layer : 0.00021455665970795967
+gradient norm in None layer : 8.10150089821385e-06
+gradient norm in None layer : 7.889908105059903e-06
+gradient norm in None layer : 0.00015907377241948506
+gradient norm in None layer : 8.378019956850468e-06
+gradient norm in None layer : 7.210626754841717e-06
+gradient norm in None layer : 5.149591682027055e-05
+gradient norm in None layer : 1.8875971236849642e-06
+gradient norm in None layer : 1.7581869389176196e-06
+gradient norm in None layer : 4.8676255304119486e-05
+gradient norm in None layer : 2.1768290458101835e-06
+gradient norm in None layer : 2.4193614518576155e-06
+gradient norm in None layer : 7.785810519192796e-05
+gradient norm in None layer : 3.5291384724220435e-06
+gradient norm in None layer : 0.00017932911485926057
+gradient norm in None layer : 9.883782992573439e-06
+gradient norm in None layer : 8.685007683334477e-06
+gradient norm in None layer : 0.0002053349423826787
+gradient norm in None layer : 2.0552209586711256e-05
+gradient norm in None layer : 2.2941036909421364e-05
+gradient norm in None layer : 0.0004363951705518743
+gradient norm in None layer : 9.737985334265108e-06
+gradient norm in None layer : 0.0007064769673156058
+gradient norm in None layer : 5.600763694944958e-05
+gradient norm in None layer : 4.289007895644171e-05
+gradient norm in None layer : 0.0008207317930359477
+gradient norm in None layer : 7.226322586683917e-05
+gradient norm in None layer : 9.611690330801148e-05
+gradient norm in None layer : 4.516986572262382e-05
+gradient norm in None layer : 1.1116274517288516e-05
+Total gradient norm: 0.0018302182771814724
+invariance loss : 4.333035895022412, avg_den : 0.58184814453125, density loss : 2.1041172289952867, mse loss : 0.012360260541090577, solver time : 116.74389243125916 sec , total loss : 0.018797413665108276, running loss : 0.06005202175989863
+Epoch 0/10 , batch 22/12500 
+gradient norm in None layer : 0.00038043424202720207
+gradient norm in None layer : 1.935466614303591e-05
+gradient norm in None layer : 1.539962546845005e-05
+gradient norm in None layer : 0.0002780809031727878
+gradient norm in None layer : 2.2453053616053424e-05
+gradient norm in None layer : 1.665370761359544e-05
+gradient norm in None layer : 0.00014271476655241378
+gradient norm in None layer : 6.417678269390615e-06
+gradient norm in None layer : 6.361551201547178e-06
+gradient norm in None layer : 0.00011619912850860949
+gradient norm in None layer : 6.9969745606252705e-06
+gradient norm in None layer : 6.2303227029316565e-06
+gradient norm in None layer : 3.106443907612496e-05
+gradient norm in None layer : 1.2000935487373238e-06
+gradient norm in None layer : 1.0713974329455658e-06
+gradient norm in None layer : 2.7893502456750047e-05
+gradient norm in None layer : 1.5976590548264967e-06
+gradient norm in None layer : 1.4626012529325776e-06
+gradient norm in None layer : 4.9617556006340425e-05
+gradient norm in None layer : 1.1971934305493854e-06
+gradient norm in None layer : 0.0001184330627733496
+gradient norm in None layer : 8.20268271907664e-06
+gradient norm in None layer : 6.287030630898129e-06
+gradient norm in None layer : 0.00013926142058431153
+gradient norm in None layer : 1.595069077997337e-05
+gradient norm in None layer : 2.108573488112306e-05
+gradient norm in None layer : 0.0003107670004976396
+gradient norm in None layer : 4.395824656931978e-06
+gradient norm in None layer : 0.00034261222553046535
+gradient norm in None layer : 3.077517488417604e-05
+gradient norm in None layer : 2.3967479647767755e-05
+gradient norm in None layer : 0.00040015300358055305
+gradient norm in None layer : 6.258188259881348e-05
+gradient norm in None layer : 0.00010282960321315202
+gradient norm in None layer : 3.973507792295193e-05
+gradient norm in None layer : 1.4201166144415037e-05
+Total gradient norm: 0.000829352027462291
+invariance loss : 4.288076327150054, avg_den : 0.5861968994140625, density loss : 2.067911638000874, mse loss : 0.028596638526542244, solver time : 127.31748127937317 sec , total loss : 0.03495262649169317, running loss : 0.05891114015679839
+Epoch 0/10 , batch 23/12500 
+gradient norm in None layer : 0.0005902158397433457
+gradient norm in None layer : 2.208607944902175e-05
+gradient norm in None layer : 1.2382265268333605e-05
+gradient norm in None layer : 0.0003142734052933571
+gradient norm in None layer : 2.2247554757759972e-05
+gradient norm in None layer : 1.288418882769383e-05
+gradient norm in None layer : 0.00013206156859215025
+gradient norm in None layer : 6.442166427589804e-06
+gradient norm in None layer : 5.182446727710731e-06
+gradient norm in None layer : 0.00011189358013638493
+gradient norm in None layer : 5.84012114783571e-06
+gradient norm in None layer : 4.143557457972534e-06
+gradient norm in None layer : 3.2159006619537765e-05
+gradient norm in None layer : 1.1423153813264959e-06
+gradient norm in None layer : 9.449444650515138e-07
+gradient norm in None layer : 2.9029860218040702e-05
+gradient norm in None layer : 1.6558988213475823e-06
+gradient norm in None layer : 2.1991529958772063e-06
+gradient norm in None layer : 5.2009579369397736e-05
+gradient norm in None layer : 1.6647217351259804e-06
+gradient norm in None layer : 0.00011738955486125167
+gradient norm in None layer : 7.351261870147183e-06
+gradient norm in None layer : 5.235283167552256e-06
+gradient norm in None layer : 0.00013794363659967712
+gradient norm in None layer : 1.4156686905745967e-05
+gradient norm in None layer : 1.636386152175977e-05
+gradient norm in None layer : 0.00026517964205610494
+gradient norm in None layer : 5.164862820344625e-06
+gradient norm in None layer : 0.00034718752734445597
+gradient norm in None layer : 3.0124635938340302e-05
+gradient norm in None layer : 2.100440102191679e-05
+gradient norm in None layer : 0.0003749826982194384
+gradient norm in None layer : 4.938969836310388e-05
+gradient norm in None layer : 7.378713160996012e-05
+gradient norm in None layer : 2.8811022072466118e-05
+gradient norm in None layer : 9.747579971496244e-06
+Total gradient norm: 0.0009263440461286292
+invariance loss : 4.287508854036399, avg_den : 0.5888519287109375, density loss : 2.0604188001168766, mse loss : 0.026309054097362106, solver time : 124.58189392089844 sec , total loss : 0.03265698175151538, running loss : 0.05776965500874261
+Epoch 0/10 , batch 24/12500 
+gradient norm in None layer : 0.0007305861835315027
+gradient norm in None layer : 2.712252847250747e-05
+gradient norm in None layer : 1.4471093698892198e-05
+gradient norm in None layer : 0.0004114086281695287
+gradient norm in None layer : 1.9599158522254683e-05
+gradient norm in None layer : 1.4560077578592592e-05
+gradient norm in None layer : 0.00017384192796302003
+gradient norm in None layer : 7.374086870021827e-06
+gradient norm in None layer : 4.983677772202204e-06
+gradient norm in None layer : 0.00013931784594955115
+gradient norm in None layer : 7.312737500671223e-06
+gradient norm in None layer : 5.983871654514873e-06
+gradient norm in None layer : 4.088082873625878e-05
+gradient norm in None layer : 1.3689681862860896e-06
+gradient norm in None layer : 1.1820990216773653e-06
+gradient norm in None layer : 3.5100411484332935e-05
+gradient norm in None layer : 1.8074437609078389e-06
+gradient norm in None layer : 1.6649095810575047e-06
+gradient norm in None layer : 5.603065272818827e-05
+gradient norm in None layer : 2.164720254712317e-06
+gradient norm in None layer : 0.0001448398938807981
+gradient norm in None layer : 7.860370639254359e-06
+gradient norm in None layer : 6.3014456124097465e-06
+gradient norm in None layer : 0.00014129421847588688
+gradient norm in None layer : 1.3832498974572045e-05
+gradient norm in None layer : 1.511727141410848e-05
+gradient norm in None layer : 0.00024091239791937974
+gradient norm in None layer : 4.4854421789301216e-06
+gradient norm in None layer : 0.00037981977388838446
+gradient norm in None layer : 3.158894617792547e-05
+gradient norm in None layer : 2.103044003688754e-05
+gradient norm in None layer : 0.000406299493260517
+gradient norm in None layer : 3.732333539752584e-05
+gradient norm in None layer : 6.237490205555807e-05
+gradient norm in None layer : 2.2443349953572724e-05
+gradient norm in None layer : 6.71967341309166e-06
+Total gradient norm: 0.0010846879731748204
+invariance loss : 4.249836030426534, avg_den : 0.57659912109375, density loss : 2.1197707944939155, mse loss : 0.025107882470946356, solver time : 115.27008104324341 sec , total loss : 0.03147748929586681, running loss : 0.05667414810403945
+Epoch 0/10 , batch 25/12500 
+gradient norm in None layer : 0.0008116060728138635
+gradient norm in None layer : 2.4185651942274288e-05
+gradient norm in None layer : 2.3955587791996584e-05
+gradient norm in None layer : 0.0004620639372178004
+gradient norm in None layer : 2.4942469846075155e-05
+gradient norm in None layer : 2.1277625091491823e-05
+gradient norm in None layer : 0.0002669318510537965
+gradient norm in None layer : 1.0669341822250329e-05
+gradient norm in None layer : 9.772311345934913e-06
+gradient norm in None layer : 0.0002070990858841099
+gradient norm in None layer : 1.1685821924886434e-05
+gradient norm in None layer : 1.0250281478065387e-05
+gradient norm in None layer : 7.455991575128854e-05
+gradient norm in None layer : 3.3098208395186175e-06
+gradient norm in None layer : 2.511800961431844e-06
+gradient norm in None layer : 6.069941858340445e-05
+gradient norm in None layer : 3.7665234029799534e-06
+gradient norm in None layer : 3.258030763113592e-06
+gradient norm in None layer : 8.797535415022188e-05
+gradient norm in None layer : 2.799842434076976e-06
+gradient norm in None layer : 0.000194706626744962
+gradient norm in None layer : 1.1697978371362748e-05
+gradient norm in None layer : 9.08891325044129e-06
+gradient norm in None layer : 0.0001775082233785253
+gradient norm in None layer : 1.735549822581744e-05
+gradient norm in None layer : 2.010765488345052e-05
+gradient norm in None layer : 0.00027273707633326865
+gradient norm in None layer : 5.282223412508977e-06
+gradient norm in None layer : 0.0004295297109165683
+gradient norm in None layer : 3.330616839894318e-05
+gradient norm in None layer : 2.3382322028911418e-05
+gradient norm in None layer : 0.0004726065668956874
+gradient norm in None layer : 4.809724363297237e-05
+gradient norm in None layer : 7.735476463443412e-05
+gradient norm in None layer : 2.8651630557333677e-05
+gradient norm in None layer : 9.10418236665953e-06
+Total gradient norm: 0.00125281118626131
+invariance loss : 4.296390775860571, avg_den : 0.580535888671875, density loss : 2.108025224557939, mse loss : 0.009945573333923199, solver time : 104.93897032737732 sec , total loss : 0.01634998933434171, running loss : 0.055061181753251545
+Epoch 0/10 , batch 26/12500 
+gradient norm in None layer : 0.0006046401740617209
+gradient norm in None layer : 2.047384352402075e-05
+gradient norm in None layer : 2.3790410965626175e-05
+gradient norm in None layer : 0.00030936112866108094
+gradient norm in None layer : 2.0006778412682783e-05
+gradient norm in None layer : 1.5469417118268694e-05
+gradient norm in None layer : 0.00014741598775017042
+gradient norm in None layer : 6.235192632498072e-06
+gradient norm in None layer : 5.709174812371368e-06
+gradient norm in None layer : 0.00011594143215154641
+gradient norm in None layer : 6.104593399721258e-06
+gradient norm in None layer : 5.076211861220141e-06
+gradient norm in None layer : 3.9687131771197525e-05
+gradient norm in None layer : 1.370271517206961e-06
+gradient norm in None layer : 1.2553294489083924e-06
+gradient norm in None layer : 3.13766873700124e-05
+gradient norm in None layer : 1.6509104380470367e-06
+gradient norm in None layer : 1.490950065902574e-06
+gradient norm in None layer : 4.4772079897413275e-05
+gradient norm in None layer : 1.6973666626636273e-06
+gradient norm in None layer : 0.00010917370032173408
+gradient norm in None layer : 6.725625217625196e-06
+gradient norm in None layer : 4.9572748308726205e-06
+gradient norm in None layer : 0.00011962694316679038
+gradient norm in None layer : 1.295172102751365e-05
+gradient norm in None layer : 1.484909256640049e-05
+gradient norm in None layer : 0.00022551966516512158
+gradient norm in None layer : 4.52179998525182e-06
+gradient norm in None layer : 0.0002970242759618317
+gradient norm in None layer : 2.498163019716022e-05
+gradient norm in None layer : 1.9893785752771385e-05
+gradient norm in None layer : 0.0003520897279764841
+gradient norm in None layer : 4.7844313836830375e-05
+gradient norm in None layer : 7.408849586436855e-05
+gradient norm in None layer : 3.1236476100310804e-05
+gradient norm in None layer : 1.0722746055271936e-05
+Total gradient norm: 0.0008957951808649505
+invariance loss : 4.2387368016260325, avg_den : 0.5783004760742188, density loss : 2.105306527114257, mse loss : 0.028300876188223013, solver time : 120.2525143623352 sec , total loss : 0.0346449195169633, running loss : 0.05427594089800969
+Epoch 0/10 , batch 27/12500 
+gradient norm in None layer : 0.0004076230496865595
+gradient norm in None layer : 1.761884618694281e-05
+gradient norm in None layer : 1.4074192410422005e-05
+gradient norm in None layer : 0.0002596199393673264
+gradient norm in None layer : 2.157720958874896e-05
+gradient norm in None layer : 1.5388894189922098e-05
+gradient norm in None layer : 0.0001150099761244483
+gradient norm in None layer : 4.876234693854833e-06
+gradient norm in None layer : 4.48716846269669e-06
+gradient norm in None layer : 9.19411691734061e-05
+gradient norm in None layer : 5.224642970370159e-06
+gradient norm in None layer : 4.6111094385246365e-06
+gradient norm in None layer : 3.3282423535775744e-05
+gradient norm in None layer : 1.1296744262550333e-06
+gradient norm in None layer : 1.109034863298148e-06
+gradient norm in None layer : 2.6992857114717893e-05
+gradient norm in None layer : 1.3492549934281873e-06
+gradient norm in None layer : 1.3814366191771758e-06
+gradient norm in None layer : 3.891577291902772e-05
+gradient norm in None layer : 1.1808421388825323e-06
+gradient norm in None layer : 9.155107395653123e-05
+gradient norm in None layer : 6.029287996337372e-06
+gradient norm in None layer : 4.556080856311205e-06
+gradient norm in None layer : 0.00011219941976902174
+gradient norm in None layer : 1.1148149040298241e-05
+gradient norm in None layer : 1.3738400053426493e-05
+gradient norm in None layer : 0.00022893168149163955
+gradient norm in None layer : 4.633262720201534e-06
+gradient norm in None layer : 0.0002962941250718368
+gradient norm in None layer : 2.533354925240364e-05
+gradient norm in None layer : 2.003499025000348e-05
+gradient norm in None layer : 0.00036126708518306283
+gradient norm in None layer : 5.060661479910278e-05
+gradient norm in None layer : 8.510104788785966e-05
+gradient norm in None layer : 3.4681193285643366e-05
+gradient norm in None layer : 1.2970583647799811e-05
+Total gradient norm: 0.000751128803638815
+invariance loss : 4.240720869983365, avg_den : 0.5747833251953125, density loss : 2.1279842191192655, mse loss : 0.026716306639350113, solver time : 125.3861997127533 sec , total loss : 0.03308501172845275, running loss : 0.05349109166950757
+Epoch 0/10 , batch 28/12500 
+gradient norm in None layer : 0.0005281905466427403
+gradient norm in None layer : 1.7258399816642782e-05
+gradient norm in None layer : 2.3529603041856134e-05
+gradient norm in None layer : 0.0002863657841553817
+gradient norm in None layer : 1.7145328319952743e-05
+gradient norm in None layer : 1.3854059509938994e-05
+gradient norm in None layer : 0.0001273976634257765
+gradient norm in None layer : 5.313507391030234e-06
+gradient norm in None layer : 5.274304706649029e-06
+gradient norm in None layer : 9.984510072757323e-05
+gradient norm in None layer : 4.973189871527502e-06
+gradient norm in None layer : 4.242470592719523e-06
+gradient norm in None layer : 2.5923083903546307e-05
+gradient norm in None layer : 9.603468536100206e-07
+gradient norm in None layer : 8.772413432832808e-07
+gradient norm in None layer : 2.238196919592339e-05
+gradient norm in None layer : 1.1272721469313413e-06
+gradient norm in None layer : 1.0042821408284324e-06
+gradient norm in None layer : 3.623027020921515e-05
+gradient norm in None layer : 1.3507137441558057e-06
+gradient norm in None layer : 9.231362715066988e-05
+gradient norm in None layer : 5.264868397825233e-06
+gradient norm in None layer : 4.663141439928171e-06
+gradient norm in None layer : 0.00010003592118313284
+gradient norm in None layer : 8.095682711065662e-06
+gradient norm in None layer : 1.0246817896881278e-05
+gradient norm in None layer : 0.0001627172989878406
+gradient norm in None layer : 5.372536135516192e-06
+gradient norm in None layer : 0.0002579174412885891
+gradient norm in None layer : 1.9421047951852774e-05
+gradient norm in None layer : 1.3443320717299655e-05
+gradient norm in None layer : 0.0003001601249854536
+gradient norm in None layer : 3.684409412066312e-05
+gradient norm in None layer : 6.052846768647335e-05
+gradient norm in None layer : 2.4767308701546064e-05
+gradient norm in None layer : 8.324274069174836e-06
+Total gradient norm: 0.0007741133412076317
+invariance loss : 4.218955364911575, avg_den : 0.5826644897460938, density loss : 2.0823832634798034, mse loss : 0.013870293473193773, solver time : 123.47701120376587 sec , total loss : 0.020171632101585152, running loss : 0.05230111097065321
+Epoch 0/10 , batch 29/12500 
+gradient norm in None layer : 0.0005104922788027716
+gradient norm in None layer : 1.550537070969673e-05
+gradient norm in None layer : 1.5196486250759645e-05
+gradient norm in None layer : 0.00025545548327914427
+gradient norm in None layer : 1.600659589907429e-05
+gradient norm in None layer : 1.3284002498598124e-05
+gradient norm in None layer : 0.00015382632063212117
+gradient norm in None layer : 6.486711250264158e-06
+gradient norm in None layer : 7.052510515655931e-06
+gradient norm in None layer : 0.00010379939962218075
+gradient norm in None layer : 4.788346190901045e-06
+gradient norm in None layer : 4.652696650081642e-06
+gradient norm in None layer : 3.1834800339271365e-05
+gradient norm in None layer : 1.0991633390098363e-06
+gradient norm in None layer : 1.1953649208558476e-06
+gradient norm in None layer : 2.416285740980277e-05
+gradient norm in None layer : 1.2200757259250302e-06
+gradient norm in None layer : 1.2683106712749707e-06
+gradient norm in None layer : 3.373219198610106e-05
+gradient norm in None layer : 1.2865063415562176e-06
+gradient norm in None layer : 7.772513974359933e-05
+gradient norm in None layer : 4.51934664484274e-06
+gradient norm in None layer : 3.4082571704256475e-06
+gradient norm in None layer : 8.484097658205763e-05
+gradient norm in None layer : 7.732464426038324e-06
+gradient norm in None layer : 8.122788337218343e-06
+gradient norm in None layer : 0.00014982436619241987
+gradient norm in None layer : 4.310948908333204e-06
+gradient norm in None layer : 0.00022356514966468454
+gradient norm in None layer : 1.767384659565299e-05
+gradient norm in None layer : 1.2980171886604887e-05
+gradient norm in None layer : 0.0002628563314318596
+gradient norm in None layer : 3.9882237564790636e-05
+gradient norm in None layer : 6.295555155220908e-05
+gradient norm in None layer : 2.761944948476212e-05
+gradient norm in None layer : 9.623894939727613e-06
+Total gradient norm: 0.0007251949651981785
+invariance loss : 4.218046127778802, avg_den : 0.5799789428710938, density loss : 2.0937809746535074, mse loss : 0.02246242115653005, solver time : 116.63513112068176 sec , total loss : 0.028774248258962357, running loss : 0.051489839842663865
+Epoch 0/10 , batch 30/12500 
+gradient norm in None layer : 0.0007971084574910182
+gradient norm in None layer : 2.2541830290121978e-05
+gradient norm in None layer : 1.5901145228980137e-05
+gradient norm in None layer : 0.0003608375548547018
+gradient norm in None layer : 2.507207024230803e-05
+gradient norm in None layer : 1.4394936155438779e-05
+gradient norm in None layer : 0.00016456274694079577
+gradient norm in None layer : 6.5610497286897376e-06
+gradient norm in None layer : 5.488405175565133e-06
+gradient norm in None layer : 0.00012830025774586672
+gradient norm in None layer : 6.357183899384637e-06
+gradient norm in None layer : 5.662514848080464e-06
+gradient norm in None layer : 4.6522189651179065e-05
+gradient norm in None layer : 1.5040588777838474e-06
+gradient norm in None layer : 1.6496942160943032e-06
+gradient norm in None layer : 3.602639981990709e-05
+gradient norm in None layer : 1.6248696985696168e-06
+gradient norm in None layer : 2.338219643837499e-06
+gradient norm in None layer : 4.941119837481441e-05
+gradient norm in None layer : 1.6538833793751654e-06
+gradient norm in None layer : 0.0001169255008320627
+gradient norm in None layer : 5.826078075248558e-06
+gradient norm in None layer : 5.812643441287346e-06
+gradient norm in None layer : 0.00011855511527766601
+gradient norm in None layer : 9.124022756314819e-06
+gradient norm in None layer : 1.1068806726387474e-05
+gradient norm in None layer : 0.0001623302130013779
+gradient norm in None layer : 6.004299924701944e-06
+gradient norm in None layer : 0.0003066683390479093
+gradient norm in None layer : 1.7710222232483414e-05
+gradient norm in None layer : 1.4723116098892532e-05
+gradient norm in None layer : 0.00031172750310981545
+gradient norm in None layer : 2.4023616420945673e-05
+gradient norm in None layer : 3.281489870796861e-05
+gradient norm in None layer : 1.723270164486924e-05
+gradient norm in None layer : 3.60968733940232e-06
+Total gradient norm: 0.0010319354911092831
+invariance loss : 4.259992092943346, avg_den : 0.5808639526367188, density loss : 2.1070931389320986, mse loss : 0.05157143743880796, solver time : 133.62480401992798 sec , total loss : 0.057938522670683404, running loss : 0.05170479593693119
+saving checkpoint
+Epoch 0/10 , batch 31/12500 
+gradient norm in None layer : 0.0003812647000635385
+gradient norm in None layer : 1.2804215096554852e-05
+gradient norm in None layer : 1.653306407496373e-05
+gradient norm in None layer : 0.00020771094127726403
+gradient norm in None layer : 1.4577733724635565e-05
+gradient norm in None layer : 1.0157363974215238e-05
+gradient norm in None layer : 9.36264986319961e-05
+gradient norm in None layer : 3.3656136507697177e-06
+gradient norm in None layer : 3.286102225413271e-06
+gradient norm in None layer : 7.512548188106997e-05
+gradient norm in None layer : 4.028066565341991e-06
+gradient norm in None layer : 3.2024026583711204e-06
+gradient norm in None layer : 2.7556780332167032e-05
+gradient norm in None layer : 9.862818766581491e-07
+gradient norm in None layer : 7.677629388767773e-07
+gradient norm in None layer : 2.2466824010758222e-05
+gradient norm in None layer : 1.1719079687561318e-06
+gradient norm in None layer : 1.091962483258786e-06
+gradient norm in None layer : 3.093700858071362e-05
+gradient norm in None layer : 1.16575485955658e-06
+gradient norm in None layer : 7.439660023586673e-05
+gradient norm in None layer : 4.646807249763531e-06
+gradient norm in None layer : 3.846477231247301e-06
+gradient norm in None layer : 7.958679343476954e-05
+gradient norm in None layer : 7.613082161389579e-06
+gradient norm in None layer : 7.305699219834402e-06
+gradient norm in None layer : 0.00012434197575263573
+gradient norm in None layer : 4.647768403656837e-06
+gradient norm in None layer : 0.0002057030936664023
+gradient norm in None layer : 1.6473587244239808e-05
+gradient norm in None layer : 1.0570022004676764e-05
+gradient norm in None layer : 0.00024025997796891125
+gradient norm in None layer : 3.0674621837753305e-05
+gradient norm in None layer : 4.9246479538292866e-05
+gradient norm in None layer : 1.9797782293531803e-05
+gradient norm in None layer : 6.559674496481365e-06
+Total gradient norm: 0.0005810909391460101
+invariance loss : 4.273147988887329, avg_den : 0.5901565551757812, density loss : 2.0621803200058673, mse loss : 0.046813621768289376, solver time : 114.13380670547485 sec , total loss : 0.05314895007718257, running loss : 0.051751381554358655
+Epoch 0/10 , batch 32/12500 
+gradient norm in None layer : 0.0004131313624948719
+gradient norm in None layer : 1.6453317498863246e-05
+gradient norm in None layer : 1.4441951711884837e-05
+gradient norm in None layer : 0.00025375995991830743
+gradient norm in None layer : 1.6269385837672877e-05
+gradient norm in None layer : 1.0424532435679637e-05
+gradient norm in None layer : 0.00012559766753654551
+gradient norm in None layer : 5.741976807027211e-06
+gradient norm in None layer : 5.636163658891102e-06
+gradient norm in None layer : 9.869957490348266e-05
+gradient norm in None layer : 5.035056717525893e-06
+gradient norm in None layer : 4.526958196713825e-06
+gradient norm in None layer : 2.73978206305589e-05
+gradient norm in None layer : 1.0432528135025102e-06
+gradient norm in None layer : 9.486254491973624e-07
+gradient norm in None layer : 2.4611132205957647e-05
+gradient norm in None layer : 1.2906884046392584e-06
+gradient norm in None layer : 1.2764579385083835e-06
+gradient norm in None layer : 3.655156039017935e-05
+gradient norm in None layer : 1.273454546644806e-06
+gradient norm in None layer : 8.750594690336345e-05
+gradient norm in None layer : 5.2250256490823555e-06
+gradient norm in None layer : 4.573984814142177e-06
+gradient norm in None layer : 9.630384032501823e-05
+gradient norm in None layer : 8.10205883595044e-06
+gradient norm in None layer : 1.0471879451567013e-05
+gradient norm in None layer : 0.00014897414737497332
+gradient norm in None layer : 4.963300376937289e-06
+gradient norm in None layer : 0.00024638027029046566
+gradient norm in None layer : 1.6855138666027998e-05
+gradient norm in None layer : 1.253445603863527e-05
+gradient norm in None layer : 0.00028863928160491277
+gradient norm in None layer : 3.745391567443974e-05
+gradient norm in None layer : 5.600425197705787e-05
+gradient norm in None layer : 2.5877844431427245e-05
+gradient norm in None layer : 7.576714543923209e-06
+Total gradient norm: 0.0006733105649579872
+invariance loss : 4.2355245646866155, avg_den : 0.58782958984375, density loss : 2.0576981336854807, mse loss : 0.009537278173507989, solver time : 118.45159125328064 sec , total loss : 0.015830500871880086, running loss : 0.0506288540330312
+Epoch 0/10 , batch 33/12500 
+gradient norm in None layer : 0.0004118787797791027
+gradient norm in None layer : 1.2905271448686846e-05
+gradient norm in None layer : 1.1415841731328525e-05
+gradient norm in None layer : 0.00021015245748158516
+gradient norm in None layer : 1.356026592558696e-05
+gradient norm in None layer : 1.1417077734080584e-05
+gradient norm in None layer : 8.23530060483157e-05
+gradient norm in None layer : 3.4878459010255404e-06
+gradient norm in None layer : 3.1001619458076653e-06
+gradient norm in None layer : 6.974536961494915e-05
+gradient norm in None layer : 3.82422114548857e-06
+gradient norm in None layer : 3.0729835214021156e-06
+gradient norm in None layer : 2.4556429122487043e-05
+gradient norm in None layer : 9.361179683173033e-07
+gradient norm in None layer : 9.334672936134715e-07
+gradient norm in None layer : 2.2498881004290856e-05
+gradient norm in None layer : 1.3098364978661504e-06
+gradient norm in None layer : 1.1990954102219211e-06
+gradient norm in None layer : 3.561793478617487e-05
+gradient norm in None layer : 1.1383298423222194e-06
+gradient norm in None layer : 7.522637814146263e-05
+gradient norm in None layer : 5.041535384656402e-06
+gradient norm in None layer : 3.813817052458251e-06
+gradient norm in None layer : 9.133720271486339e-05
+gradient norm in None layer : 8.948546492861148e-06
+gradient norm in None layer : 8.969523194854917e-06
+gradient norm in None layer : 0.00014054822178609076
+gradient norm in None layer : 4.428841202647444e-06
+gradient norm in None layer : 0.00021227050521241815
+gradient norm in None layer : 1.6607304280780885e-05
+gradient norm in None layer : 1.116073404547798e-05
+gradient norm in None layer : 0.0002536464258671849
+gradient norm in None layer : 3.310654319896395e-05
+gradient norm in None layer : 4.960823782638947e-05
+gradient norm in None layer : 2.2372655875369117e-05
+gradient norm in None layer : 7.4720514257737225e-06
+Total gradient norm: 0.0006134982011533636
+invariance loss : 4.217245964908682, avg_den : 0.5791702270507812, density loss : 2.1060207291551105, mse loss : 0.013433142398676729, solver time : 122.8458366394043 sec , total loss : 0.019756409092740523, running loss : 0.049693325398476935
+Epoch 0/10 , batch 34/12500 
+gradient norm in None layer : 0.0004984338122053171
+gradient norm in None layer : 2.0965747345699614e-05
+gradient norm in None layer : 2.0653345498715375e-05
+gradient norm in None layer : 0.00031639608531867756
+gradient norm in None layer : 1.8145400569283577e-05
+gradient norm in None layer : 1.3073579027729606e-05
+gradient norm in None layer : 0.00017314637494710765
+gradient norm in None layer : 7.393179927050919e-06
+gradient norm in None layer : 6.604014609281489e-06
+gradient norm in None layer : 0.0001163130778606541
+gradient norm in None layer : 6.123448472083463e-06
+gradient norm in None layer : 5.019470914109318e-06
+gradient norm in None layer : 3.37551392405045e-05
+gradient norm in None layer : 1.2381812878797467e-06
+gradient norm in None layer : 1.141830472115399e-06
+gradient norm in None layer : 2.4892965522390336e-05
+gradient norm in None layer : 1.099212896956035e-06
+gradient norm in None layer : 1.1677683622746943e-06
+gradient norm in None layer : 3.440505174900681e-05
+gradient norm in None layer : 1.3396805566851131e-06
+gradient norm in None layer : 8.82423275002387e-05
+gradient norm in None layer : 5.07340788200698e-06
+gradient norm in None layer : 4.3342315951683456e-06
+gradient norm in None layer : 9.292099367588482e-05
+gradient norm in None layer : 7.437470054362047e-06
+gradient norm in None layer : 8.106061569421909e-06
+gradient norm in None layer : 0.0001404689623210265
+gradient norm in None layer : 4.0516455690740916e-06
+gradient norm in None layer : 0.00024055632186615312
+gradient norm in None layer : 1.7032326218332036e-05
+gradient norm in None layer : 1.0944107927972155e-05
+gradient norm in None layer : 0.00028309783430030034
+gradient norm in None layer : 3.7822755086922816e-05
+gradient norm in None layer : 5.187276926002244e-05
+gradient norm in None layer : 2.4636059591307985e-05
+gradient norm in None layer : 7.799880408604226e-06
+Total gradient norm: 0.0007589951399279015
+invariance loss : 4.236918835791858, avg_den : 0.5869293212890625, density loss : 2.0613207403366074, mse loss : 0.014687493151298213, solver time : 115.67887306213379 sec , total loss : 0.020985732727426678, running loss : 0.04884898443756369
+Epoch 0/10 , batch 35/12500 
+gradient norm in None layer : 0.00041183897858678803
+gradient norm in None layer : 1.4346597867387418e-05
+gradient norm in None layer : 9.611133076793334e-06
+gradient norm in None layer : 0.00023988790853483904
+gradient norm in None layer : 1.4834146519619348e-05
+gradient norm in None layer : 1.0922379576567468e-05
+gradient norm in None layer : 0.00010772857653521568
+gradient norm in None layer : 4.812710781092444e-06
+gradient norm in None layer : 4.144031134072046e-06
+gradient norm in None layer : 8.706809240824464e-05
+gradient norm in None layer : 4.747658286530241e-06
+gradient norm in None layer : 4.002002548682359e-06
+gradient norm in None layer : 3.215876523222848e-05
+gradient norm in None layer : 1.1518591758055065e-06
+gradient norm in None layer : 1.200145206062702e-06
+gradient norm in None layer : 2.6304421894937288e-05
+gradient norm in None layer : 1.2984801784519014e-06
+gradient norm in None layer : 1.2147840386943111e-06
+gradient norm in None layer : 3.673784620000985e-05
+gradient norm in None layer : 1.2202883752941524e-06
+gradient norm in None layer : 8.266360130438988e-05
+gradient norm in None layer : 5.198715355948693e-06
+gradient norm in None layer : 4.180708415543845e-06
+gradient norm in None layer : 8.88546078785478e-05
+gradient norm in None layer : 6.662581823476843e-06
+gradient norm in None layer : 8.398264969395712e-06
+gradient norm in None layer : 0.00013240793709317142
+gradient norm in None layer : 4.642313720556854e-06
+gradient norm in None layer : 0.0002382915968353106
+gradient norm in None layer : 1.655019375811389e-05
+gradient norm in None layer : 1.4423256840676317e-05
+gradient norm in None layer : 0.00027408894566342357
+gradient norm in None layer : 3.2083615563425866e-05
+gradient norm in None layer : 4.623581823412463e-05
+gradient norm in None layer : 2.4244791019644318e-05
+gradient norm in None layer : 7.216234075203207e-06
+Total gradient norm: 0.0006471331448788342
+invariance loss : 4.2183780782319475, avg_den : 0.5840530395507812, density loss : 2.075763872843975, mse loss : 0.011825212427826016, solver time : 131.49824500083923 sec , total loss : 0.01811935437890194, running loss : 0.04797099500731621
+Epoch 0/10 , batch 36/12500 
+gradient norm in None layer : 0.00042293610778220233
+gradient norm in None layer : 1.5291382051974858e-05
+gradient norm in None layer : 2.0592206017599182e-05
+gradient norm in None layer : 0.000254072803064251
+gradient norm in None layer : 1.4816027686112158e-05
+gradient norm in None layer : 1.3546474791527399e-05
+gradient norm in None layer : 0.0001331932637186874
+gradient norm in None layer : 5.542578387861061e-06
+gradient norm in None layer : 5.47514523005342e-06
+gradient norm in None layer : 0.00010021401156585616
+gradient norm in None layer : 5.340434670083191e-06
+gradient norm in None layer : 4.889183518971548e-06
+gradient norm in None layer : 2.946211508487645e-05
+gradient norm in None layer : 1.153447362192085e-06
+gradient norm in None layer : 1.1940541589189732e-06
+gradient norm in None layer : 2.3941410900984584e-05
+gradient norm in None layer : 1.2822337432319556e-06
+gradient norm in None layer : 1.2188550551729142e-06
+gradient norm in None layer : 3.922990544537879e-05
+gradient norm in None layer : 1.3687857868872094e-06
+gradient norm in None layer : 9.21156917824237e-05
+gradient norm in None layer : 5.2829118763267186e-06
+gradient norm in None layer : 5.266093792715158e-06
+gradient norm in None layer : 0.00010167032334564845
+gradient norm in None layer : 7.500279695687071e-06
+gradient norm in None layer : 8.318640911177714e-06
+gradient norm in None layer : 0.00014663841346467272
+gradient norm in None layer : 3.100511903495611e-06
+gradient norm in None layer : 0.00022289506347670477
+gradient norm in None layer : 1.659365638822944e-05
+gradient norm in None layer : 1.255276656697997e-05
+gradient norm in None layer : 0.0002446340855208586
+gradient norm in None layer : 3.299098334820235e-05
+gradient norm in None layer : 5.163306087051978e-05
+gradient norm in None layer : 2.1802634758122108e-05
+gradient norm in None layer : 7.006886505605477e-06
+Total gradient norm: 0.0006558419616888695
+invariance loss : 4.2425135059063965, avg_den : 0.5879898071289062, density loss : 2.060456754138877, mse loss : 0.017929682329432085, solver time : 138.07604503631592 sec , total loss : 0.02423265258947736, running loss : 0.04731159660682069
+Epoch 0/10 , batch 37/12500 

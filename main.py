@@ -1,7 +1,7 @@
 # main.py
 import yaml
 from train import ModelTrainer
-from CustomDataset import BSDS300Dataset
+from CustomDataset import MaskDataset
 # from MaskModel.unet import UNet
 from MaskModel.unet_model import UNet
 from torchsummary import summary
@@ -29,9 +29,9 @@ def read_config(file_path):
             print(f"Error reading YAML file: {e}")
             return None
 
-def getDataSets(config):
+def getMaskDataset(config):
     """
-    Create and return Datasets objects for training and testing .
+    Create and return Mask Dataset objects for training and testing .
 
     Parameters:
     config (dict): A dictionary containing configuration parameters for dataset creation.
@@ -41,12 +41,12 @@ def getDataSets(config):
         - train_dataset: Datasets for the training dataset.
         - test_dataset: Datasets for the testing dataset.
     """
-    train_dataset = BSDS300Dataset(config['TRAIN_FILENAME'], 
+    train_dataset = MaskDataset(config['TRAIN_FILENAME'], 
                              config['ROOT_DIR'], 
                              "train", 
                              config['IMG_SIZE'])
     
-    test_dataset = BSDS300Dataset(config['TEST_FILENAME'], 
+    test_dataset = MaskDataset(config['TEST_FILENAME'], 
                              config['ROOT_DIR'], 
                              "test", 
                              config['IMG_SIZE'])
@@ -60,6 +60,7 @@ def main(config):
     if not os.path.isdir(exp_path):
         os.makedirs(exp_path)
     
+    # to print to a file
     # sys.stdout = open(os.path.join(exp_path, 'output.txt'),'wt')
 
     print(f"CONFIG : \n{config}\n")
@@ -67,7 +68,7 @@ def main(config):
     shutil.copyfile(CONFIG_YAML, os.path.join(exp_path, CONFIG_YAML))
 
     # get train , test Dataset classes
-    train_dataset, test_dataset = getDataSets(config)
+    train_dataset, test_dataset = getMaskDataset(config)
     print(f"train test dataset loaded")
     print(f"train size : {len(train_dataset)}")
     print(f"test  size  : {len(test_dataset)}")
@@ -78,7 +79,9 @@ def main(config):
     
     #print model summary
     print(f"model summary")
-    summary(model, input_size=(config['INP_CHANNELS'], config['IMG_SIZE'], config['IMG_SIZE']))
+    model_sum = summary(model, input_size=(config['INP_CHANNELS'], config['IMG_SIZE'], config['IMG_SIZE']), verbose =0)
+    model_sum = str(model_sum).encode('ascii', errors='replace')
+    print(model_sum.decode())
 
     # configure model trainer 
     trainer = ModelTrainer(

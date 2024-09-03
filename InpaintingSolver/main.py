@@ -23,37 +23,26 @@ def readPGMImage( pth):
     return pgm_T
 
 if __name__ == '__main__':
-    u_pth = 'kani-init.pgm'
+    # u_pth = 'kani-init.pgm'
     v_pth = 'cameraman.pgm'
     mask_pth  = 'cameraman-edge.pgm'
     
-    U = readPGMImage(u_pth)
+    # U = readPGMImage(u_pth)
     V = readPGMImage(v_pth)
+    V1 = readPGMImage("scarf.pgm")
     mask = readPGMImage(mask_pth)
 
-    # osmosis = OsmosisInpainting(None, V, mask, mask, offset=1, tau=10, apply_canny=False)
+    # osmosis = OsmosisInpainting(None, V1, None, None, offset=1, tau=10, apply_canny=False)
     # osmosis.calculateWeights(False, False, False)
-    # osmosis.solve(1000, save_every = 1000, verbose = False)
+    # osmosis.solve(20, save_every = 20, verbose = True)
 
     # V = V.repeat(4, 1, 1, 1)
-    osmosis = OsmosisInpainting(None, V, mask, mask, offset=1, tau=10, device = None, apply_canny=False)
+    V = torch.cat((V, V1), dim = 0)
+    print(V.shape)
+
+    osmosis = OsmosisInpainting(None, V, None, None, offset=1, tau=10, device = None, apply_canny=False)
     osmosis.calculateWeights(False, False, False)
-    osmosis.solveBatch(10, save_batch = False, verbose = False)
-
-    # pth = 'InpaintingSolver/test.pgm'
-    # V = osmosis.readPGMImage(pth)
-    # osmosis.V = V + 1
-    # osmosis.getDriftVectors(True)
-    # osmosis.getStencilMatrices(1,True)
-    # pth = 'InpaintingSolver/test1.pgm'
-    # U = osmosis.readPGMImage(pth)
-    # U = U + 1
-    # x = osmosis.applyStencil(U, True)
-
-    # Um = U[0][0][190:200, 215:230]
-    # write_tensor_to_pgm('sc-init.pgm', Um)
-    # Vm = V[0][0][190:200, 215:230]
-    # write_tensor_to_pgm('sc.pgm', Vm)
+    osmosis.solveBatchProcess(2, save_batch = True, verbose = True)
 
     # image = np.array([[3,8,0],
     #                   [6,0,1],

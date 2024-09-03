@@ -1,4 +1,5 @@
 #train.py
+import sys
 from torch.utils.data import DataLoader
 from torch.optim import AdamW, Adam, SGD
 from torch.optim.lr_scheduler import ExponentialLR, MultiStepLR, LambdaLR
@@ -8,6 +9,8 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import gc
+
 
 from InpaintingSolver.bi_cg import OsmosisInpainting
 
@@ -163,7 +166,6 @@ class ModelTrainer():
                 osmosis = OsmosisInpainting(None, X, mask, mask, offset=1, tau=10, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(False, False, False)
                 loss2 = osmosis.solveBatch(100, save_batch = False, verbose = False)
-
                 total_loss = loss1 + alpha * loss2
 
                 running_loss += total_loss
@@ -189,7 +191,6 @@ class ModelTrainer():
 
     def initialize_weights_he(self, m):
         if isinstance(m, nn.Conv2d):
-            print(f"initializing weights using Kaiming/He Initialization")
             nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
             if m.bias is not None:
                 nn.init.constant_(m.bias, 0)
@@ -199,7 +200,7 @@ class ModelTrainer():
         
         # loss lists
         loss1_list, loss2_list, loss3_list, gradnorm_list, running_loss_list = [], [], [], [], []
-        epochloss_list = []
+        avg_den_list, epochloss_list = [], []
 
         train_dataloader, test_dataloader = self.getDataloaders(train_dataset, test_dataset)
 
@@ -219,6 +220,7 @@ class ModelTrainer():
         model = model.double()
         model.to(self.device)
         model.train()
+        print(f"initializing weights using Kaiming/He Initialization")
         model.apply(self.initialize_weights_he)
 
         # Attach hooks to layers
@@ -227,6 +229,9 @@ class ModelTrainer():
 
         invLoss = InvarianceLoss()
         denLoss  = DensityLoss(density = mask_density)
+
+        print("\ncleaning torch mem and cache")
+        torch.cuda.empty_cache()
 
         print("\nbeginning training ...")
 
@@ -250,11 +255,16 @@ class ModelTrainer():
                 mask = self.hardRoundBinarize(mask) # binarized {0,1}
                 loss3 = denLoss(mask)
 
-                osmosis = OsmosisInpainting(None, X, mask, mask, offset=1, tau=700, device = self.device, apply_canny=False)
+                mask_detach = mask.detach().clone()
+                osmosis = OsmosisInpainting(None, X, mask_detach, mask_detach, offset=1, tau=700, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(False, False, False)
-                loss2, tts = osmosis.solveBatch(100, save_batch = True, verbose = False)
+                # loss2, tts = osmosis.solveBatchSeq(100, save_batch = True, verbose = False)
+                loss2, tts = osmosis.solveBatchParallel(10, save_batch = True, verbose = False)
 
-                total_loss = loss2 + loss3 + loss1 * alpha 
+                if torch.isnan(loss2):
+                    print(f"input X : {X}")
+
+                total_loss = loss2 + loss3 * 0.1 + loss1 * alpha 
                 total_loss.backward()
 
                 total_norm = self.check_gradients(model)
@@ -264,13 +274,15 @@ class ModelTrainer():
                 optimizer.zero_grad()
 
                 running_loss += total_loss
+                avg_den = self.mean_density(mask)
 
+                avg_den_list.append(avg_den.item())
                 loss1_list.append(loss1.item())
                 loss2_list.append(loss2.item())
                 loss3_list.append(loss3.item())
                 running_loss_list.append((running_loss / i).item())
                 gradnorm_list.append(total_norm)
-                print(f"invariance loss : {loss1}, avg_den : {self.mean_density(mask)}, ", end='')
+                print(f"invariance loss : {loss1}, avg_den : {avg_den.item()}, ", end='')
                 print(f"density loss : {loss3}, ", end='')
                 print(f"mse loss : {loss2}, solver time : {str(tts)} sec , ", end='')
                 print(f"total loss : {total_loss}, " , end = '')
@@ -286,7 +298,7 @@ class ModelTrainer():
                 save_plot([running_loss_list], clist, ["running loss"], os.path.join(self.output_dir, "runloss.png"))
                 save_plot([loss1_list], clist, ["invariance loss"], os.path.join(self.output_dir, "invloss.png"))
                 save_plot([loss2_list], clist, ["mse loss"], os.path.join(self.output_dir, "mseloss.png"))
-                save_plot([loss3_list], clist, ["density loss"], os.path.join(self.output_dir, "denloss.png"))
+                save_plot([loss3_list, avg_den_list], clist, ["density loss", "avg den"], os.path.join(self.output_dir, "loss_density.png"))
                 save_plot([gradnorm_list], clist, ["grad norm"], os.path.join(self.output_dir, "gradnorm.png"))
                 
             et = time.time()
@@ -301,3 +313,14 @@ class ModelTrainer():
             #     print("validating on test dataset")
             #     self.validate(model, test_dataloader, mask_density, alpha)
 
+def get_variable_memory_usage():
+    variables = gc.get_objects()  # Get all objects tracked by the garbage collector
+    for var in variables:
+        try:
+            var_size = sys.getsizeof(var) / (1024 * 1024)  # Get the size of the variable
+            var_name = [k for k, v in globals().items() if id(v) == id(var)]
+            # if var_name:  # If the variable name exists
+            #     print(f"{var_name[0]}: {var_size} bytes")
+        except:
+            # Ignore objects that cannot be sized or traced back to a name
+            pass
