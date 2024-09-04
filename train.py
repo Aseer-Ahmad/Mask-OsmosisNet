@@ -7,10 +7,12 @@ import torch
 import torch.nn as nn
 import time
 import matplotlib.pyplot as plt
+import seaborn as sns
 import numpy as np
 import os
 import gc
-
+import pandas as pd
+sns.set_theme()
 
 from InpaintingSolver.bi_cg import OsmosisInpainting
 
@@ -121,12 +123,12 @@ class ModelTrainer():
         return model, optimizer
 
 
-    def saveCheckpoint(self, model, optimizer, epoch):
+    def saveCheckpoint(self, model, optimizer, fname):
         
         torch.save({
             'model_state_dict': model.state_dict(),
             # 'optimizer_state_dict': optimizer.state_dict(),
-            }, os.path.join(self.output_dir, f"ckp_epoch_{str(epoch)}.pt"))
+            }, os.path.join(self.output_dir, fname))
         
 
     def getDataloaders(self, train_dataset, test_dataset):
@@ -147,30 +149,41 @@ class ModelTrainer():
         return torch.mean(torch.norm(mask, p = 1, dim = (2, 3)) / (mask.shape[2]*mask.shape[3]))
 
 
-    def validate(self, model, test_dataloader, density, alpha):
-        
+    def validate(self, model, test_dataloader, density, alpha1, alpha2):
+        print("validating on test dataset")
         running_loss = 0.0
-        maskloss = InvarianceLoss()
+
+        invLoss = InvarianceLoss()
         denLoss  = DensityLoss(density)
 
         td_len = len(test_dataloader)
+        
+        model.eval()
 
         with torch.no_grad():
-            for i, X in enumerate(test_dataloader):
+            st = time.time()
+            for i, (X, X_norm) in enumerate(test_dataloader):
 
                 X = X.to(self.device)
-                mask = model(X) 
-                # mask = self.hardRoundBinarize(mask)
-                loss1 = denLoss(mask)
+                X_norm = X_norm.to(self.device)
 
-                osmosis = OsmosisInpainting(None, X, mask, mask, offset=1, tau=10, device = self.device, apply_canny=False)
+                mask = model(X_norm) # non-binary [0,1]
+                loss1 = invLoss(mask)
+                mask_bin = self.hardRoundBinarize(mask) # binarized {0,1}
+                loss2 = denLoss(mask_bin)
+
+                mask_detach = mask_bin.detach().clone()
+                osmosis = OsmosisInpainting(None, X, mask_detach, mask_detach, offset=1, tau=700, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(False, False, False)
-                loss2 = osmosis.solveBatch(100, save_batch = False, verbose = False)
-                total_loss = loss1 + alpha * loss2
+                loss3, tts = osmosis.solveBatchParallel(10, save_batch = [False], verbose = False)
+
+                total_loss = loss3 + loss2 * alpha2 + loss1 * alpha1 
 
                 running_loss += total_loss
-            
-        print(f"validation loss : {running_loss / (i*td_len)}")
+            et = time.time()
+        
+        print(f"\nvalidation loss : {running_loss / (i*td_len)} , total running time : {(et-st)/60.} min")
+        print()
 
     # Function to check for exploding/vanishing gradients
     def check_gradients(self, model):
@@ -196,7 +209,7 @@ class ModelTrainer():
                 nn.init.constant_(m.bias, 0)
 
 
-    def train(self, model, epochs, alpha, mask_density, resume_checkpoint_file, save_every , val_every, train_dataset ,test_dataset):
+    def train(self, model, epochs, alpha1, alpha2, mask_density, resume_checkpoint_file, save_every, batch_plot_every, val_every, train_dataset ,test_dataset):
         
         # loss lists
         loss1_list, loss2_list, loss3_list, gradnorm_list, running_loss_list = [], [], [], [], []
@@ -219,7 +232,7 @@ class ModelTrainer():
 
         model = model.double()
         model.to(self.device)
-        model.train()
+        
         print(f"initializing weights using Kaiming/He Initialization")
         model.apply(self.initialize_weights_he)
 
@@ -238,9 +251,7 @@ class ModelTrainer():
         for epoch in range(epochs):
 
             running_loss = 0.0
-            
-            # gpu mem usage
-
+            model.train()
             st = time.time()
             
             for i, (X, X_norm) in enumerate(train_dataloader, start = 1): 
@@ -252,19 +263,25 @@ class ModelTrainer():
 
                 mask = model(X_norm) # non-binary [0,1]
                 loss1 = invLoss(mask)
-                mask = self.hardRoundBinarize(mask) # binarized {0,1}
-                loss3 = denLoss(mask)
+                mask_bin = self.hardRoundBinarize(mask) # binarized {0,1}
+                loss2 = denLoss(mask_bin)
 
-                mask_detach = mask.detach().clone()
+                mask_detach = mask_bin.detach().clone()
                 osmosis = OsmosisInpainting(None, X, mask_detach, mask_detach, offset=1, tau=700, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(False, False, False)
                 # loss2, tts = osmosis.solveBatchSeq(100, save_batch = True, verbose = False)
-                loss2, tts = osmosis.solveBatchParallel(10, save_batch = True, verbose = False)
+                
+                if (i) % batch_plot_every == 0: 
+                    save_batch = [True, os.path.join(self.output_dir, "imgs", f"batch_epoch_{str(epoch)}_iter_{str(i)}.png")]
+                else:
+                    save_batch = [False]
+                
+                loss3, tts = osmosis.solveBatchParallel(10, save_batch = save_batch, verbose = False)
 
-                if torch.isnan(loss2):
-                    print(f"input X : {X}")
+                # if torch.isnan(loss3):
+                #     print(f"input X : {X}")
 
-                total_loss = loss2 + loss3 * 0.1 + loss1 * alpha 
+                total_loss = loss3 + loss2 * alpha2 + loss1 * alpha1 
                 total_loss.backward()
 
                 total_norm = self.check_gradients(model)
@@ -274,7 +291,7 @@ class ModelTrainer():
                 optimizer.zero_grad()
 
                 running_loss += total_loss
-                avg_den = self.mean_density(mask)
+                avg_den = self.mean_density(mask_bin)
 
                 avg_den_list.append(avg_den.item())
                 loss1_list.append(loss1.item())
@@ -283,44 +300,57 @@ class ModelTrainer():
                 running_loss_list.append((running_loss / i).item())
                 gradnorm_list.append(total_norm)
                 print(f"invariance loss : {loss1}, avg_den : {avg_den.item()}, ", end='')
-                print(f"density loss : {loss3}, ", end='')
-                print(f"mse loss : {loss2}, solver time : {str(tts)} sec , ", end='')
+                print(f"density loss : {loss2}, solver time : {str(tts)} sec , ", end='')
+                print(f"mse loss : {loss3}, ", end='')
                 print(f"total loss : {total_loss}, " , end = '')
                 print(f"running loss : {running_loss / i}" )
 
                 if (i) % save_every == 0:
                     print("saving checkpoint")
-                    self.saveCheckpoint(model, optimizer, epoch)
+                    fname = f"ckp_epoch_{str(epoch+1)}_iter_{str(i)}.pt"
+                    self.saveCheckpoint(model, optimizer, fname)
+
+                    # update mask distribution plot and save
+                    print("plotting mask distribution")
+                    fname = f"mdist_epoch_{str(epoch+1)}_iter_{str(i)}.png"
+                    mask_flat = mask.reshape(-1).detach().cpu().numpy()
+                    plot = sns.displot(mask_flat, kde=True)
+                    fig = plot.figure
+                    plot.set(xlabel='prob', ylabel='freq')
+                    fig.savefig(os.path.join(self.output_dir, fname) ) 
+
 
                 # update plot and save
                 clist = [l for l in range(1, len(loss1_list) + 1)]
-                save_plot([np.log(loss1_list), np.log(loss2_list), np.log(loss3_list), np.log(running_loss_list)], clist, ["invloss", "mse", "denloss", "runningloss"], os.path.join(self.output_dir, "all_losses.png"))
+                save_plot([np.log(loss1_list), np.log(loss2_list), np.log(loss3_list), np.log(running_loss_list)], clist, ["invloss", "denloss", "mse", "runningloss"], os.path.join(self.output_dir, "all_losses.png"))
                 save_plot([running_loss_list], clist, ["running loss"], os.path.join(self.output_dir, "runloss.png"))
                 save_plot([loss1_list], clist, ["invariance loss"], os.path.join(self.output_dir, "invloss.png"))
-                save_plot([loss2_list], clist, ["mse loss"], os.path.join(self.output_dir, "mseloss.png"))
-                save_plot([loss3_list, avg_den_list], clist, ["density loss", "avg den"], os.path.join(self.output_dir, "loss_density.png"))
+                save_plot([loss3_list], clist, ["mse loss"], os.path.join(self.output_dir, "mseloss.png"))
+                save_plot([loss2_list, avg_den_list], clist, ["density loss", "avg den"], os.path.join(self.output_dir, "loss_density.png"))
                 save_plot([gradnorm_list], clist, ["grad norm"], os.path.join(self.output_dir, "gradnorm.png"))
                 
+                # update csv file and save
+                train_dict = {
+                    "invariance loss" : loss1_list,
+                    "mse loss" : loss3_list,
+                    "density loss" : loss2_list,
+                    "grand norms" : gradnorm_list,
+                    "running loss" : running_loss_list
+                }
+                df = pd.DataFrame(train_dict)
+                fname = "data.csv"
+                df.to_csv( os.path.join(self.output_dir, fname), sep=',', encoding='utf-8', index=False, header=True)
+
+
             et = time.time()
             print(f"total time for batch : {str((et-st) / 60)} min")
 
             epoch_loss = running_loss / train_dataloader.__len__()
             epochloss_list.append(epoch_loss.item())
-            print('Epoch [{}/{}], Loss: {:.4f}'.format(epoch+1, epochs, epoch_loss))
+            print('Epoch [{}/{}], epoch Loss: {:.4f}'.format(epoch+1, epochs, epoch_loss))
             save_plot([epochloss_list], [i for i in range(epoch+1)], ["epoch loss"], os.path.join(self.output_dir, "epochloss.png"))
 
-            # if (epoch + 1) % val_every == 0:
-            #     print("validating on test dataset")
-            #     self.validate(model, test_dataloader, mask_density, alpha)
+            if (epoch + 1) % val_every == 0:
+                self.validate(model, test_dataloader, mask_density, alpha1, alpha2)
+            
 
-def get_variable_memory_usage():
-    variables = gc.get_objects()  # Get all objects tracked by the garbage collector
-    for var in variables:
-        try:
-            var_size = sys.getsizeof(var) / (1024 * 1024)  # Get the size of the variable
-            var_name = [k for k, v in globals().items() if id(v) == id(var)]
-            # if var_name:  # If the variable name exists
-            #     print(f"{var_name[0]}: {var_size} bytes")
-        except:
-            # Ignore objects that cannot be sized or traced back to a name
-            pass

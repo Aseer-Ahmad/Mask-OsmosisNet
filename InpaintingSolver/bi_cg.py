@@ -97,9 +97,7 @@ class OsmosisInpainting:
                 self.U = self.U + self.offset
                 
     def solveBatchParallel(self, kmax = 100, save_batch = False, verbose = False):
-        
-        RESIDUAL_CHECK_FLAGS = torch.zeros((self.batch, self.channel), device = self.device)
-                
+                        
         X = self.U.detach().clone()
         U = self.U.detach().clone()
         tt = 0
@@ -125,8 +123,8 @@ class OsmosisInpainting:
 
         self.U = X
 
-        if save_batch:
-            fname = f"solved_b.pgm"
+        if save_batch[0]:
+            fname = save_batch[1]
             out = torch.cat( ( (self.V.reshape(self.batch*(self.nx+2), self.ny+2) - self.offset), 
                             (self.mask1 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
                             # (init-self.offset)[0][0],
@@ -592,11 +590,6 @@ class OsmosisInpainting:
         omega   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device)
         beta    = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device)
 
-        r_abs_init = torch.zeros( (self.batch, self.channel), device = self.device)
-        r_abs_last = torch.zeros( (self.batch, self.channel), device = self.device)
-        r_abs_skip = torch.zeros( (self.batch, self.channel), device = self.device)
-        stagnant_count = torch.zeros( (self.batch, self.channel), device = self.device)
-
         r_0     = torch.zeros_like(x)
         r       = torch.zeros_like(x)
         r_old   = torch.zeros_like(x)
@@ -605,20 +598,23 @@ class OsmosisInpainting:
         s       = torch.zeros_like(x)
         t       = torch.zeros_like(x)
 
+        # variables to check info. to skip solving systems 
+        r_abs_init = torch.zeros( (self.batch, self.channel), device = self.device)
+        r_abs_last = torch.zeros( (self.batch, self.channel), device = self.device)
+        r_abs_skip = torch.zeros( (self.batch, self.channel), device = self.device)
+        stagnant_count = torch.zeros( (self.batch, self.channel), device = self.device)
+
 
         RES_COND = restart == 1
-        # using condition to select only those batch, channel that required restart
+        # using condition to select only those batch, channel that required restart ; NOR REQUIRED anymore
         restart[RES_COND] = 0
         r_0[RES_COND]     = self.applyStencilBatch(x[RES_COND], RES_COND)  
         r_0[RES_COND]     = r[RES_COND] = p[RES_COND] = self.zeroPadBatch(b[RES_COND] - r_0[RES_COND])
         r_abs[RES_COND]   = r0_abs[RES_COND] = torch.norm(r_0[RES_COND][:, 1:self.nx+1, 1:self.ny+1], dim = (1, 2), p = "fro")
 
-        # r_abs_init = r_abs.detach().clone()
-        # r_abs_last = r_abs
 
         if verbose:
             print(f"r_abs : {r_abs}")
-        # check if any batch, channel system fails the convergence condition
 
         while ( (k < kmax) & (r_abs > eps * self.nx * self.ny) ).any(): # and (restart == 0).any():
 
@@ -737,26 +733,26 @@ class OsmosisInpainting:
             STAG_COND = torch.abs(r_abs_diff_last) == 0.
             stagnant_count[STAG_COND] += 1.
 
-            skip_num = 200.
-            if (k % skip_num == 0).any() : 
-                r_abs_diff_skip = torch.abs(torch.log10(r_abs_skip) - torch.log10(r_abs))
+            check_iter = 200.
+            r_abs_diff_skip = torch.abs(torch.log10(r_abs_skip) - torch.log10(r_abs))
+
+            if (k % check_iter == 0).any() : 
                 r_abs_skip  = r_abs.detach().clone()
 
             # rabs have blown above 1e10 or
             # is nan or 
-            # has stagnated ( 0. ) above 200 iter
-            # rabs change is not in the magnitude of log10 for 200 iter
+            # has stagnated ( 0. ) above [#] iter or
+            # rabs change is not in the magnitude of log10 for [#] iter
             BREAK_COND = (CONV_COND) & ((torch.isnan(r_abs)) | 
                                         (r_abs_diff_init < -1e10) | 
-                                        (stagnant_count > 100) | 
-                                        ((k % skip_num == 0) & (r_abs_diff_skip < 1.))
+                                        (stagnant_count > check_iter) | 
+                                        ((k % check_iter == 0) & (r_abs_diff_skip < 1.))
                                         )
             k[BREAK_COND] += kmax
 
             if verbose:
                 print(f"k : {k}, RESIDUAL : {r_abs}")
             
-            # r_abs_diff_init, stagnant_count
-            print(f"{torch.cat((k, r_abs, r_abs_diff_last, CONV_COND), dim = 1)}") 
+            # print(f"{torch.cat((k, r_abs, r_abs_diff_last, CONV_COND), dim = 1)}") 
 
         return x

@@ -22,27 +22,34 @@ def readPGMImage( pth):
     pgm_T = pgm_T.reshape(1, 1, nx, ny)
     return pgm_T
 
-if __name__ == '__main__':
-    # u_pth = 'kani-init.pgm'
-    v_pth = 'cameraman.pgm'
-    mask_pth  = 'cameraman-edge.pgm'
-    
-    # U = readPGMImage(u_pth)
-    V = readPGMImage(v_pth)
-    V1 = readPGMImage("scarf.pgm")
-    mask = readPGMImage(mask_pth)
 
-    # osmosis = OsmosisInpainting(None, V1, None, None, offset=1, tau=10, apply_canny=False)
-    # osmosis.calculateWeights(False, False, False)
-    # osmosis.solve(20, save_every = 20, verbose = True)
+def normalize(X, scale = 1.):
+    b, c, _ , _ = X.shape
+    X = X - torch.amin(X, dim=(2,3)).view(b,c,1,1)
+    X = X / (torch.amax(X, dim=(2,3)).view(b,c,1,1) + 1e-7)
+    X = X * scale
+
+    return X
+
+if __name__ == '__main__':
+    # u_pth = 'kani-init.pgm'    
+    # U = readPGMImage(u_pth)
+
+    V = readPGMImage('cameraman.pgm')
+    mask = normalize(readPGMImage('cameraman-edge.pgm'))
+
+    V1 = readPGMImage("scarf.pgm")
+
+    osmosis = OsmosisInpainting(None, V, mask, mask, offset=1, tau=10, apply_canny=False)
+    osmosis.calculateWeights(False, False, False)
+    osmosis.solve(100, save_every = 10, verbose = True)
 
     # V = V.repeat(4, 1, 1, 1)
-    V = torch.cat((V, V1), dim = 0)
-    print(V.shape)
+    # V = torch.cat((V, V1), dim = 0)
 
-    osmosis = OsmosisInpainting(None, V, None, None, offset=1, tau=10, device = None, apply_canny=False)
-    osmosis.calculateWeights(False, False, False)
-    osmosis.solveBatchProcess(2, save_batch = True, verbose = True)
+    # osmosis = OsmosisInpainting(None, V, mask, mask, offset=1, tau=10, device = None, apply_canny=False)
+    # osmosis.calculateWeights(False, False, False)
+    # osmosis.solveBatchParallel(10, save_batch = [False], verbose = True)
 
     # image = np.array([[3,8,0],
     #                   [6,0,1],
