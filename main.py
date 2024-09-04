@@ -63,7 +63,7 @@ def main(config):
         os.makedirs(img_pth)
         
     # to print to a file
-    # sys.stdout = open(os.path.join(exp_path, 'output.txt'),'wt')
+    sys.stdout = open(os.path.join(exp_path, 'output.txt'),'wt')
 
     print(f"CONFIG : \n{config}\n")
 

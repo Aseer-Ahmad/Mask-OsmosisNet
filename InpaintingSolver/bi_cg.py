@@ -97,9 +97,7 @@ class OsmosisInpainting:
                 self.U = self.U + self.offset
                 
     def solveBatchParallel(self, kmax = 100, save_batch = False, verbose = False):
-        
-        RESIDUAL_CHECK_FLAGS = torch.zeros((self.batch, self.channel), device = self.device)
-                
+                        
         X = self.U.detach().clone()
         U = self.U.detach().clone()
         tt = 0
