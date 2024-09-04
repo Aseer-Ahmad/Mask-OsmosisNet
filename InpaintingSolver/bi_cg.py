@@ -125,8 +125,8 @@ class OsmosisInpainting:
 
         self.U = X
 
-        if save_batch:
-            fname = f"solved_b.pgm"
+        if save_batch[0]:
+            fname = save_batch[1]
             out = torch.cat( ( (self.V.reshape(self.batch*(self.nx+2), self.ny+2) - self.offset), 
                             (self.mask1 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
                             # (init-self.offset)[0][0],
@@ -736,8 +736,9 @@ class OsmosisInpainting:
             stagnant_count[STAG_COND] += 1.
 
             check_iter = 200.
+            r_abs_diff_skip = torch.abs(torch.log10(r_abs_skip) - torch.log10(r_abs))
+
             if (k % check_iter == 0).any() : 
-                r_abs_diff_skip = torch.abs(torch.log10(r_abs_skip) - torch.log10(r_abs))
                 r_abs_skip  = r_abs.detach().clone()
 
             # rabs have blown above 1e10 or
@@ -754,7 +755,6 @@ class OsmosisInpainting:
             if verbose:
                 print(f"k : {k}, RESIDUAL : {r_abs}")
             
-            # r_abs_diff_init, stagnant_count
-            print(f"{torch.cat((k, r_abs, r_abs_diff_last, CONV_COND), dim = 1)}") 
+            # print(f"{torch.cat((k, r_abs, r_abs_diff_last, CONV_COND), dim = 1)}") 
 
         return x

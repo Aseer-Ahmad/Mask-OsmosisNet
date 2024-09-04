@@ -1,15 +1,16 @@
 # MODEL PARAMS
 EPOCHS : 10
 RESUME_CHECKPOINT : 
-SAVE_EVERY : 10
-VAL_EVERY : 10
-OUTPUT_DIR : unet-imgnet
-EXP_NAME : test8
+SAVE_EVERY : 2
+VAL_EVERY : 2
+BATCH_PLOT_EVERY : 2
+OUTPUT_DIR : unet-bsds300
+EXP_NAME : test4
 
 # DATA PARMS
 TRAIN_FILENAME : iids_train.txt
 TEST_FILENAME  : iids_test.txt
-ROOT_DIR       : dataset\imagenet\images\
+ROOT_DIR       : dataset\BSDS300\images\
 
 IMG_SIZE       : 128 
 INP_CHANNELS   : 1
@@ -23,7 +24,8 @@ OPT            : Adam
 SCHEDL         : lambdaLR
 TRAIN_BATCH    : 32
 TEST_BATCH     : 32
-ALPHA          : 0.001
+ALPHA1         : 0.001
+ALPHA2         : 0.1
 MASK_DEN       : 0.1
 BIN_METH       : QUANT
 
