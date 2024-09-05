@@ -1,4 +1,5 @@
-# main.py
+#!/usr/bin/env python
+
 import yaml
 from train import ModelTrainer
 from CustomDataset import MaskDataset
