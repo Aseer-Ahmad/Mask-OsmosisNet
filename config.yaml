@@ -4,13 +4,13 @@ RESUME_CHECKPOINT :
 SAVE_EVERY : 3
 VAL_EVERY : 3
 BATCH_PLOT_EVERY : 3
-OUTPUT_DIR : unet-bsds300
-EXP_NAME : test4
+OUTPUT_DIR : outputs
+EXP_NAME : imagenet_t9
 
 # DATA PARMS
 TRAIN_FILENAME : iids_train.txt
 TEST_FILENAME  : iids_test.txt
-ROOT_DIR       : dataset\BSDS300\images\
+ROOT_DIR       : dataset/imagenet/images
 
 IMG_SIZE       : 128 
 INP_CHANNELS   : 1

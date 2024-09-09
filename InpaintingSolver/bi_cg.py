@@ -8,8 +8,8 @@ from torchvision.transforms.functional import normalize
 import torchvision
 import numpy as np
 import time
-from torchmetrics.image import PeakSignalNoiseRatio
-from torchmetrics.regression import MeanSquaredError
+# from torchmetrics.image import PeakSignalNoiseRatio
+# from torchmetrics.regression import MeanSquaredError
 import torch.nn as nn
 
 torch.set_printoptions(linewidth=3000)
@@ -85,7 +85,7 @@ class OsmosisInpainting:
             comm += f"time for iteration : {str(et-st)} sec\n"
             comm += f"total time         : {str(tt)} sec\n"
             #calculate metrics
-            comm += self.getMetrics()
+            # comm += self.getMetrics()
             print(comm)
 
             if (i+1) % self.save_every == 0:
@@ -109,17 +109,18 @@ class OsmosisInpainting:
         for i in range(kmax):
 
             X = self.BiCGSTAB_Batched(x = U, b = X, kmax = 3000, eps = 1e-9, verbose=verbose)
-            U = X
+            U = X.detach().clone()
             loss = mse( self.normalize(U), self.normalize(self.V))
             print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)        
             
         et = time.time()
         tt += (et-st)
-        
-        # comm = f"time for iteration : {str(et-st)} sec\n"
-        # comm += f"total time         : {str(tt)} sec\n"
+
+        comm = self.analyseImage(X, f"solution")
+        comm = f"time for iteration : {str(et-st)} sec\n"
+        comm += f"total time         : {str(tt)} sec\n"
         # comm += self.getMetrics()
-        # print(comm)
+        print(comm)
 
         self.U = X
 
@@ -304,15 +305,15 @@ class OsmosisInpainting:
 
         return comm
         
-    def getMetrics(self):
-        metrics = ""
-        psnr  = PeakSignalNoiseRatio()
-        mse   = torch.nn.MSELoss()
+    # def getMetrics(self):
+    #     metrics = ""
+    #     psnr  = PeakSignalNoiseRatio()
+    #     mse   = torch.nn.MSELoss()
 
-        metrics += f"psnr : {str(( psnr(self.U, self.V) ))}\n"
-        metrics += f"mse  : {str(( mse(self.U, self.V) ))}\n"
+    #     metrics += f"psnr : {str(( psnr(self.U, self.V) ))}\n"
+    #     metrics += f"mse  : {str(( mse(self.U, self.V) ))}\n"
         
-        return metrics
+    #     return metrics
 
     def getInit_U(self):
         m  = torch.mean(self.V, dim = (2,3))
@@ -382,11 +383,11 @@ class OsmosisInpainting:
             
     def getStencilMatrices(self, verbose = False):
 
-        self.boo  = torch.zeros_like(self.V, device = self.device)# C++ weickert init. has ones
-        self.bop  = torch.zeros_like(self.V, device = self.device)# neighbour entries for [i+1,j]
-        self.bpo  = torch.zeros_like(self.V, device = self.device)# neighbour entries for [i,j+1]
-        self.bmo  = torch.zeros_like(self.V, device = self.device)# neighbour entries for [i-1,j]
-        self.bom  = torch.zeros_like(self.V, device = self.device)# neighbour entries for [i,j-1]
+        self.boo  = torch.zeros_like(self.V, dtype = torch.float64, device = self.device)# C++ weickert init. has ones
+        self.bop  = torch.zeros_like(self.V, dtype = torch.float64, device = self.device)# neighbour entries for [i+1,j]
+        self.bpo  = torch.zeros_like(self.V, dtype = torch.float64, device = self.device)# neighbour entries for [i,j+1]
+        self.bmo  = torch.zeros_like(self.V, dtype = torch.float64, device = self.device)# neighbour entries for [i-1,j]
+        self.bom  = torch.zeros_like(self.V, dtype = torch.float64, device = self.device)# neighbour entries for [i,j-1]
 
         #time savers
         rx  = self.tau / (2.0 * self.hx)
@@ -590,19 +591,19 @@ class OsmosisInpainting:
         omega   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device)
         beta    = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device)
 
-        r_0     = torch.zeros_like(x)
-        r       = torch.zeros_like(x)
-        r_old   = torch.zeros_like(x)
-        p       = torch.zeros_like(x)
-        v       = torch.zeros_like(x)
-        s       = torch.zeros_like(x)
-        t       = torch.zeros_like(x)
+        r_0     = torch.zeros_like(x, dtype = torch.float64)
+        r       = torch.zeros_like(x, dtype = torch.float64)
+        r_old   = torch.zeros_like(x, dtype = torch.float64)
+        p       = torch.zeros_like(x, dtype = torch.float64)
+        v       = torch.zeros_like(x, dtype = torch.float64)
+        s       = torch.zeros_like(x, dtype = torch.float64)
+        t       = torch.zeros_like(x, dtype = torch.float64)
 
         # variables to check info. to skip solving systems 
-        r_abs_init = torch.zeros( (self.batch, self.channel), device = self.device)
-        r_abs_last = torch.zeros( (self.batch, self.channel), device = self.device)
-        r_abs_skip = torch.zeros( (self.batch, self.channel), device = self.device)
-        stagnant_count = torch.zeros( (self.batch, self.channel), device = self.device)
+        r_abs_init = torch.zeros( (self.batch, self.channel), dtype = torch.float64, device = self.device)
+        r_abs_last = torch.zeros( (self.batch, self.channel), dtype = torch.float64, device = self.device)
+        r_abs_skip = torch.zeros( (self.batch, self.channel), dtype = torch.float64, device = self.device)
+        stagnant_count = torch.zeros( (self.batch, self.channel), dtype = torch.float64, device = self.device)
 
 
         RES_COND = restart == 1
@@ -614,7 +615,7 @@ class OsmosisInpainting:
 
 
         if verbose:
-            print(f"r_abs : {r_abs}")
+            print(f"r_abs : {r_abs.item()}")
 
         while ( (k < kmax) & (r_abs > eps * self.nx * self.ny) ).any(): # and (restart == 0).any():
 
@@ -632,7 +633,7 @@ class OsmosisInpainting:
             v_abs[CONV_COND]  = torch.norm(v[CONV_COND], dim = (1, 2),  p = "fro")
             
             if verbose:
-                print(f"k : {k}, sigma : {sigma}, vabs : {v_abs}")
+                print(f"k : {k}, sigma : {sigma.item()}, vabs : {v_abs.item()}")
             # =======================================
             # SET RESTART CONDITION
             # =======================================
@@ -651,7 +652,7 @@ class OsmosisInpainting:
             k[RES1_COND] += 1 
 
             if verbose:
-                print(f"r_abs when restarted: {r_abs}")
+                print(f"r_abs when restarted: {r_abs.item()}")
 
             # =======================================
             # INVERSE RESTART CONDITION : systems that dont require restart
@@ -665,7 +666,7 @@ class OsmosisInpainting:
             alpha[NOT_RES_COND] = torch.sum( torch.mul(r[NOT_RES_COND][ :, 1:self.nx+1, 1:self.ny+1],
                                                         r_0[NOT_RES_COND][ :, 1:self.nx+1, 1:self.ny+1]), dim = (1, 2)).view(-1) / sigma[NOT_RES_COND]
             if verbose:
-                print(f"k : {k}, alpha : {alpha}")
+                print(f"k : {k}, alpha : {alpha.item()}")
             # broadcast 2
             # s[~RES1_COND] => shape : torch.Size([b*c, h, w])
             s[NOT_RES_COND]     = r[NOT_RES_COND] - (alpha[NOT_RES_COND].view(-1, 1, 1) * v[NOT_RES_COND])
@@ -697,7 +698,7 @@ class OsmosisInpainting:
             CONV4_COND = NOT_RES_COND & (~CONV2_COND)
 
             if verbose:
-                print(f"RESTART NOT REQUIRED and ELSE CONV :\n {CONV4_COND}")
+                print(f"RESTART NOT REQUIRED and ELSE CONV :\n {CONV4_COND.item()}")
 
             t[CONV4_COND] = self.applyStencilBatch(s[CONV4_COND], CONV4_COND)
             omega[CONV4_COND] = torch.sum( torch.mul(t[CONV4_COND], s[CONV4_COND]), dim = (1, 2)) / torch.sum(torch.mul(t[CONV4_COND], t[CONV4_COND]), dim = (1, 2))
@@ -714,7 +715,7 @@ class OsmosisInpainting:
                                 / torch.sum(torch.mul(r_old[CONV4_COND][ :, 1:self.nx+1, 1:self.ny+1], r_0[CONV4_COND][ :, 1:self.nx+1, 1:self.ny+1]), dim = (1, 2))
         
             if verbose:
-                print(f"k : {k} , omega : {omega}, beta : {beta}")
+                print(f"k : {k} , omega : {omega.item()}, beta : {beta.item()}")
             
             # broadcast 7
             p[CONV4_COND] = r[CONV4_COND] + beta[CONV4_COND].view(-1, 1, 1) * ( p[CONV4_COND] - omega[CONV4_COND].view(-1, 1, 1) * v[CONV4_COND])
@@ -751,7 +752,7 @@ class OsmosisInpainting:
             k[BREAK_COND] += kmax
 
             if verbose:
-                print(f"k : {k}, RESIDUAL : {r_abs}")
+                print(f"k : {k}, RESIDUAL : {r_abs.item()}")
             
             # print(f"{torch.cat((k, r_abs, r_abs_diff_last, CONV_COND), dim = 1)}") 
 
