@@ -40,16 +40,16 @@ if __name__ == '__main__':
 
     V1 = readPGMImage("scarf.pgm")
 
-    # osmosis = OsmosisInpainting(None, V, mask, mask, offset=1, tau=1, apply_canny=False)
-    # osmosis.calculateWeights(False, False, False)
-    # osmosis.solve(300, save_every = 10, verbose = True)
+    osmosis = OsmosisInpainting(None, V, mask, mask, offset=1, tau=300, apply_canny=False)
+    osmosis.calculateWeights(False, False, False)
+    osmosis.solve(10, save_every = 10, verbose = False)
 
     # V = V.repeat(4, 1, 1, 1)
     # V = torch.cat((V, V1), dim = 0)
 
-    osmosis = OsmosisInpainting(None, V, mask, mask, offset=1, tau=1, device = None, apply_canny=False)
+    osmosis = OsmosisInpainting(None, V, mask, mask, offset=1, tau=300, device = None, apply_canny=False)
     osmosis.calculateWeights(False, False, False)
-    osmosis.solveBatchParallel(300, save_batch = [False], verbose = True)
+    osmosis.solveBatchParallel(10, save_batch = [False, "solved_b.pgm"], verbose = False)
 
     # image = np.array([[3,8,0],
     #                   [6,0,1],

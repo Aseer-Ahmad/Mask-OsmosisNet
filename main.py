@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 import yaml
 from train import ModelTrainer
 from CustomDataset import MaskDataset
@@ -64,7 +63,7 @@ def main(config):
         os.makedirs(img_pth)
         
     # to print to a file
-    sys.stdout = open(os.path.join(exp_path, 'output.txt'),'wt')
+    # sys.stdout = open(os.path.join(exp_path, 'output.txt'),'wt')
 
     print(f"CONFIG : \n{config}\n")
 
@@ -105,9 +104,9 @@ def main(config):
         alpha2 = config['ALPHA2'],
         mask_density = config['MASK_DEN'],
         resume_checkpoint_file = config['RESUME_CHECKPOINT'],
-        save_every = config['SAVE_EVERY'], 
-        batch_plot_every = config['BATCH_PLOT_EVERY'],
-        val_every = config['VAL_EVERY'],
+        save_every = config['SAVE_EVERY_ITER'], 
+        batch_plot_every = config['BATCH_PLOT_EVERY_ITER'],
+        val_every = config['VAL_EVERY_EPOCH'],
         train_dataset = train_dataset , 
         test_dataset = test_dataset
     )
