@@ -248,6 +248,8 @@ class ModelTrainer():
 
         print("\nbeginning training ...")
 
+        st_tt = time.time()
+
         for epoch in range(epochs):
 
             running_loss = 0.0
@@ -263,7 +265,7 @@ class ModelTrainer():
 
                 mask = model(X_norm) # non-binary [0,1]
                 loss1 = invLoss(mask)
-                # mask_bin = self.hardRoundBinarize(mask) # binarized {0,1}
+                # mask_bin = self.hardRoundBinarize(mask) # binarized {0,1} # evaluation step
                 loss2 = denLoss(mask)
 
                 mask_detach = mask.detach().clone()
@@ -322,7 +324,7 @@ class ModelTrainer():
 
                 # update plot and save
                 clist = [l for l in range(1, len(loss1_list) + 1)]
-                save_plot([np.log(loss1_list), np.log(loss2_list), np.log(loss3_list), np.log(running_loss_list)], clist, ["invloss", "denloss", "mse", "runningloss"], os.path.join(self.output_dir, "all_losses.png"))
+                save_plot([np.log(loss1_list), np.log(loss3_list), np.log(running_loss_list)], clist, ["invloss", "mse", "runningloss"], os.path.join(self.output_dir, "all_losses.png"))
                 save_plot([running_loss_list], clist, ["running loss"], os.path.join(self.output_dir, "runloss.png"))
                 save_plot([loss1_list], clist, ["invariance loss"], os.path.join(self.output_dir, "invloss.png"))
                 save_plot([loss3_list], clist, ["mse loss"], os.path.join(self.output_dir, "mseloss.png"))
@@ -352,5 +354,9 @@ class ModelTrainer():
 
             if (epoch + 1) % val_every == 0:
                 self.validate(model, test_dataloader, mask_density, alpha1, alpha2)
+        
+        et_tt = time.time()
+        print(f"total time for training : {str((et_tt-st_tt) / 3600)} hr")
+        
             
 
