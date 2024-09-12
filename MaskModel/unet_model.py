@@ -40,7 +40,10 @@ class UNet(nn.Module):
     
     def scaleDensity(self, inp):
         b, c, h, w = inp.shape
-        return (0.1 * inp) / ( (torch.norm(inp, p = 1, dim = (2, 3)).view(b, c, 1, 1)) / (h*w) + 1e-9)
+        hw = h*w
+        tar_den = 0.1
+        curr_den = torch.norm(inp, p = 1, dim = (2, 3)).view(b, c, 1, 1) / (hw)
+        return torch.where(curr_den > tar_den, inp / (curr_den + 1e-9) * tar_den, inp)
     
     def use_checkpointing(self):
         self.inc = torch.utils.checkpoint(self.inc)

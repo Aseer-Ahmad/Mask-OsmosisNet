@@ -1,6 +1,39 @@
 import torch 
 from scipy.sparse.linalg import bicg
 
+
+
+def applyStencil(self, inp, batch, verbose = False):
+    """
+    inp : (batch, channel, nx, ny)
+    """
+    pad_mirror = Pad(1, padding_mode = "symmetric")
+    inp        = pad_mirror(inp[:, :, 1:self.nx+1, 1:self.ny+1])
+
+    temp       = torch.zeros_like(inp, device = self.device)
+
+    center     = torch.mul(self.boo[batch, :, 1:self.nx+1, 1:self.ny+1],
+                        inp[:, :, 1:self.nx+1, 1:self.ny+1])    
+        
+    left       = torch.mul(self.bmo[batch, :, 1:self.nx+1, 1:self.ny+1],
+                        inp[:, :, :self.nx, 1:self.ny+1])
+    
+    down       = torch.mul(self.bom[batch, :, 1:self.nx+1, 1:self.ny+1],
+                        inp[:, :, 1:self.nx+1, 0:self.ny])
+    
+    up         = torch.mul(self.bop[batch, :, 1:self.nx+1, 1:self.ny+1],
+                        inp[:, :, 1:self.nx+1, 2:self.ny+2])
+    
+    right      = torch.mul(self.bpo[batch, :, 1:self.nx+1, 1:self.ny+1],
+                        inp[:, :, 2:self.nx+2, 1:self.ny+1])
+    
+    temp[:, :, 1:self.nx+1, 1:self.ny+1 ] = center + left + right + up + down
+    
+    if verbose :
+        self.analyseImage(temp, "X")
+
+    return temp
+
 def applyStencil(self, inp, batch, verbose = False):
     """
     inp : (batch, channel, nx, ny)

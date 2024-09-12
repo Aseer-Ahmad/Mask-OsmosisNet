@@ -1,4 +1,4 @@
-# main.py
+#!/usr/bin/env python3
 import yaml
 from train import ModelTrainer
 from CustomDataset import MaskDataset
@@ -8,6 +8,7 @@ from torchsummary import summary
 import os
 import shutil
 import sys
+from datasets import load_dataset
 
 CONFIG_YAML = 'config.yaml'
 
@@ -41,16 +42,19 @@ def getMaskDataset(config):
         - train_dataset: Datasets for the training dataset.
         - test_dataset: Datasets for the testing dataset.
     """
-    train_dataset = MaskDataset(config['TRAIN_FILENAME'], 
-                             config['ROOT_DIR'], 
-                             "train", 
-                             config['IMG_SIZE'])
+    # train_dataset = MaskDataset(config['TRAIN_FILENAME'], 
+    #                          config['ROOT_DIR'], 
+    #                          "train", 
+    #                          config['IMG_SIZE'])
     
-    test_dataset = MaskDataset(config['TEST_FILENAME'], 
-                             config['ROOT_DIR'], 
-                             "test", 
-                             config['IMG_SIZE'])
+    # test_dataset = MaskDataset(config['TEST_FILENAME'], 
+    #                          config['ROOT_DIR'], 
+    #                          "test", 
+    #                          config['IMG_SIZE'])
     
+    test_dataset  = load_dataset("aseeransari/ImageNet-Sampled", split="test")
+    train_dataset = load_dataset("aseeransari/ImageNet-Sampled", split="train")
+
     return (train_dataset, test_dataset)
 
 def main(config):
@@ -63,7 +67,7 @@ def main(config):
         os.makedirs(img_pth)
         
     # to print to a file
-    sys.stdout = open(os.path.join(exp_path, 'output.txt'),'wt')
+    # sys.stdout = open(os.path.join(exp_path, 'output.txt'),'wt')
 
     print(f"CONFIG : \n{config}\n")
 
@@ -104,9 +108,9 @@ def main(config):
         alpha2 = config['ALPHA2'],
         mask_density = config['MASK_DEN'],
         resume_checkpoint_file = config['RESUME_CHECKPOINT'],
-        save_every = config['SAVE_EVERY'], 
-        batch_plot_every = config['BATCH_PLOT_EVERY'],
-        val_every = config['VAL_EVERY'],
+        save_every = config['SAVE_EVERY_ITER'], 
+        batch_plot_every = config['BATCH_PLOT_EVERY_ITER'],
+        val_every = config['VAL_EVERY_EPOCH'],
         train_dataset = train_dataset , 
         test_dataset = test_dataset
     )

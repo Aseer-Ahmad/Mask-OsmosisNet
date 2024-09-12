@@ -248,6 +248,8 @@ class ModelTrainer():
 
         print("\nbeginning training ...")
 
+        st_tt = time.time()
+
         for epoch in range(epochs):
 
             running_loss = 0.0
@@ -263,10 +265,10 @@ class ModelTrainer():
 
                 mask = model(X_norm) # non-binary [0,1]
                 loss1 = invLoss(mask)
-                mask_bin = self.hardRoundBinarize(mask) # binarized {0,1}
-                loss2 = denLoss(mask_bin)
+                # mask_bin = self.hardRoundBinarize(mask) # binarized {0,1} # evaluation step
+                loss2 = denLoss(mask)
 
-                mask_detach = mask_bin.detach().clone()
+                mask_detach = mask.detach().clone()
                 osmosis = OsmosisInpainting(None, X, mask_detach, mask_detach, offset=1, tau=700, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(False, False, False)
                 # loss2, tts = osmosis.solveBatchSeq(100, save_batch = True, verbose = False)
@@ -276,7 +278,7 @@ class ModelTrainer():
                 else:
                     save_batch = [False]
                 
-                loss3, tts = osmosis.solveBatchParallel(10, save_batch = save_batch, verbose = False)
+                loss3, tts = osmosis.solveBatchParallel(100, save_batch = save_batch, verbose = False)
 
                 # if torch.isnan(loss3):
                 #     print(f"input X : {X}")
@@ -291,7 +293,7 @@ class ModelTrainer():
                 optimizer.zero_grad()
 
                 running_loss += total_loss
-                avg_den = self.mean_density(mask_bin)
+                avg_den = self.mean_density(mask)
 
                 avg_den_list.append(avg_den.item())
                 loss1_list.append(loss1.item())
@@ -322,7 +324,7 @@ class ModelTrainer():
 
                 # update plot and save
                 clist = [l for l in range(1, len(loss1_list) + 1)]
-                save_plot([np.log(loss1_list), np.log(loss2_list), np.log(loss3_list), np.log(running_loss_list)], clist, ["invloss", "denloss", "mse", "runningloss"], os.path.join(self.output_dir, "all_losses.png"))
+                save_plot([np.log(loss1_list), np.log(loss3_list), np.log(running_loss_list)], clist, ["invloss", "mse", "runningloss"], os.path.join(self.output_dir, "all_losses.png"))
                 save_plot([running_loss_list], clist, ["running loss"], os.path.join(self.output_dir, "runloss.png"))
                 save_plot([loss1_list], clist, ["invariance loss"], os.path.join(self.output_dir, "invloss.png"))
                 save_plot([loss3_list], clist, ["mse loss"], os.path.join(self.output_dir, "mseloss.png"))
@@ -343,7 +345,7 @@ class ModelTrainer():
 
 
             et = time.time()
-            print(f"total time for batch : {str((et-st) / 60)} min")
+            print(f"total time for epoch : {str((et-st) / 60)} min")
 
             epoch_loss = running_loss / train_dataloader.__len__()
             epochloss_list.append(epoch_loss.item())
@@ -352,5 +354,9 @@ class ModelTrainer():
 
             if (epoch + 1) % val_every == 0:
                 self.validate(model, test_dataloader, mask_density, alpha1, alpha2)
+        
+        et_tt = time.time()
+        print(f"total time for training : {str((et_tt-st_tt) / 3600)} hr")
+        
             
 
