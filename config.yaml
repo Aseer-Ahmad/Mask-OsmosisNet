@@ -1,18 +1,18 @@
 # MODEL PARAMS
 EPOCHS : 10
 RESUME_CHECKPOINT : 
-SAVE_EVERY_ITER : 3
-VAL_EVERY_EPOCH : 3
+SAVE_EVERY_ITER : 5
+VAL_EVERY_EPOCH : 10
 BATCH_PLOT_EVERY_ITER : 3
 OUTPUT_DIR : outputs
-EXP_NAME : imagenet_t9
+EXP_NAME : BSDS300_t5
 
 # DATA PARMS
 TRAIN_FILENAME : iids_train.txt
 TEST_FILENAME  : iids_test.txt
-ROOT_DIR       : dataset/imagenet/images
+ROOT_DIR       : dataset/BSDS300/images
 
-IMG_SIZE       : 128 
+IMG_SIZE       : 64 
 INP_CHANNELS   : 1
 OUT_CHANNELS   : 1
 
@@ -22,8 +22,8 @@ WEIGHT_DECAY   : 0.
 MOMENTUM       : 0.9
 OPT            : Adam
 SCHEDL         : lambdaLR
-TRAIN_BATCH    : 32
-TEST_BATCH     : 32
+TRAIN_BATCH    : 64
+TEST_BATCH     : 64
 ALPHA1         : 0.001
 ALPHA2         : 0.1
 MASK_DEN       : 0.1
@@ -33,5 +33,5 @@ BIN_METH       : QUANT
 OFFSET         :
 TAU            :
 ITERATIONS     :
-NOTE           : scaling prob to density ; alpha(0.1) added to den loss
+NOTE           : scaling prob to density (conditionally ; torch.where) ; removing BINARIZARTION (hard bin) from train.py
                  

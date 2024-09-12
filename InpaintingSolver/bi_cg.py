@@ -117,11 +117,11 @@ class OsmosisInpainting:
 
         self.U = X
 
-        comm = self.analyseImage(X, f"solution")
-        comm += f"time for iteration : {str(et-st)} sec\n"
-        comm += f"total time         : {str(tt)} sec\n"
-        comm += self.getMetrics()
-        print(comm)
+        # comm = self.analyseImage(X, f"solution")
+        # comm += f"time for iteration : {str(et-st)} sec\n"
+        # comm += f"total time         : {str(tt)} sec\n"
+        # comm += self.getMetrics()
+        # print(comm)
 
 
         if save_batch[0]:
@@ -278,8 +278,6 @@ class OsmosisInpainting:
 
         self.V     = pad_mirror(self.V)
         self.V     = torch.transpose(self.V, 2, 3)
-        # V is casted float32 since conv2d only accepts that
-        # self.V     = self.V.type(torch.float32)  
 
         if self.mask1 != None :
             self.mask1     = pad_mirror(self.mask1)
@@ -700,25 +698,27 @@ class OsmosisInpainting:
 
             s_ = s[CONV4_COND]
             t_ = t[CONV4_COND] = self.applyStencilBatch(s_, CONV4_COND)
-            omega_ = omega[CONV4_COND] = torch.sum( torch.mul(t_, s_), dim = (1, 2)) / torch.sum(torch.mul(t_, t_), dim = (1, 2))
+            omega_ = omega[CONV4_COND] = torch.sum( torch.mul(t_, s_), dim = (1, 2)) / torch.sum(t_**2, dim = (1, 2))
 
-            # broadcast 4                                
-            x[CONV4_COND] += (alpha[CONV4_COND].view(-1, 1, 1) * p[CONV4_COND]) + (omega_.view(-1, 1, 1) * s_)
+            # broadcast 4        
+            p_ = p[CONV4_COND]                        
+            x[CONV4_COND] += (alpha[CONV4_COND].view(-1, 1, 1) * p_) + (omega_.view(-1, 1, 1) * s_)
             r_old[CONV4_COND] = r[CONV4_COND]#.detach().clone()
             
             # broadcast 5
             r_ = r[CONV4_COND] = s_ - (omega_.view(-1, 1, 1) * t_ )
             
             # 5R
+            r_0_ = r_0[CONV4_COND]
             beta[CONV4_COND] = (alpha[CONV4_COND] / omega_) \
-                                * torch.sum(torch.mul(r_, r_0[CONV4_COND]), dim = (1, 2)) \
-                                / torch.sum(torch.mul(r_old[CONV4_COND], r_0[CONV4_COND]), dim = (1, 2))
+                                * torch.sum(torch.mul(r_, r_0_), dim = (1, 2)) \
+                                / torch.sum(torch.mul(r_old[CONV4_COND], r_0_), dim = (1, 2))
         
             if verbose:
                 print(f"k : {k} , omega : {omega}, beta : {beta}")
             
             # broadcast 7
-            p[CONV4_COND] = r_ + beta[CONV4_COND].view(-1, 1, 1) * ( p[CONV4_COND] - omega_.view(-1, 1, 1) * v[CONV4_COND])
+            p[CONV4_COND] = r_ + beta[CONV4_COND].view(-1, 1, 1) * ( p_ - omega_.view(-1, 1, 1) * v[CONV4_COND])
             
 
             # =======================================

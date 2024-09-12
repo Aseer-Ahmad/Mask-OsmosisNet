@@ -263,10 +263,10 @@ class ModelTrainer():
 
                 mask = model(X_norm) # non-binary [0,1]
                 loss1 = invLoss(mask)
-                mask_bin = self.hardRoundBinarize(mask) # binarized {0,1}
-                loss2 = denLoss(mask_bin)
+                # mask_bin = self.hardRoundBinarize(mask) # binarized {0,1}
+                loss2 = denLoss(mask)
 
-                mask_detach = mask_bin.detach().clone()
+                mask_detach = mask.detach().clone()
                 osmosis = OsmosisInpainting(None, X, mask_detach, mask_detach, offset=1, tau=700, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(False, False, False)
                 # loss2, tts = osmosis.solveBatchSeq(100, save_batch = True, verbose = False)
@@ -276,7 +276,7 @@ class ModelTrainer():
                 else:
                     save_batch = [False]
                 
-                loss3, tts = osmosis.solveBatchParallel(10, save_batch = save_batch, verbose = False)
+                loss3, tts = osmosis.solveBatchParallel(100, save_batch = save_batch, verbose = False)
 
                 # if torch.isnan(loss3):
                 #     print(f"input X : {X}")
@@ -291,7 +291,7 @@ class ModelTrainer():
                 optimizer.zero_grad()
 
                 running_loss += total_loss
-                avg_den = self.mean_density(mask_bin)
+                avg_den = self.mean_density(mask)
 
                 avg_den_list.append(avg_den.item())
                 loss1_list.append(loss1.item())
@@ -343,7 +343,7 @@ class ModelTrainer():
 
 
             et = time.time()
-            print(f"total time for batch : {str((et-st) / 60)} min")
+            print(f"total time for epoch : {str((et-st) / 60)} min")
 
             epoch_loss = running_loss / train_dataloader.__len__()
             epochloss_list.append(epoch_loss.item())

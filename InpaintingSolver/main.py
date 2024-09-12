@@ -40,9 +40,9 @@ if __name__ == '__main__':
 
     V1 = readPGMImage("scarf.pgm")
 
-    osmosis = OsmosisInpainting(None, V, mask, mask, offset=1, tau=300, apply_canny=False)
-    osmosis.calculateWeights(False, False, False)
-    osmosis.solve(10, save_every = 10, verbose = False)
+    # osmosis = OsmosisInpainting(None, V, mask, mask, offset=1, tau=300, apply_canny=False)
+    # osmosis.calculateWeights(False, False, False)
+    # osmosis.solve(10, save_every = 10, verbose = False)
 
     # V = V.repeat(4, 1, 1, 1)
     # V = torch.cat((V, V1), dim = 0)
