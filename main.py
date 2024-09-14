@@ -108,8 +108,8 @@ def main(config):
     # get train , test Dataset classes
     train_dataset, test_dataset = getMaskDataset(config)
     print(f"train test dataset loaded")
-    # print(f"train size : {train_dataset.__len__()}")
-    # print(f"test  size  : {test_dataset.__len__()}")
+    print(f"train size : {train_dataset.__len__()}")
+    print(f"test  size  : {test_dataset.__len__()}")
     
     # get model based on inp and out channels
     model = UNet(config['INP_CHANNELS'], config['OUT_CHANNELS'])
