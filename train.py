@@ -133,8 +133,8 @@ class ModelTrainer():
 
     def getDataloaders(self, train_dataset, test_dataset):
 
-        train_dataloader = DataLoader(train_dataset, batch_size=self.train_batch_size, shuffle=True)
-        test_dataloader  = DataLoader(test_dataset, batch_size=self.test_batch_size, shuffle=True)
+        train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size)
+        test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size)
 
         print(f"train and test dataloaders created")
         print(f"total train batches  : {len(train_dataloader)}")
