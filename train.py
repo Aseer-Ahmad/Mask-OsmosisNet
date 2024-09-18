@@ -12,6 +12,7 @@ import numpy as np
 import os
 import gc
 import pandas as pd
+from torchvision import transforms
 sns.set_theme()
 
 from InpaintingSolver.bi_cg import OsmosisInpainting
@@ -122,19 +123,44 @@ class ModelTrainer():
 
         return model, optimizer
 
-
     def saveCheckpoint(self, model, optimizer, fname):
         
         torch.save({
             'model_state_dict': model.state_dict(),
             # 'optimizer_state_dict': optimizer.state_dict(),
             }, os.path.join(self.output_dir, fname))
-        
 
     def getDataloaders(self, train_dataset, test_dataset):
 
-        train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size)
-        test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size)
+        transform_norm = transforms.Compose([
+                    transforms.Resize((128, 128), antialias = True),
+                    transforms.Grayscale(),
+                    transforms.ToTensor(),
+                    transforms.Normalize(mean = [0.44531356896770125], std = [0.2692461874154524])
+                ])
+
+        transform = transforms.Compose([
+                    transforms.Resize((128, 128), antialias = True),
+                    transforms.Grayscale(),
+                    transforms.ToTensor()
+                ])
+
+        def custom_collate_fn(batch):
+            
+            images      = []
+            images_norm = []
+
+            for item in batch :
+                images.append(transform(item['image']))
+                images_norm.append(transform_norm(item['image']))
+
+            images      = torch.stack(images)
+            images_norm = torch.stack(images_norm)
+            
+            return images, images_norm
+
+        train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size, collate_fn=custom_collate_fn)
+        test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size, collate_fn=custom_collate_fn)
 
         print(f"train and test dataloaders created")
         print(f"total train batches  : {len(train_dataloader)}")
@@ -208,7 +234,6 @@ class ModelTrainer():
             if m.bias is not None:
                 nn.init.constant_(m.bias, 0)
 
-
     def train(self, model, epochs, alpha1, alpha2, mask_density, resume_checkpoint_file, save_every, batch_plot_every, val_every, train_dataset ,test_dataset):
         
         # loss lists
@@ -256,7 +281,7 @@ class ModelTrainer():
             model.train()
             st = time.time()
             
-            for i, (X, X_norm) in enumerate(train_dataloader, start = 1): 
+            for i, (X, X_norm) in enumerate(test_dataloader, start = 1): 
                 
                 print(f'Epoch {epoch}/{epochs} , batch {i}/{len(train_dataloader)} ')
 
@@ -357,6 +382,3 @@ class ModelTrainer():
         
         et_tt = time.time()
         print(f"total time for training : {str((et_tt-st_tt) / 3600)} hr")
-        
-            
-

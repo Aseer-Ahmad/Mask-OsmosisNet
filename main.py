@@ -12,6 +12,8 @@ from datasets import load_dataset
 from torchvision import transforms
 from torch.utils.data import IterableDataset
 from datasets import Dataset
+from datasets import disable_caching
+disable_caching()
 
 CONFIG_YAML = 'config.yaml'
 
@@ -33,13 +35,15 @@ def read_config(file_path):
             print(f"Error reading YAML file: {e}")
             return None
 
-class HFDatasetWrapper(IterableDataset):
+class HuggingFaceDataset(torch.utils.data.Dataset):
     def __init__(self, hf_dataset):
-        self.hf_dataset = hf_dataset
+        self.dataset = hf_dataset
 
-    def __iter__(self):
-        for item in self.hf_dataset:
-            yield item
+    def __len__(self):
+        return len(self.dataset)
+
+    def __getitem__(self, idx):
+        return self.dataset[idx]['image']
 
 def getMaskDataset(config):
     """
@@ -63,29 +67,31 @@ def getMaskDataset(config):
     #                          "test", 
     #                          config['IMG_SIZE'])
     
+    transform_norm = transforms.Compose([
+                    transforms.Resize((config['IMG_SIZE'], config['IMG_SIZE']), antialias = True),
+                    transforms.ToTensor(),
+                    transforms.Normalize(mean = [0.44531356896770125], std = [0.2692461874154524]),
+                ])
+
     transform = transforms.Compose([
                     transforms.Resize((config['IMG_SIZE'], config['IMG_SIZE']), antialias = True),
-                    transforms.Normalize(mean = [0.44531356896770125], std = [0.2692461874154524]),
-                    transforms.ToTensor(),
+                    transforms.ToTensor()
                 ])
     
     def apply_transforms(example):
-        example['image'] = transform(example['image'])  # Apply transform to the image field
+        example['image_norm'] = [transform_norm(img) for img in example['image']]
+        example['image']      = [transform_norm(img) for img in example['image']]
+        
         return example
 
-    # train_dataset = load_dataset("aseeransari/ImageNet-Sampled", split="temp")
-    # test_dataset  = load_dataset("aseeransari/ImageNet-Sampled", split="temp")    
-    
     test_dataset  = load_dataset("aseeransari/ImageNet-Sampled", split="test")
     train_dataset = load_dataset("aseeransari/ImageNet-Sampled", split="train")
 
-    test_dataset  = test_dataset.map(apply_transforms, batched=True)
-    train_dataset = train_dataset.map(apply_transforms, batched=True)
+    test_dataset = test_dataset.remove_columns(['file_name'])
+    # test_dataset  = test_dataset.map(apply_transforms)
+    # train_dataset = train_dataset.map(apply_transforms, batched = True, num_proc=4, keep_in_memory=True)
 
-    # train_dataset = Dataset.from_list(list(train_dataset))
-    # test_dataset  = Dataset.from_list(list(test_dataset))
-    # test_dataset = test_dataset.with_format("torch")
-    # train_dataset = train_dataset.with_format("torch")
+    print(f"test dataset : {test_dataset}")
 
     return (train_dataset, test_dataset)
 
