@@ -57,42 +57,22 @@ def getMaskDataset(config):
         - train_dataset: Datasets for the training dataset.
         - test_dataset: Datasets for the testing dataset.
     """
-    # train_dataset = MaskDataset(config['TRAIN_FILENAME'], 
-    #                          config['ROOT_DIR'], 
-    #                          "train", 
-    #                          config['IMG_SIZE'])
+    train_dataset = MaskDataset(config['TRAIN_FILENAME'], 
+                             config['ROOT_DIR'], 
+                             "train", 
+                             config['IMG_SIZE'])
     
-    # test_dataset = MaskDataset(config['TEST_FILENAME'], 
-    #                          config['ROOT_DIR'], 
-    #                          "test", 
-    #                          config['IMG_SIZE'])
+    test_dataset = MaskDataset(config['TEST_FILENAME'], 
+                             config['ROOT_DIR'], 
+                             "test", 
+                             config['IMG_SIZE'])
     
-    transform_norm = transforms.Compose([
-                    transforms.Resize((config['IMG_SIZE'], config['IMG_SIZE']), antialias = True),
-                    transforms.ToTensor(),
-                    transforms.Normalize(mean = [0.44531356896770125], std = [0.2692461874154524]),
-                ])
+    # test_dataset  = load_dataset("aseeransari/ImageNet-Sampled", split="test")
+    # train_dataset = load_dataset("aseeransari/ImageNet-Sampled", split="train")
 
-    transform = transforms.Compose([
-                    transforms.Resize((config['IMG_SIZE'], config['IMG_SIZE']), antialias = True),
-                    transforms.ToTensor()
-                ])
+    # test_dataset = test_dataset.remove_columns(['file_name'])
+    # train_dataset = train_dataset.remove_columns(['file_name'])
     
-    def apply_transforms(example):
-        example['image_norm'] = [transform_norm(img) for img in example['image']]
-        example['image']      = [transform_norm(img) for img in example['image']]
-        
-        return example
-
-    test_dataset  = load_dataset("aseeransari/ImageNet-Sampled", split="test")
-    train_dataset = load_dataset("aseeransari/ImageNet-Sampled", split="train")
-
-    test_dataset = test_dataset.remove_columns(['file_name'])
-    # test_dataset  = test_dataset.map(apply_transforms)
-    # train_dataset = train_dataset.map(apply_transforms, batched = True, num_proc=4, keep_in_memory=True)
-
-    print(f"test dataset : {test_dataset}")
-
     return (train_dataset, test_dataset)
 
 def main(config):
