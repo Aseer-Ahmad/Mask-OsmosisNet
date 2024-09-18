@@ -159,8 +159,11 @@ class ModelTrainer():
             
             return images, images_norm
 
-        train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size, collate_fn=custom_collate_fn)
-        test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size, collate_fn=custom_collate_fn)
+        # train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size, collate_fn=custom_collate_fn)
+        # test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size, collate_fn=custom_collate_fn)
+
+        train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size)
+        test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size)
 
         print(f"train and test dataloaders created")
         print(f"total train batches  : {len(train_dataloader)}")
@@ -173,7 +176,6 @@ class ModelTrainer():
 
     def mean_density(self, mask):
         return torch.mean(torch.norm(mask, p = 1, dim = (2, 3)) / (mask.shape[2]*mask.shape[3]))
-
 
     def validate(self, model, test_dataloader, density, alpha1, alpha2):
         print("validating on test dataset")
@@ -190,8 +192,8 @@ class ModelTrainer():
             st = time.time()
             for i, (X, X_norm) in enumerate(test_dataloader):
 
-                X = X.to(self.device)
-                X_norm = X_norm.to(self.device)
+                X = X.to(self.device, dtype=torch.float64)
+                X_norm = X_norm.to(self.device, dtype=torch.float64)
 
                 mask = model(X_norm) # non-binary [0,1]
                 loss1 = invLoss(mask)
@@ -281,12 +283,12 @@ class ModelTrainer():
             model.train()
             st = time.time()
             
-            for i, (X, X_norm) in enumerate(test_dataloader, start = 1): 
+            for i, (X, X_norm) in enumerate(train_dataloader, start = 1): 
                 
                 print(f'Epoch {epoch}/{epochs} , batch {i}/{len(train_dataloader)} ')
 
-                X = X.to(self.device)
-                X_norm = X_norm.to(self.device)
+                X = X.to(self.device, dtype=torch.float64)
+                X_norm = X_norm.to(self.device, dtype=torch.float64)
 
                 mask = model(X_norm) # non-binary [0,1]
                 loss1 = invLoss(mask)

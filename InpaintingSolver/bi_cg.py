@@ -612,8 +612,6 @@ class OsmosisInpainting:
         if verbose:
             print(f"r_abs : {r_abs}")
 
-        # with torch.profiler.profile() as prof:
-
         while ( (k < kmax) & (r_abs > eps * self.nx * self.ny) ).any(): # and (restart == 0).any():
 
             # =======================================
@@ -760,7 +758,5 @@ class OsmosisInpainting:
                 print(f"k : {k}, RESIDUAL : {r_abs}")
             
             # print(f"{torch.cat((k, r_abs, r_abs_diff_last, CONV_COND), dim = 1)}") 
-
-        # print(prof.key_averages().table(sort_by="cpu_time_total"))
 
         return x
