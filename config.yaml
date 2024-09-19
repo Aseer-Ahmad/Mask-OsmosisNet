@@ -1,5 +1,5 @@
 # MODEL PARAMS
-EPOCHS : 10
+EPOCHS : 2
 RESUME_CHECKPOINT : 
 SAVE_EVERY_ITER : 10
 VAL_EVERY_EPOCH : 10
@@ -12,7 +12,7 @@ TRAIN_FILENAME : iids_train.txt
 TEST_FILENAME  : iids_test.txt
 ROOT_DIR       : dataset/BSDS300/images
 
-IMG_SIZE       : 64 
+IMG_SIZE       : 128 
 INP_CHANNELS   : 1
 OUT_CHANNELS   : 1
 
@@ -22,8 +22,8 @@ WEIGHT_DECAY   : 0.
 MOMENTUM       : 0.9
 OPT            : Adam
 SCHEDL         : lambdaLR
-TRAIN_BATCH    : 200
-TEST_BATCH     : 200
+TRAIN_BATCH    : 64
+TEST_BATCH     : 64
 ALPHA1         : 0.001
 ALPHA2         : 0.1
 MASK_DEN       : 0.1
@@ -33,5 +33,5 @@ BIN_METH       : QUANT
 OFFSET         :
 TAU            :
 ITERATIONS     :
-NOTE           : scaling prob to density (conditionally ; torch.where) ; removing BINARIZARTION (hard bin) from train.py
+NOTE           : X (not imagenet normalized) being used for both MaskM and Solver
                  
