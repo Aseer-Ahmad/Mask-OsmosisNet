@@ -575,7 +575,7 @@ class OsmosisInpainting:
         t[:, 1:self.nx+1, 1 :self.ny+1] = x[:, 1:self.nx+1, 1 :self.ny+1]
         return t
 
-    @torch.jit.export
+    # @torch.jit.export
     def BiCGSTAB_Batched(self, x, b, kmax=10000, eps=1e-9, verbose = False):
         
         restart = torch.ones( (self.batch, self.channel), dtype=torch.bool, device = self.device)

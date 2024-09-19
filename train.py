@@ -42,6 +42,17 @@ class DensityLoss(nn.Module):
         return torch.mean( torch.abs( (torch.norm(mask, p = 1, dim = (2, 3))/ (h*w)) 
                                      - self.density) )
 
+class GrayscaleWithNoise:
+    def __init__(self, scale = 255.):
+        self.scale = scale
+
+    def __call__(self, img):
+        return 
+    
+class MyCustomTransform(torch.nn.Module):
+    def forward(self, img):  
+        return (img * 255).type(torch.uint8)
+    
 def save_plot(loss_lists, x, legend_list, save_path):
     """
     Plots multiple data series from y against x and saves the plot.
@@ -130,19 +141,26 @@ class ModelTrainer():
             # 'optimizer_state_dict': optimizer.state_dict(),
             }, os.path.join(self.output_dir, fname))
 
-    def getDataloaders(self, train_dataset, test_dataset):
-
-        transform_norm = transforms.Compose([
-                    transforms.Resize((128, 128), antialias = True),
-                    transforms.Grayscale(),
-                    transforms.ToTensor(),
-                    transforms.Normalize(mean = [0.44531356896770125], std = [0.2692461874154524])
-                ])
+    def getDataloaders(self, train_dataset, test_dataset, img_size):
 
         transform = transforms.Compose([
-                    transforms.Resize((128, 128), antialias = True),
+                    transforms.Resize((img_size, img_size), antialias = True),
                     transforms.Grayscale(),
                     transforms.ToTensor()
+                ])
+
+        transform_norm = transforms.Compose([
+                    transforms.Resize((img_size, img_size), antialias = True),
+                    transforms.Grayscale(),
+                    transforms.ToTensor(), 
+                    transforms.Normalize(mean = [0.44531356896770125], std = [0.2692461874154524])
+                ])
+        
+        transform_scale = transforms.Compose([
+                    transforms.Resize((img_size, img_size), antialias = True),
+                    transforms.Grayscale(),
+                    transforms.ToTensor(),
+                    MyCustomTransform()
                 ])
 
         def custom_collate_fn(batch):
@@ -151,19 +169,19 @@ class ModelTrainer():
             images_norm = []
 
             for item in batch :
-                images.append(transform(item['image']))
-                images_norm.append(transform_norm(item['image']))
+                images.append(transform_norm(item['image']))
+                images_norm.append(transform(item['image']))
 
             images      = torch.stack(images)
             images_norm = torch.stack(images_norm)
             
             return images, images_norm
 
-        # train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size, collate_fn=custom_collate_fn)
-        # test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size, collate_fn=custom_collate_fn)
+        train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size, collate_fn=custom_collate_fn)
+        test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size, collate_fn=custom_collate_fn)
 
-        train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size)
-        test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size)
+        # train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size)
+        # test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size)
 
         print(f"train and test dataloaders created")
         print(f"total train batches  : {len(train_dataloader)}")
@@ -195,13 +213,13 @@ class ModelTrainer():
                 X = X.to(self.device, dtype=torch.float64)
                 X_norm = X_norm.to(self.device, dtype=torch.float64)
 
-                mask = model(X_norm) # non-binary [0,1]
+                mask = model(X) # non-binary [0,1]
                 loss1 = invLoss(mask)
                 mask_bin = self.hardRoundBinarize(mask) # binarized {0,1}
                 loss2 = denLoss(mask_bin)
 
                 mask_detach = mask_bin.detach().clone()
-                osmosis = OsmosisInpainting(None, X, mask_detach, mask_detach, offset=1, tau=700, device = self.device, apply_canny=False)
+                osmosis = OsmosisInpainting(None, X_norm, mask_detach, mask_detach, offset=1, tau=700, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(False, False, False)
                 loss3, tts = osmosis.solveBatchParallel(10, save_batch = [False], verbose = False)
 
@@ -236,13 +254,13 @@ class ModelTrainer():
             if m.bias is not None:
                 nn.init.constant_(m.bias, 0)
 
-    def train(self, model, epochs, alpha1, alpha2, mask_density, resume_checkpoint_file, save_every, batch_plot_every, val_every, train_dataset ,test_dataset):
+    def train(self, model, epochs, alpha1, alpha2, mask_density, img_size, resume_checkpoint_file, save_every, batch_plot_every, val_every, train_dataset ,test_dataset):
         
         # loss lists
         loss1_list, loss2_list, loss3_list, gradnorm_list, running_loss_list = [], [], [], [], []
         avg_den_list, epochloss_list = [], []
 
-        train_dataloader, test_dataloader = self.getDataloaders(train_dataset, test_dataset)
+        train_dataloader, test_dataloader = self.getDataloaders(train_dataset, test_dataset, img_size)
 
         optimizer = self.getOptimizer(model)
         scheduler = self.getScheduler(optimizer)
@@ -290,13 +308,13 @@ class ModelTrainer():
                 X = X.to(self.device, dtype=torch.float64)
                 X_norm = X_norm.to(self.device, dtype=torch.float64)
 
-                mask = model(X_norm) # non-binary [0,1]
+                mask = model(X) # non-binary [0,1]
                 loss1 = invLoss(mask)
                 # mask_bin = self.hardRoundBinarize(mask) # binarized {0,1} # evaluation step
                 loss2 = denLoss(mask)
 
                 mask_detach = mask.detach().clone()
-                osmosis = OsmosisInpainting(None, X, mask_detach, mask_detach, offset=1, tau=700, device = self.device, apply_canny=False)
+                osmosis = OsmosisInpainting(None, X_norm, mask_detach, mask_detach, offset=1, tau=700, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(False, False, False)
                 # loss2, tts = osmosis.solveBatchSeq(100, save_batch = True, verbose = False)
                 
