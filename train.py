@@ -232,7 +232,7 @@ class ModelTrainer():
                 running_loss += total_loss
             et = time.time()
         
-        print(f"\nvalidation loss : {running_loss / (i*td_len)} , total running time : {(et-st)/60.} min")
+        print(f"\nvalidation loss : {running_loss / ((i+1)*td_len)} , total running time : {(et-st)/60.} min")
         print()
 
     # Function to check for exploding/vanishing gradients
