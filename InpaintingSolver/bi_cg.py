@@ -94,7 +94,8 @@ class OsmosisInpainting:
                 self.writePGMImage(self.U[0][0].numpy().T, fname)
                 # self.writeToPGM(fname = fname, t = self.U[0][0].T, comments= comm)
                 self.U = self.U + self.offset
-                
+
+    # @torch.compile
     def solveBatchParallel(self, kmax = 100, save_batch = False, verbose = False):
                         
         X = self.U.detach().clone()
@@ -575,7 +576,6 @@ class OsmosisInpainting:
         t[:, 1:self.nx+1, 1 :self.ny+1] = x[:, 1:self.nx+1, 1 :self.ny+1]
         return t
 
-    # @torch.jit.export
     def BiCGSTAB_Batched(self, x, b, kmax=10000, eps=1e-9, verbose = False):
         
         restart = torch.ones( (self.batch, self.channel), dtype=torch.bool, device = self.device)
@@ -622,9 +622,9 @@ class OsmosisInpainting:
             if verbose:
                 print(f"WHILE CONVERGENCE CONDITION :\n {CONV_COND}")
             
-            v_ = v[CONV_COND]     = self.applyStencilBatch(p[CONV_COND], CONV_COND)
-            sigma[CONV_COND] = torch.sum(torch.mul(v_, r_0[CONV_COND]), dim = (1, 2))
-            v_abs[CONV_COND] = torch.norm(v_, dim = (1, 2),  p = "fro")
+            v_ = v[CONV_COND] = self.applyStencilBatch(p[CONV_COND], CONV_COND)
+            sigma[CONV_COND]  = torch.sum(torch.mul(v_, r_0[CONV_COND]), dim = (1, 2))
+            v_abs[CONV_COND]  = torch.norm(v_, dim = (1, 2),  p = "fro")
             
             if verbose:
                 print(f"k : {k}, sigma : {sigma}, vabs : {v_abs}")
