@@ -14,8 +14,12 @@ import gc
 import pandas as pd
 from torchvision import transforms
 sns.set_theme()
+import torch._dynamo
+torch._dynamo.reset()
 
 from InpaintingSolver.bi_cg import OsmosisInpainting
+
+torch.backends.cuda.matmul.allow_tf32 = True
 
 class InvarianceLoss(nn.Module):
     """
@@ -146,7 +150,7 @@ class ModelTrainer():
         transform = transforms.Compose([
                     transforms.Resize((img_size, img_size), antialias = True),
                     transforms.Grayscale(),
-                    transforms.ToTensor()
+                    # transforms.ToTensor()
                 ])
 
         transform_norm = transforms.Compose([
@@ -322,7 +326,6 @@ class ModelTrainer():
                     save_batch = [True, os.path.join(self.output_dir, "imgs", f"batch_epoch_{str(epoch)}_iter_{str(i)}.png")]
                 else:
                     save_batch = [False]
-                
                 loss3, tts = osmosis.solveBatchParallel(100, save_batch = save_batch, verbose = False)
 
                 # if torch.isnan(loss3):

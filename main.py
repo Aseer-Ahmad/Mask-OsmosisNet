@@ -16,6 +16,8 @@ from datasets import disable_caching
 disable_caching()
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+os.environ["TORCH_LOGS"]="+dynamo"
+os.environ["TORCHDYNAMO_VERBOSE"]="1"
 
 CONFIG_YAML = 'config.yaml'
 
@@ -70,7 +72,7 @@ def getMaskDataset(config):
     #                          config['IMG_SIZE'])
     
     test_dataset  = load_dataset("aseeransari/ImageNet-Sampled", split="test[:50%]")
-    train_dataset = load_dataset("aseeransari/ImageNet-Sampled", split="train[:1%]")
+    train_dataset = load_dataset("aseeransari/ImageNet-Sampled", split="train[:2%]")
     test_dataset = test_dataset.remove_columns(['file_name'])
     train_dataset = train_dataset.remove_columns(['file_name'])
     
