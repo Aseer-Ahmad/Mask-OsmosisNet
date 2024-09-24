@@ -47,9 +47,9 @@ if __name__ == '__main__':
     # V = V.repeat(4, 1, 1, 1)
     # V = torch.cat((V, V1), dim = 0)
 
-    osmosis = OsmosisInpainting(None, V, mask, mask, offset=1, tau=300, device = None, apply_canny=False)
+    osmosis = OsmosisInpainting(None, V, None, None, offset=1, tau=300, device = None, apply_canny=False)
     osmosis.calculateWeights(False, False, False)
-    osmosis.solveBatchParallel(10, save_batch = [False, "solved_b.pgm"], verbose = False)
+    osmosis.solveBatchParallel(1, save_batch = [False, "solved_b.pgm"], verbose = False)
 
     # image = np.array([[3,8,0],
     #                   [6,0,1],

@@ -62,7 +62,6 @@ class OsmosisInpainting:
         self.save_every  = 10
         self.apply_canny = apply_canny
 
-        
     def solve(self, kmax = 2, save_every = 10, verbose = False):
         
         self.save_every = save_every
@@ -124,7 +123,6 @@ class OsmosisInpainting:
         # comm += self.getMetrics()
         # print(comm)
 
-
         if save_batch[0]:
             fname = save_batch[1]
             out = torch.cat( ( (self.V.reshape(self.batch*(self.nx+2), self.ny+2) - self.offset), 
@@ -142,7 +140,6 @@ class OsmosisInpainting:
         loss = mse(U, V)
 
         return loss, tt
-
 
     def solveBatchSeq(self, kmax , save_batch = False, verbose = False):
 
@@ -324,10 +321,21 @@ class OsmosisInpainting:
         return u
     
     def createMaskfromCanny(self):
-        img = self.V.numpy().astype(np.uint8)
-        print(img)
-        edge = cv2.Canny(img, 100, 150 )
-        print(edge) 
+        densities = 0.
+        output_batch = []
+
+        for image in self.V:
+            image = image.squeeze(0) # assuming grey scale image
+            edges = cv2.Canny(image.astype(np.uint8), 100, 150)
+            edges = np.expand_dims(edges, axis=0)
+            output_batch.append(edges)
+
+        output_batch = np.stack(output_batch)
+        
+        #calculate density of images
+
+        print(f"mask created with densities : {densities}")
+        return output_batch
 
     def hardRoundBinarize(self):
         if self.mask1 != None and self.mask2 != None:
@@ -335,7 +343,11 @@ class OsmosisInpainting:
             self.mask2 =  torch.floor(self.mask2 + 0.5)
             
     def applyMask(self , verbose = False):
-        
+
+        # get CannyMask
+        if self.apply_canny : 
+            masks = self.createMaskfromCanny()
+
         # self.hardRoundBinarize() 
         self.d1 = torch.mul(self.d1, self.mask1)
         self.d2 = torch.mul(self.d2, self.mask2)

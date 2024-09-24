@@ -16,6 +16,8 @@ from torchvision import transforms
 sns.set_theme()
 import torch._dynamo
 torch._dynamo.reset()
+from torch.optim.lr_scheduler import _LRScheduler
+from torch.optim import Optimizer
 
 from InpaintingSolver.bi_cg import OsmosisInpainting
 
@@ -46,12 +48,23 @@ class DensityLoss(nn.Module):
         return torch.mean( torch.abs( (torch.norm(mask, p = 1, dim = (2, 3))/ (h*w)) 
                                      - self.density) )
 
-class GrayscaleWithNoise:
-    def __init__(self, scale = 255.):
-        self.scale = scale
+class WarmupScheduler(_LRScheduler):
+    def __init__(self, optimizer: Optimizer, warmup_steps: int, final_lr: float, base_lr: float = 1e-6, last_epoch: int = -1):
+        self.warmup_steps = warmup_steps
+        self.final_lr = final_lr
+        self.base_lr = base_lr
+        super(WarmupScheduler, self).__init__(optimizer, last_epoch)
 
-    def __call__(self, img):
-        return 
+    def get_lr(self):
+        if self.last_epoch < self.warmup_steps:
+            # Linear warmup
+            return [
+                self.base_lr + (self.final_lr - self.base_lr) * (self.last_epoch / self.warmup_steps)
+                for _ in self.optimizer.param_groups
+            ]
+        else:
+            # After warmup, we keep the learning rate fixed
+            return [self.final_lr for _ in self.optimizer.param_groups]
     
 class MyCustomTransform(torch.nn.Module):
     def forward(self, img):  
@@ -150,7 +163,7 @@ class ModelTrainer():
         transform = transforms.Compose([
                     transforms.Resize((img_size, img_size), antialias = True),
                     transforms.Grayscale(),
-                    # transforms.ToTensor()
+                    transforms.ToTensor()
                 ])
 
         transform_norm = transforms.Compose([
@@ -181,11 +194,11 @@ class ModelTrainer():
             
             return images, images_norm
 
-        train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size, collate_fn=custom_collate_fn)
-        test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size, collate_fn=custom_collate_fn)
+        # train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size, collate_fn=custom_collate_fn)
+        # test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size, collate_fn=custom_collate_fn)
 
-        # train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size)
-        # test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size)
+        train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size)
+        test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size)
 
         print(f"train and test dataloaders created")
         print(f"total train batches  : {len(train_dataloader)}")
@@ -229,19 +242,25 @@ class ModelTrainer():
 
                 total_loss = loss3 + loss2 * alpha2 + loss1 * alpha1 
 
-                running_loss += total_loss
+                running_loss += total_loss.item()
             et = time.time()
         
-        print(f"\nvalidation loss : {running_loss / ((i+1)*td_len)} , total running time : {(et-st)/60.} min")
+        val_loss = running_loss / ((i+1)*td_len)
+        print(f"\nvalidation loss : {val_loss} , total running time : {(et-st)/60.} min")
         print()
+
+        return val_loss
 
     # Function to check for exploding/vanishing gradients
     def check_gradients(self, model):
         total_norm = 0
         for p in model.parameters():
-            param_norm = p.grad.detach().data.norm(2)  # L2 norm of gradients
-            print(f"gradient norm in {p.name} layer : {param_norm.item()}")
-            total_norm += param_norm.item() ** 2
+            if p.grad is not None:
+                param_norm = p.grad.detach().data.norm(2).item()  # L2 norm of gradients
+            else : 
+                param_norm = 0.
+            print(f"gradient norm in {p.name} layer : {param_norm}")
+            total_norm += param_norm ** 2
         total_norm = total_norm ** 0.5
         print(f"Total gradient norm: {total_norm}")
         return total_norm
@@ -263,18 +282,20 @@ class ModelTrainer():
         # loss lists
         loss1_list, loss2_list, loss3_list, gradnorm_list, running_loss_list = [], [], [], [], []
         avg_den_list, epochloss_list = [], []
+        val_list = []
 
         train_dataloader, test_dataloader = self.getDataloaders(train_dataset, test_dataset, img_size)
 
         optimizer = self.getOptimizer(model)
-        scheduler = self.getScheduler(optimizer)
+        # scheduler = self.getScheduler(optimizer)
+        scheduler = WarmupScheduler(optimizer, warmup_steps=5, final_lr=self.lr, base_lr=1e-5)
+
         print(f"optimizer : {self.optimizer}, scheduler : {self.scheduler} loaded")
 
         if resume_checkpoint_file != None:
             print(f"loading checkpoint file : {resume_checkpoint_file}")
             model, optimizer = self.loadCheckpoint(model, optimizer, resume_checkpoint_file)
             print(f"model, opt, schdl loaded from checkpoint")
-
 
         print(f"optimizer : {optimizer}")
         print(f"scheduler : {scheduler}")
@@ -386,22 +407,31 @@ class ModelTrainer():
                     "density loss" : loss2_list,
                     "grand norms" : gradnorm_list,
                     "running loss" : running_loss_list
-                }
+                    }
                 df = pd.DataFrame(train_dict)
                 fname = "data.csv"
                 df.to_csv( os.path.join(self.output_dir, fname), sep=',', encoding='utf-8', index=False, header=True)
 
+                # validate
+                if (i) % val_every == 0:
+                    val_loss = self.validate(model, test_dataloader, mask_density, alpha1, alpha2)
+                    val_list.append(val_loss)
+
+                # update val csv file and save
+                val_dict = {
+                    "val loss" : val_list
+                    }
+                df = pd.DataFrame(val_dict)
+                fname = "val.csv"
+                df.to_csv( os.path.join(self.output_dir, fname), sep=',', encoding='utf-8', index=False, header=True)
 
             et = time.time()
             print(f"total time for epoch : {str((et-st) / 60)} min")
-
+            print(f"lr rate for the epoch : {optimizer.param_groups[0]['lr']}")
             epoch_loss = running_loss / train_dataloader.__len__()
             epochloss_list.append(epoch_loss.item())
             print('Epoch [{}/{}], epoch Loss: {:.4f}'.format(epoch+1, epochs, epoch_loss))
             save_plot([epochloss_list], [i for i in range(epoch+1)], ["epoch loss"], os.path.join(self.output_dir, "epochloss.png"))
 
-            if (epoch + 1) % val_every == 0:
-                self.validate(model, test_dataloader, mask_density, alpha1, alpha2)
-        
         et_tt = time.time()
         print(f"total time for training : {str((et_tt-st_tt) / 3600)} hr")

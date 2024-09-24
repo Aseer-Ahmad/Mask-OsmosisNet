@@ -1,11 +1,11 @@
 # MODEL PARAMS
-EPOCHS : 50
+EPOCHS : 30
 RESUME_CHECKPOINT : 
-SAVE_EVERY_ITER : 20
-VAL_EVERY_EPOCH : 1
+SAVE_EVERY_ITER : 100
+VAL_EVERY_ITER : 20
 BATCH_PLOT_EVERY_ITER : 20
 OUTPUT_DIR : outputs
-EXP_NAME : imgnet_T1
+EXP_NAME : imagenet_T2
 
 # DATA PARMS
 TRAIN_FILENAME : iids_train.txt
@@ -18,12 +18,12 @@ OUT_CHANNELS   : 1
 
 # HYPER PARAMS
 LR             : 0.001
-WEIGHT_DECAY   : 0.
+WEIGHT_DECAY   : 0.01
 MOMENTUM       : 0.9
 OPT            : Adam
-SCHEDL         : lambdaLR
-TRAIN_BATCH    : 1000
-TEST_BATCH     : 1000
+SCHEDL         : exp
+TRAIN_BATCH    : 128
+TEST_BATCH     : 128
 ALPHA1         : 0.001
 ALPHA2         : 0.01
 MASK_DEN       : 0.1
@@ -33,5 +33,5 @@ BIN_METH       : QUANT
 OFFSET         :
 TAU            :
 ITERATIONS     :
-NOTE           : X (not imagenet normalized) being used for both MaskM and Solver
+NOTE           : warmup 5 epochs from 1e-5 and no lr scheduler after warmup; model levels inc 2 -> 3
                  
