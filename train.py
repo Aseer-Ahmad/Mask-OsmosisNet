@@ -287,8 +287,8 @@ class ModelTrainer():
         train_dataloader, test_dataloader = self.getDataloaders(train_dataset, test_dataset, img_size)
 
         optimizer = self.getOptimizer(model)
-        # scheduler = self.getScheduler(optimizer)
-        scheduler = WarmupScheduler(optimizer, warmup_steps=5, final_lr=self.lr, base_lr=1e-5)
+        scheduler = self.getScheduler(optimizer)
+        # scheduler = WarmupScheduler(optimizer, warmup_steps=5, final_lr=self.lr, base_lr=1e-5)
 
         print(f"optimizer : {self.optimizer}, scheduler : {self.scheduler} loaded")
 
@@ -338,8 +338,8 @@ class ModelTrainer():
                 # mask_bin = self.hardRoundBinarize(mask) # binarized {0,1} # evaluation step
                 loss2 = denLoss(mask)
 
-                mask_detach = mask.detach().clone()
-                osmosis = OsmosisInpainting(None, X_norm, mask_detach, mask_detach, offset=1, tau=700, device = self.device, apply_canny=False)
+                # mask_detach = mask.detach().clone()
+                osmosis = OsmosisInpainting(None, X_norm, mask, mask, offset=1, tau=700, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(False, False, False)
                 # loss2, tts = osmosis.solveBatchSeq(100, save_batch = True, verbose = False)
                 

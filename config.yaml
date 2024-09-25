@@ -3,9 +3,9 @@ EPOCHS : 30
 RESUME_CHECKPOINT : 
 SAVE_EVERY_ITER : 100
 VAL_EVERY_ITER : 20
-BATCH_PLOT_EVERY_ITER : 20
+BATCH_PLOT_EVERY_ITER : 5
 OUTPUT_DIR : outputs
-EXP_NAME : imagenet_T2
+EXP_NAME : imagenet_T6
 
 # DATA PARMS
 TRAIN_FILENAME : iids_train.txt
@@ -22,10 +22,10 @@ WEIGHT_DECAY   : 0.01
 MOMENTUM       : 0.9
 OPT            : Adam
 SCHEDL         : exp
-TRAIN_BATCH    : 128
-TEST_BATCH     : 128
-ALPHA1         : 0.001
-ALPHA2         : 0.01
+TRAIN_BATCH    : 4
+TEST_BATCH     : 4
+ALPHA1         : 0.00001
+ALPHA2         : 0.001
 MASK_DEN       : 0.1
 BIN_METH       : QUANT
 
@@ -33,5 +33,5 @@ BIN_METH       : QUANT
 OFFSET         :
 TAU            :
 ITERATIONS     :
-NOTE           : warmup 5 epochs from 1e-5 and no lr scheduler after warmup; model levels inc 2 -> 3
+NOTE           : model levels inc 2 -> 3; removed density loss ; nanmean -> mean
                  
