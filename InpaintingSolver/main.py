@@ -38,8 +38,8 @@ if __name__ == '__main__':
     V = readPGMImage('cameraman.pgm')
     mask = normalize(readPGMImage('cameraman-edge.pgm'))
 
-    V1 = readPGMImage("scarf.pgm")
-
+    V1 = readPGMImage("kaniza.pgm")
+    mask = normalize(readPGMImage('kaniza-edge.pgm'))
     # osmosis = OsmosisInpainting(None, V, mask, mask, offset=1, tau=300, apply_canny=False)
     # osmosis.calculateWeights(False, False, False)
     # osmosis.solve(10, save_every = 10, verbose = False)
@@ -47,9 +47,13 @@ if __name__ == '__main__':
     # V = V.repeat(4, 1, 1, 1)
     # V = torch.cat((V, V1), dim = 0)
 
-    osmosis = OsmosisInpainting(None, V1, None, None, offset=1, tau=300, device = None, apply_canny=True)
-    osmosis.calculateWeights(False, False, False)
-    osmosis.solveBatchParallel(100, save_batch = [True, "solved_b.pgm"], verbose = False)
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    V1 = V1.to(device)
+    mask = mask.to(device)
+    osmosis = OsmosisInpainting(None, V1, mask, mask, offset=1, tau=90000, device = device, apply_canny=False)
+    osmosis.calculateWeights(True, True, True)
+    osmosis.solveBatchParallel(1, save_batch = [True, "solved_b.pgm"], verbose = False)
 
     # image = np.array([[3,8,0],
     #                   [6,0,1],

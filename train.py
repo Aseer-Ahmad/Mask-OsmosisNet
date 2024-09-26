@@ -70,6 +70,10 @@ class MyCustomTransform(torch.nn.Module):
     def forward(self, img):  
         return (img * 255).type(torch.uint8)
     
+class MyCustomTransform2(torch.nn.Module):
+    def forward(self, img):  
+        return  torch.from_numpy(np.array(img)).unsqueeze(0)
+
 def save_plot(loss_lists, x, legend_list, save_path):
     """
     Plots multiple data series from y against x and saves the plot.
@@ -176,29 +180,28 @@ class ModelTrainer():
         transform_scale = transforms.Compose([
                     transforms.Resize((img_size, img_size), antialias = True),
                     transforms.Grayscale(),
-                    transforms.ToTensor(),
-                    MyCustomTransform()
+                    MyCustomTransform2()
                 ])
 
         def custom_collate_fn(batch):
             
             images      = []
-            images_norm = []
+            images_scale = []
 
             for item in batch :
-                images.append(transform_norm(item['image']))
-                images_norm.append(transform(item['image']))
+                images.append(transform(item['image']))
+                images_scale.append(transform_scale(item['image']))
 
             images      = torch.stack(images)
-            images_norm = torch.stack(images_norm)
+            images_scale = torch.stack(images_scale)
             
-            return images, images_norm
+            return images, images_scale
 
-        # train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size, collate_fn=custom_collate_fn)
-        # test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size, collate_fn=custom_collate_fn)
+        train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size, collate_fn=custom_collate_fn)
+        test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size, collate_fn=custom_collate_fn)
 
-        train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size)
-        test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size)
+        # train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size)
+        # test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size)
 
         print(f"train and test dataloaders created")
         print(f"total train batches  : {len(train_dataloader)}")
@@ -225,20 +228,18 @@ class ModelTrainer():
 
         with torch.no_grad():
             st = time.time()
-            for i, (X, X_norm) in enumerate(test_dataloader):
+            for i, (X, X_scale) in enumerate(test_dataloader):
 
                 X = X.to(self.device, dtype=torch.float64)
-                X_norm = X_norm.to(self.device, dtype=torch.float64)
-
+                X_scale = X_scale.to(self.device, dtype=torch.float64) 
                 mask = model(X) # non-binary [0,1]
                 loss1 = invLoss(mask)
-                mask_bin = self.hardRoundBinarize(mask) # binarized {0,1}
-                loss2 = denLoss(mask_bin)
+                # mask_bin = self.hardRoundBinarize(mask) # binarized {0,1}
+                loss2 = denLoss(mask)
 
-                mask_detach = mask_bin.detach().clone()
-                osmosis = OsmosisInpainting(None, X_norm, mask_detach, mask_detach, offset=1, tau=700, device = self.device, apply_canny=False)
+                osmosis = OsmosisInpainting(None, X, mask, mask, offset=1, tau=90000, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(False, False, False)
-                loss3, tts = osmosis.solveBatchParallel(10, save_batch = [False], verbose = False)
+                loss3, tts = osmosis.solveBatchParallel(1, save_batch = [False], verbose = False)
 
                 total_loss = loss3 + loss2 * alpha2 + loss1 * alpha1 
 
@@ -326,20 +327,20 @@ class ModelTrainer():
             model.train()
             st = time.time()
             
-            for i, (X, X_norm) in enumerate(train_dataloader, start = 1): 
+            for i, (X, X_scale) in enumerate(train_dataloader, start = 1): 
                 
                 print(f'Epoch {epoch}/{epochs} , batch {i}/{len(train_dataloader)} ')
 
                 X = X.to(self.device, dtype=torch.float64)
-                X_norm = X_norm.to(self.device, dtype=torch.float64)
+                # X_scale = X_scale.to(self.device, dtype=torch.bfloat16)
 
                 mask = model(X) # non-binary [0,1]
                 loss1 = invLoss(mask)
                 # mask_bin = self.hardRoundBinarize(mask) # binarized {0,1} # evaluation step
                 loss2 = denLoss(mask)
 
-                # mask_detach = mask.detach().clone()
-                osmosis = OsmosisInpainting(None, X_norm, mask, mask, offset=1, tau=700, device = self.device, apply_canny=False)
+                mask = mask.to(self.device, torch.float64)
+                osmosis = OsmosisInpainting(None, X, mask, mask, offset=1, tau=90000, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(False, False, False)
                 # loss2, tts = osmosis.solveBatchSeq(100, save_batch = True, verbose = False)
                 
@@ -347,7 +348,7 @@ class ModelTrainer():
                     save_batch = [True, os.path.join(self.output_dir, "imgs", f"batch_epoch_{str(epoch)}_iter_{str(i)}.png")]
                 else:
                     save_batch = [False]
-                loss3, tts = osmosis.solveBatchParallel(100, save_batch = save_batch, verbose = False)
+                loss3, tts = osmosis.solveBatchParallel(1, save_batch = save_batch, verbose = False)
 
                 # if torch.isnan(loss3):
                 #     print(f"input X : {X}")
@@ -389,7 +390,7 @@ class ModelTrainer():
                     fig = plot.figure
                     plot.set(xlabel='prob', ylabel='freq')
                     fig.savefig(os.path.join(self.output_dir, fname) ) 
-
+                    plt.close(fig)
 
                 # update plot and save
                 clist = [l for l in range(1, len(loss1_list) + 1)]
