@@ -51,5 +51,5 @@ class MaskDataset(Dataset):
         # tensor_norm = tensor_norm / torch.amax(tensor_norm, dim=(1,2)).view(1,1,1)
         
 
-        return (tensor, tensor_transformed)
+        return (tensor_transformed, tensor)
     
