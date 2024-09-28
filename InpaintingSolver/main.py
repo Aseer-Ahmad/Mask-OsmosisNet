@@ -17,7 +17,7 @@ def write_tensor_to_pgm(filename, tensor):
 
 def readPGMImage( pth):
     pgm = cv2.imread(pth, cv2.IMREAD_GRAYSCALE) 
-    pgm_T = torch.tensor(pgm, dtype = torch.float64)
+    pgm_T = torch.tensor(pgm, dtype = torch.bfloat16)
     nx, ny = pgm_T.size()
     pgm_T = pgm_T.reshape(1, 1, nx, ny)
     return pgm_T
