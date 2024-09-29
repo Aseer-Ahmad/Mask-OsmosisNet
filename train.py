@@ -339,8 +339,8 @@ class ModelTrainer():
                 # mask_bin = self.hardRoundBinarize(mask) # binarized {0,1} # evaluation step
                 loss2 = denLoss(mask)
 
-                mask = mask.to(self.device, torch.bfloat16)
-                osmosis = OsmosisInpainting(None, X.type(torch.bfloat16), mask, mask, offset=1, tau=5000, device = self.device, apply_canny=False)
+                # mask = mask.to(self.device, torch.bfloat16)
+                osmosis = OsmosisInpainting(None, X, mask, mask, offset=1, tau=90000, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(False, False, False)
                 # loss2, tts = osmosis.solveBatchSeq(100, save_batch = True, verbose = False)
                 
