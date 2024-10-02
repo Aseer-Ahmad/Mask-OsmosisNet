@@ -95,7 +95,6 @@ class OsmosisInpainting:
                 # self.writeToPGM(fname = fname, t = self.U[0][0].T, comments= comm)
                 self.U = self.U + self.offset
 
-    @torch.compile
     def solveBatchParallel(self, kmax = 100, save_batch = False, verbose = False):
                         
         X = self.U
@@ -108,7 +107,7 @@ class OsmosisInpainting:
 
         for i in range(kmax):
 
-            X = self.BiCGSTAB_Batched(x = U, b = X, kmax = 3000, eps = 1e-9, verbose=verbose)
+            X = self.BiCGSTAB_GS(x = U, b = X, kmax = 3000, eps = 1e-9, verbose=verbose)
             U = X
             loss = mse( self.normalize(U), self.normalize(self.V))
             print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)        
@@ -118,11 +117,11 @@ class OsmosisInpainting:
 
         self.U = X
 
-        # comm = self.analyseImage(X, f"solution")
-        # comm += f"time for iteration : {str(et-st)} sec\n"
-        # comm += f"total time         : {str(tt)} sec\n"
-        # comm += self.getMetrics()
-        # print(comm)
+        comm = self.analyseImage(X, f"solution")
+        comm += f"time for iteration : {str(et-st)} sec\n"
+        comm += f"total time         : {str(tt)} sec\n"
+        comm += self.getMetrics()
+        print(comm)
 
         if save_batch[0]:
             fname = save_batch[1]
@@ -210,7 +209,6 @@ class OsmosisInpainting:
         
         return loss , tt
         
-    @torch.compile
     def calculateWeights(self, d_verbose = False, m_verbose = False, s_verbose = False):
         self.prepareInp()
 
@@ -323,7 +321,12 @@ class OsmosisInpainting:
 
         # create a noisy image ; avg gray val same as guidance
         return u
-    
+
+    def hardRoundBinarize(self):
+        if self.mask1 != None and self.mask2 != None:
+            self.mask1 =  torch.floor(self.mask1 + 0.5)
+            self.mask2 =  torch.floor(self.mask2 + 0.5)
+
     def createMaskfromCanny(self):
         output_batch = []
         images = self.V.detach().cpu().numpy()
@@ -338,10 +341,6 @@ class OsmosisInpainting:
         output_batch = torch.tensor(np.stack(output_batch), device = self.device, dtype = torch.int8) * -1
         return output_batch
 
-    def hardRoundBinarize(self):
-        if self.mask1 != None and self.mask2 != None:
-            self.mask1 =  torch.floor(self.mask1 + 0.5)
-            self.mask2 =  torch.floor(self.mask2 + 0.5)
             
     def applyMask(self , verbose = False):
 
@@ -361,7 +360,6 @@ class OsmosisInpainting:
             self.analyseImage(self.d1, "d1")
             self.analyseImage(self.d2, "d2")
 
-    @torch.compile
     def getDriftVectors(self, verbose = False):
         """
         # ∗ is convolution and .T is transpose
@@ -396,7 +394,6 @@ class OsmosisInpainting:
             print(self.analyseImage(self.d1, "d1"))
             print(self.analyseImage(self.d2, "d2"))
             
-    @torch.compile
     def getStencilMatrices(self, verbose = False):
 
         self.boo  = torch.zeros_like(self.V, dtype = torch.float64, device = self.device)# C++ weickert init. has ones
@@ -808,7 +805,8 @@ class OsmosisInpainting:
         inp : (batch, channel, nx, ny)
         """
         pad_mirror = Pad(1, padding_mode = "symmetric")
-        inp        = pad_mirror(inp[ :, 1:self.nx+1, 1:self.ny+1])
+        inp        = pad_mirror(inp[:, :, 1:self.nx+1, 1:self.ny+1])
+        temp       = torch.zeros_like(inp, dtype = torch.float64)
 
         center     = boo * inp[:, :, 1:self.nx+1, 1:self.ny+1]
          
@@ -822,8 +820,10 @@ class OsmosisInpainting:
                 
         # if verbose :
         #     self.analyseImage(temp, "X")
+        temp = temp.clone()
+        temp[:, :, 1:self.nx+1, 1:self.ny+1 ] = center + left + right + up + down
 
-        return center + left + right + up + down
+        return temp
 
     def zeroPadGS(self, x):
         t = torch.zeros_like(x, dtype = torch.float64, device = self.device)
@@ -857,10 +857,10 @@ class OsmosisInpainting:
         r_abs_skip = torch.zeros( (self.batch, self.channel), dtype = torch.float64, device = self.device)
         stagnant_count = torch.zeros( (self.batch, self.channel), dtype = torch.float64, device = self.device)
 
-        r_0 = self.applyStencilBatch(x, self.boo, self.bmo, self.bom, self.bop, self.bpo)  
+        r_0 = self.applyStencilGS(x, self.boo, self.bmo, self.bom, self.bop, self.bpo) 
         p   = self.zeroPadGS(b - r_0)
         r_0 = r = p
-        r0_abs = torch.norm(r_0, dim = (1, 2), p = "fro")
+        r0_abs = torch.norm(r_0, dim = (2, 3), p = "fro")
         r_abs  = r0_abs
 
         if verbose:
@@ -876,10 +876,9 @@ class OsmosisInpainting:
             if verbose:
                 print(f"WHILE CONVERGENCE CONDITION :\n {CONV_COND}")
             
-            v_ = v[CONV_COND] = self.applyStencilBatch(p[CONV_COND], CONV_COND)
-
-            sigma = torch.where(CONV_COND, torch.sum(torch.mul(v, r_0), dim = (1, 2)), sigma)
-            v_abs = torch.where(CONV_COND, torch.norm(v, dim = (1, 2),  p = "fro"), v_abs)
+            v = torch.where(CONV_COND, self.applyStencilGS(p, self.boo, self.bmo, self.bom, self.bop, self.bpo), v)
+            sigma = torch.where(CONV_COND, torch.sum(torch.mul(v, r_0), dim = (2, 3)), sigma)
+            v_abs = torch.where(CONV_COND, torch.norm(v, dim = (2, 3),  p = "fro"), v_abs)
             
             if verbose:
                 print(f"k : {k}, sigma : {sigma}, vabs : {v_abs}")
@@ -893,10 +892,9 @@ class OsmosisInpainting:
             if verbose:
                 print(f"RESTART REQUIRED :\n {RES1_COND}")
 
-            # r_0[RES1_COND]     = self.applyStencilBatch(x[RES1_COND], RES1_COND)
-            p[RES1_COND]       = self.zeroPadBatch(b[RES1_COND] - self.applyStencilBatch(x[RES1_COND], RES1_COND))
+            p = torch.where(RES1_COND, self.zeroPadGS(b - self.applyStencilGS(x, self.boo, self.bmo, self.bom, self.bop, self.bpo)), p)
             r_0 = r = p
-            r0_abs  = torch.where(RES1_COND, torch.norm(r_0, dim = (1, 2), p = "fro"), r0_abs)
+            r0_abs  = torch.where(RES1_COND, torch.norm(r_0, dim = (2, 3), p = "fro"), r0_abs)
             r_abs = r0_abs
             k = torch.where(RES1_COND, k+1, k)
 
@@ -907,19 +905,17 @@ class OsmosisInpainting:
             # INVERSE RESTART CONDITION : systems that dont require restart
             # =======================================
             NOT_RES_COND = CONV_COND & (~RES_COND)
+
             if verbose:
                 print(f"RESTART NOT REQUIRED :\n {NOT_RES_COND}")
 
-            # alpha[~RES1_COND] => shape : torch.Size([x])
-            alpha = torch.where(NOT_RES_COND, torch.sum( torch.mul(r, r_0), dim = (1, 2)).view(-1) / sigma , alpha)
+            alpha = torch.where(NOT_RES_COND, torch.sum( torch.mul(r, r_0), dim = (2, 3)).view(-1) / sigma , alpha)
+
             if verbose:
                 print(f"k : {k}, alpha : {alpha}")
-            # s[~RES1_COND] => shape : torch.Size([b*c, h, w])
-            s     = torch.where(NOT_RES_COND, r - (alpha.view(-1, 1, 1) * v), s)
-            
-            # if verbose:
-            #     print(f"k : {k} , alpha : {alpha}")
 
+            s     = torch.where(NOT_RES_COND, r - (alpha[:, :, None, None] * v), s)
+            
             # =======================================
             # No RESTART and CONVERGENCE CONDITION 
             # =======================================
@@ -930,11 +926,7 @@ class OsmosisInpainting:
             if verbose:
                 print(f"RESTART NOT REQUIRED and CONV :\n {CONV3_COND}")
 
-            # print(f"RES1_COND shape : {RES1_COND.shape}")
-            # print(f"CONV2_COND shape : {CONV2_COND.shape}")
-            # print(f"CONV3_COND shape : {CONV3_COND.shape}")
-
-            x = torch.where(CONV3_COND, x + alpha.view(-1, 1, 1) * p, x )
+            x = torch.where(CONV3_COND, x + alpha[:, :, None, None] * p, x )
             r = s
 
             # =======================================
@@ -943,28 +935,34 @@ class OsmosisInpainting:
             CONV4_COND = NOT_RES_COND & (~CONV2_COND)
 
             if verbose:
-                print(f"RESTART NOT REQUIRED and ELSE CONV :\n {CONV4_COND.item()}")
+                print(f"RESTART NOT REQUIRED and ELSE CONV :\n {CONV4_COND}")
 
-            t[CONV4_COND] = self.applyStencilBatch(s_, CONV4_COND)
-            omega  = torch.where(CONV4_COND, torch.sum( torch.mul(t, s), dim = (1, 2)) / torch.sum(t**2, dim = (1, 2)), omega )            
-            x = torch.where(CONV4_COND, x + (alpha.view(-1, 1, 1) * p) + (omega.view(-1, 1, 1) * s), x)
+            t = torch.where(CONV4_COND, self.applyStencilGS(s, self.boo, self.bmo, self.bom, self.bop, self.bpo), t)
+            omega  = torch.where(CONV4_COND, torch.sum( torch.mul(t, s), dim = (2, 3)) / torch.sum(t**2, dim = (2, 3)), omega )            
+            x = torch.where(CONV4_COND, x + (alpha[:, :, None, None] * p) + (omega[:, :, None, None] * s), x)
             r_old = r
-            r = torch.where(CONV4_COND, s - (omega.view(-1, 1, 1) * t ), r) 
-            beta = torch.where(CONV4_COND,
-                                 (alpha / omega) \
-                                * torch.sum(torch.mul(r, r_0), dim = (1, 2)) \
-                                / torch.sum(torch.mul(r_old, r_0), dim = (1, 2))
+            r = torch.where(CONV4_COND, s - omega[:, :, None, None] * t, r)
+            beta = torch.where(CONV4_COND
+                                , (alpha / omega) * (torch.sum(torch.mul(r, r_0), dim = (2, 3)) / torch.sum(torch.mul(r_old, r_0), dim = (2, 3)))
                                 , beta)
+            
+            # beta[CONV4_COND] = (alpha[CONV4_COND] / omega_) \
+            #         * torch.sum(torch.mul(r_, r_0_), dim = (1, 2)) \
+            #         / torch.sum(torch.mul(r_old[CONV4_COND], r_0_), dim = (1, 2))
+
             if verbose:
                 print(f"k : {k} , omega : {omega}, beta : {beta}")
 
-            p = torch.where(CONV4_COND, r + beta.view(-1, 1, 1) * ( p - omega.view(-1, 1, 1) * v), p)
+            p = torch.where(CONV4_COND, r + beta[:, :, None, None] * ( p - omega[:, :, None, None] * v), p)
 
             # =======================================
             # NOT REQUIRING RESTART SYSTEMS ; UPDATE
             # =======================================
 
             k  = torch.where(NOT_RES_COND, k+1, k) 
-            r_abs = torch.where(NOT_RES_COND, torch.norm(r[NOT_RES_COND], dim = (1, 2), p = 'fro'), r_abs)
-            
+            r_abs = torch.where(NOT_RES_COND, torch.norm(r, dim = (2, 3), p = 'fro'), r_abs)
+
+            if verbose:
+                print(f"k : {k}, RESIDUAL : {r_abs}")
+
         return x
