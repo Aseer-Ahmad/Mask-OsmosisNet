@@ -107,7 +107,7 @@ class OsmosisInpainting:
 
         for i in range(kmax):
 
-            X = self.BiCGSTAB_GS(x = U, b = X, kmax = 3000, eps = 1e-9, verbose=verbose)
+            X = self.BiCGSTAB_Batched(x = U, b = X, kmax = 3000, eps = 1e-9, verbose=verbose)
             U = X
             loss = mse( self.normalize(U), self.normalize(self.V))
             print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)        
@@ -370,12 +370,12 @@ class OsmosisInpainting:
         self.d2  = torch.zeros_like(self.V, dtype = torch.float64, device = self.device)
                 
         # row-direction filters  
-        f1 = torch.tensor([-1/self.hx, 1/self.hx], dtype = torch.float64, device = self.device).reshape(1, 1, 2, 1)
-        f2 = torch.tensor([.5, .5], dtype = torch.float64, device = self.device).reshape(1, 1, 2, 1)
+        f1 = torch.tensor([[[[-1/self.hx], [1/self.hx]]]], dtype = torch.float64, device = self.device)
+        f2 = torch.tensor([[[[.5], [.5]]]], dtype = torch.float64, device = self.device)
         
         # col-direction filters
-        f3 = torch.tensor([-1/self.hy, 1/self.hy], dtype = torch.float64, device = self.device).reshape(1, 1, 1, 2)
-        f4 = torch.tensor([.5, .5], dtype = torch.float64, device = self.device).reshape(1, 1, 1, 2)
+        f3 = torch.tensor([[[[-1/self.hy, 1/self.hy]]]], dtype = torch.float64, device = self.device)
+        f4 = torch.tensor([[[[.5, .5]]]], dtype = torch.float64, device = self.device)
 
         d1 = F.conv2d(self.V, f1) / F.conv2d(self.V, f2)
         d2 = F.conv2d(self.V, f3) / F.conv2d(self.V, f4) 
@@ -385,7 +385,7 @@ class OsmosisInpainting:
         # also avoiding boundaries in the complementary direction
         self.d1[:, :, :self.nx+1, 1:self.ny+1] = d1[:, :, :, 1:self.ny+1] # convolved and reduced in row dir , hence one less
         self.d2[:, :, 1:self.nx+1, :self.ny+1] = d2[:, :, 1:self.nx+1, :] # convolved and reduced in col dir , hence one less
-        
+
         if verbose:
             print(f"V shape : {self.V.size()}")
             print(f"V_padded : \n{self.V[0][0]}\n")
@@ -409,15 +409,16 @@ class OsmosisInpainting:
         ryy = self.tau / (self.hy * self.hy)
 
         # x direction filter ; this is a backward difference kernel hence the extra 0 
-        f1 = torch.tensor([1, -1, 0], dtype = torch.float64, device = self.device).reshape(1, 1, 3, 1)
+        f1 = torch.tensor([[[[1], [-1], [0]]]], dtype = torch.float64, device = self.device)
         
         # y direction filter ; this is a backward difference kernel hence the extra 0 
-        f2 = torch.tensor([1, -1, 0], dtype = torch.float64, device = self.device).reshape(1, 1, 1, 3)
+        f2 = torch.tensor([[[[1, -1, 0]]]], dtype = torch.float64, device = self.device)
 
         # osmosis weights 
         boo = 1 + 2 * (rxx + ryy) \
                 - rx * F.conv2d(self.d1, f1, padding='same') \
                 - ry * F.conv2d(self.d2, f2, padding='same')
+        
         self.boo[:, :, 1:self.nx+1, 1:self.ny+1] = boo[:, :, 1:self.nx+1, 1:self.ny+1]
 
         # indexing to avoid boundaries being affected
@@ -428,11 +429,11 @@ class OsmosisInpainting:
         self.bom[:, :, 1:self.nx+1, 1:self.ny+1] = -ryy - ry * self.d2[:, :, 1:self.nx+1, :self.ny]
  
         # slice indexing here to avoid repetitive indexing in BiCG solver
-        self.boo = self.boo[ :, :, 1:self.nx+1, 1:self.ny+1].type(torch.float64)
-        self.bpo = self.bpo[ :, :, 1:self.nx+1, 1:self.ny+1].type(torch.float64)
-        self.bop = self.bop[ :, :, 1:self.nx+1, 1:self.ny+1].type(torch.float64)
-        self.bmo = self.bmo[ :, :, 1:self.nx+1, 1:self.ny+1].type(torch.float64)
-        self.bom = self.bom[ :, :, 1:self.nx+1, 1:self.ny+1].type(torch.float64)
+        self.boo = self.boo[ :, :, 1:self.nx+1, 1:self.ny+1]
+        self.bpo = self.bpo[ :, :, 1:self.nx+1, 1:self.ny+1]
+        self.bop = self.bop[ :, :, 1:self.nx+1, 1:self.ny+1]
+        self.bmo = self.bmo[ :, :, 1:self.nx+1, 1:self.ny+1]
+        self.bom = self.bom[ :, :, 1:self.nx+1, 1:self.ny+1]
 
         if verbose :
             print(self.boo)
@@ -626,6 +627,9 @@ class OsmosisInpainting:
         r_abs = r_abs.clone()
         r_abs[RES_COND]   = r0_abs[RES_COND]
 
+        ttt = 0
+        ttt1 = 0
+        
         if verbose:
             print(f"r_abs : {r_abs}")
 
@@ -640,9 +644,18 @@ class OsmosisInpainting:
                 print(f"WHILE CONVERGENCE CONDITION :\n {CONV_COND}")
             
             v = v.clone()
+            st = time.time()
             v_ = v[CONV_COND] = self.applyStencilBatch(p[CONV_COND], CONV_COND)
+            et = time.time()
+            ttt += (et - st)
+            
             sigma = sigma.clone()
+
+            st = time.time()
             sigma[CONV_COND]  = torch.sum(torch.mul(v_, r_0[CONV_COND]), dim = (1, 2))
+            et = time.time()
+            ttt1 += (et - st)
+
             v_abs = v_abs.clone()
             v_abs[CONV_COND]  = torch.norm(v_, dim = (1, 2),  p = "fro")
             
@@ -660,7 +673,11 @@ class OsmosisInpainting:
 
             # r_0[RES1_COND]     = self.applyStencilBatch(x[RES1_COND], RES1_COND)
             p = p.clone()
+            st = time.time()            
             p[RES1_COND]       = self.zeroPadBatch(b[RES1_COND] - self.applyStencilBatch(x[RES1_COND], RES1_COND))
+            et = time.time()
+            ttt += (et - st)
+
             r = r.clone()
             r_0 = r_0.clone()
             r_0[RES1_COND]     = r[RES1_COND] = p[RES1_COND]
@@ -725,7 +742,11 @@ class OsmosisInpainting:
 
             s_ = s[CONV4_COND]
             t = t.clone()
+            st = time.time()
             t_ = t[CONV4_COND] = self.applyStencilBatch(s_, CONV4_COND)
+            et = time.time()
+            ttt += (et - st)
+
             omega = omega.clone()
             omega_ = omega[CONV4_COND] = torch.sum( torch.mul(t_, s_), dim = (1, 2)) / torch.sum(t_**2, dim = (1, 2))
 
@@ -743,6 +764,11 @@ class OsmosisInpainting:
             # 5R
             r_0_ = r_0[CONV4_COND]
             beta = beta.clone()
+            # print(alpha, omega)
+            # print(r_)
+            # print(r_0_)
+            # print(r_old)
+
             beta[CONV4_COND] = (alpha[CONV4_COND] / omega_) \
                                 * torch.sum(torch.mul(r_, r_0_), dim = (1, 2)) \
                                 / torch.sum(torch.mul(r_old[CONV4_COND], r_0_), dim = (1, 2))
@@ -795,6 +821,9 @@ class OsmosisInpainting:
                 print(f"k : {k}, RESIDUAL : {r_abs}")
             
             # print(f"{torch.cat((k, r_abs, r_abs_diff_last, CONV_COND), dim = 1)}") 
+
+        print(f"total stencil time : {ttt}")
+        print(f"total sigma time   : {ttt1}")
 
         return x
 
@@ -940,15 +969,18 @@ class OsmosisInpainting:
             t = torch.where(CONV4_COND, self.applyStencilGS(s, self.boo, self.bmo, self.bom, self.bop, self.bpo), t)
             omega  = torch.where(CONV4_COND, torch.sum( torch.mul(t, s), dim = (2, 3)) / torch.sum(t**2, dim = (2, 3)), omega )            
             x = torch.where(CONV4_COND, x + (alpha[:, :, None, None] * p) + (omega[:, :, None, None] * s), x)
-            r_old = r
+            r_old = r.clone().detach()
             r = torch.where(CONV4_COND, s - omega[:, :, None, None] * t, r)
-            beta = torch.where(CONV4_COND
-                                , (alpha / omega) * (torch.sum(torch.mul(r, r_0), dim = (2, 3)) / torch.sum(torch.mul(r_old, r_0), dim = (2, 3)))
-                                , beta)
             
-            # beta[CONV4_COND] = (alpha[CONV4_COND] / omega_) \
-            #         * torch.sum(torch.mul(r_, r_0_), dim = (1, 2)) \
-            #         / torch.sum(torch.mul(r_old[CONV4_COND], r_0_), dim = (1, 2))
+            beta = torch.where(CONV4_COND
+                            , (alpha / omega) * (torch.sum(torch.mul(r, r_0), dim = (2, 3)) / torch.sum(torch.mul(r_old, r_0), dim = (2, 3)))
+                            , beta)
+            
+            # beta = (alpha / omega) * torch.sum(torch.mul(r, r_0), dim = (2, 3)) / torch.sum(torch.mul(r_old, r_0), dim = (2, 3))
+
+            # beta[CONV4_COND] = (alpha[CONV4_COND] / omega[CONV4_COND]) \
+            #         * torch.sum(torch.mul(r[CONV4_COND], r_0[CONV4_COND]), dim = (1, 2)) \
+            #         / torch.sum(torch.mul(r_old[CONV4_COND], r_0[CONV4_COND]), dim = (1, 2))
 
             if verbose:
                 print(f"k : {k} , omega : {omega}, beta : {beta}")
