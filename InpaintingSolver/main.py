@@ -49,11 +49,13 @@ if __name__ == '__main__':
     # osmosis.calculateWeights(False, False, False)
     # osmosis.solve(10, save_every = 10, verbose = False)
 
+    V1 = V1.repeat(16, 1, 1, 1)
+    mask = mask.repeat(16, 1, 1, 1)
     # V = torch.cat((V, V1), dim = 0)
     # V = V.to(device)
-    # print(V.shape)
+    print(V1.shape)
 
-    osmosis = OsmosisInpainting(None, V1, None, None, offset=1, tau=90000, device = device, apply_canny=None)
+    osmosis = OsmosisInpainting(None, V1, mask, mask, offset=1, tau=7000, device = device, apply_canny=False)
     st = time.time()
     osmosis.calculateWeights(False, False, False)
     et = time.time()

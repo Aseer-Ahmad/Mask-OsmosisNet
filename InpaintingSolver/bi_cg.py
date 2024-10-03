@@ -383,7 +383,10 @@ class OsmosisInpainting:
         # correcting for dimentionality reduced by using F.conv2d
         # eg : 1 dimension reduced for d1  changes nx+2 -> nx+2-1
         # similarly correcting for d2
+        # cloning since indexing are in-place operations and in backward pass can cause incorrect gradients
+        self.d1 = self.d1.clone()
         self.d1[:, :, :self.nx+1, 1:self.ny+1] = d1[:, :, :, 1:self.ny+1] # convolved and reduced in row dir , hence one less
+        self.d2 = self.d2.clone()
         self.d2[:, :, 1:self.nx+1, :self.ny+1] = d2[:, :, 1:self.nx+1, :] # convolved and reduced in col dir , hence one less
 
         if verbose:
@@ -419,13 +422,20 @@ class OsmosisInpainting:
                 - rx * F.conv2d(self.d1, f1, padding='same') \
                 - ry * F.conv2d(self.d2, f2, padding='same')
         
+        # cloning stencils to avoid incorrect gradients due to in-place indexing
+        self.boo = self.boo.clone()
         self.boo[:, :, 1:self.nx+1, 1:self.ny+1] = boo[:, :, 1:self.nx+1, 1:self.ny+1]
 
+
         # indexing to avoid boundaries being affected
+        self.bpo = self.bpo.clone()
         self.bpo[:, :, 1:self.nx+1, 1:self.ny+1] = -rxx + rx * self.d1[:, :, 1:self.nx+1, 1:self.ny+1]
+        self.bop = self.bop.clone()
         self.bop[:, :, 1:self.nx+1, 1:self.ny+1] = -ryy + ry * self.d2[:, :, 1:self.nx+1, 1:self.ny+1]
 
+        self.bmo = self.bmo.clone()
         self.bmo[:, :, 1:self.nx+1, 1:self.ny+1] = -rxx - rx * self.d1[:, :, :self.nx, 1:self.ny+1]
+        self.bom = self.bom.clone()
         self.bom[:, :, 1:self.nx+1, 1:self.ny+1] = -ryy - ry * self.d2[:, :, 1:self.nx+1, :self.ny]
  
         # slice indexing here to avoid repetitive indexing in BiCG solver
