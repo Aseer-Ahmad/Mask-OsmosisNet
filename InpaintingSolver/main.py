@@ -51,7 +51,7 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     V1 = V1.to(device)
     mask = mask.to(device)
-    osmosis = OsmosisInpainting(None, V1, None, None, offset=1, tau=90000, device = device, apply_canny=False)
+    osmosis = OsmosisInpainting(None, V1, mask, mask, offset=1, tau=90000, device = device, apply_canny=False)
     osmosis.calculateWeights(False, False, False)
     osmosis.solveBatchParallel(1, save_batch = [True, "solved_b.pgm"], verbose = False)
 
