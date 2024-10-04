@@ -103,25 +103,29 @@ class OsmosisInpainting:
         
         mse = MSELoss()
 
+        # print(self.analyseImage(X, f"inital input"))
+        # print(self.analyseImage(self.mask1, f"input mask"))
+
         st = time.time()
 
         for i in range(kmax):
 
-            X = self.BiCGSTAB_GS(x = U, b = X, kmax = 3000, eps = 1e-9, verbose=verbose)
+            X = self.BiCGSTAB_GS(x = U, b = X, kmax = 3000, eps = 1e-11, verbose=verbose)
             U = X
             loss = mse( self.normalize(U), self.normalize(self.V))
             print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)        
-            
+        print()
+        
         et = time.time()
         tt += (et-st)
 
         self.U = X
 
-        comm = self.analyseImage(X, f"solution")
-        comm += f"time for iteration : {str(et-st)} sec\n"
-        comm += f"total time         : {str(tt)} sec\n"
-        comm += self.getMetrics()
-        print(comm)
+        # comm = self.analyseImage(X, f"solution")
+        # comm += f"time for iteration : {str(et-st)} sec\n"
+        # comm += f"total time         : {str(tt)} sec\n"
+        # comm += self.getMetrics()
+        # print(comm)
 
         if save_batch[0]:
             fname = save_batch[1]
@@ -212,6 +216,8 @@ class OsmosisInpainting:
     def calculateWeights(self, d_verbose = False, m_verbose = False, s_verbose = False):
         self.prepareInp()
 
+        # print(self.analyseImage(self.V, "guidance image"))
+
         self.getDriftVectors(d_verbose)
         if d_verbose:
             print(f"drift vectors calculated")
@@ -292,7 +298,7 @@ class OsmosisInpainting:
 
     def analyseImage(self, x, name):
         comm = ""
-        x = x[:, :, 1:self.nx+1, 1:self.ny+1]
+        # x = x[:, :, 1:self.nx+1, 1:self.ny+1]
         
         print(f"analyzing {name}")
         
@@ -446,15 +452,15 @@ class OsmosisInpainting:
         self.bom = self.bom[ :, :, 1:self.nx+1, 1:self.ny+1]
 
         if verbose :
-            print(self.boo)
+            # print(self.boo)
             print(self.analyseImage(self.boo, "boo"))
-            print(self.bpo)
+            # print(self.bpo)
             print(self.analyseImage(self.bpo, "bpo"))
-            print(self.bop)
+            # print(self.bop)
             print(self.analyseImage(self.bop, "bop"))
-            print(self.bmo)
+            # print(self.bmo)
             print(self.analyseImage(self.bmo, "bmo"))
-            print(self.bom)
+            # print(self.bom)
             print(self.analyseImage(self.bom, "bom"))
 
     def applyStencil(self, inp, batch, verbose = False):
@@ -829,6 +835,9 @@ class OsmosisInpainting:
         return x
 
 
+    def backward_hook(self, grad):
+        print(f"Gradient of shape {grad.shape} has norm {grad.norm()}")
+
 
     def applyStencilGS(self, inp, boo, bmo, bom, bop, bpo, verbose = False):
         """
@@ -865,21 +874,21 @@ class OsmosisInpainting:
         
         restart = torch.ones( (self.batch, self.channel), dtype=torch.bool, device = self.device)
         k       = torch.zeros((self.batch, self.channel), dtype=torch.long, device = self.device)
-        r_abs   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device)
-        v_abs   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device)
-        r0_abs  = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device)
-        sigma   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device)
-        alpha   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device)
-        omega   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device)
-        beta    = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device)
+        r_abs   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True)
+        v_abs   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True)
+        r0_abs  = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True)
+        sigma   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True)
+        alpha   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True)
+        omega   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True)
+        beta    = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True)
 
-        r_0     = torch.zeros_like(x, dtype = torch.float64)
-        r       = torch.zeros_like(x, dtype = torch.float64)
-        r_old   = torch.zeros_like(x, dtype = torch.float64)
-        p       = torch.zeros_like(x, dtype = torch.float64)
-        v       = torch.zeros_like(x, dtype = torch.float64)
-        s       = torch.zeros_like(x, dtype = torch.float64)
-        t       = torch.zeros_like(x, dtype = torch.float64)
+        r_0     = torch.zeros_like(x, dtype = torch.float64, requires_grad = True)
+        r       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True)
+        r_old   = torch.zeros_like(x, dtype = torch.float64, requires_grad = True)
+        p       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True)
+        v       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True)
+        s       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True)
+        t       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True)
 
         # variables to check info. to skip solving systems 
         r_abs_init = torch.zeros( (self.batch, self.channel), dtype = torch.float64, device = self.device)
@@ -887,16 +896,31 @@ class OsmosisInpainting:
         r_abs_skip = torch.zeros( (self.batch, self.channel), dtype = torch.float64, device = self.device)
         stagnant_count = torch.zeros( (self.batch, self.channel), dtype = torch.float64, device = self.device)
 
+        # register backward hook
+        v_abs.register_hook(self.backward_hook)
+        r0_abs.register_hook(self.backward_hook)
+        sigma.register_hook(self.backward_hook)
+        alpha.register_hook(self.backward_hook)
+        omega.register_hook(self.backward_hook)
+        beta.register_hook(self.backward_hook)
+
+        r_0.register_hook(self.backward_hook)
+        r.register_hook(self.backward_hook)
+        r_old.register_hook(self.backward_hook)
+        p.register_hook(self.backward_hook)
+        v.register_hook(self.backward_hook)
+        s.register_hook(self.backward_hook)
+        t.register_hook(self.backward_hook)
+
         r_0 = self.applyStencilGS(x, self.boo, self.bmo, self.bom, self.bop, self.bpo) 
         p   = self.zeroPadGS(b - r_0)
+        # print(self.analyseImage(p, "p"))
         r_0 = r = p
         r0_abs = torch.norm(r_0, dim = (2, 3), p = "fro")
         r_abs  = r0_abs
 
         if verbose:
             print(f"r_abs : {r_abs}, shape : {r_abs.shape}")
-
-        ttt = 0
     
         while ( (k < kmax) & (r_abs > eps * self.nx * self.ny) ).any():
 
@@ -908,12 +932,12 @@ class OsmosisInpainting:
             if verbose:
                 print(f"WHILE CONVERGENCE CONDITION :\n {CONV_COND} and shape : {CONV_COND.shape}")
             
-            st = time.time()
             v = torch.where(CONV_COND[:, :, None, None], self.applyStencilGS(p, self.boo, self.bmo, self.bom, self.bop, self.bpo), v)
-            et = time.time()
-            ttt += (et - st)
             sigma = torch.where(CONV_COND, torch.sum(torch.mul(v, r_0), dim = (2, 3)), sigma)
             v_abs = torch.where(CONV_COND, torch.norm(v, dim = (2, 3),  p = "fro"), v_abs)
+            
+            # print(self.analyseImage(sigma[:, :, None, None], "sigma"))
+            # print(self.analyseImage(v, "v"))
             
             if verbose:
                 print(f"k : {k}, sigma : {sigma}, vabs : {v_abs}")
@@ -929,15 +953,15 @@ class OsmosisInpainting:
             if verbose:
                 print(f"RESTART REQUIRED :\n {RES1_COND}, shape : {RES1_COND.shape}")
 
-            st = time.time()
             p = torch.where(RES1_COND_EXP, self.zeroPadGS(b - self.applyStencilGS(x, self.boo, self.bmo, self.bom, self.bop, self.bpo)), p)
-            et = time.time()
-            ttt += (et - st)
             r = torch.where(RES1_COND_EXP, p, r)
             r_0 = torch.where(RES1_COND_EXP, p, r_0)
             r0_abs  = torch.where(RES1_COND, torch.norm(r_0, dim = (2, 3), p = "fro"), r0_abs)
             r_abs = torch.where(RES1_COND, r0_abs, r_abs)
             k = torch.where(RES1_COND, k+1, k)
+
+            # print(self.analyseImage(r_abs[:, :, None, None], "r_abs"))
+            # print(self.analyseImage(p, "p"))
 
             if verbose:
                 print(f"r_abs when restarted: {r_abs}")
@@ -951,12 +975,12 @@ class OsmosisInpainting:
                 print(f"RESTART NOT REQUIRED :\n {NOT_RES_COND}")
 
             alpha = torch.where(NOT_RES_COND, torch.sum( torch.mul(r, r_0), dim = (2, 3)) / sigma , alpha)
-
             if verbose:
                 print(f"k : {k}, alpha : {alpha}")
 
             s = torch.where(NOT_RES_COND[:, :, None, None], r - (alpha[:, :, None, None] * v), s)
-            
+            # print(self.analyseImage(alpha[:, :, None, None], "alpha"))
+            # print(self.analyseImage(s, "s"))
             # =======================================
             # No RESTART and CONVERGENCE CONDITION 
             # =======================================
@@ -970,7 +994,9 @@ class OsmosisInpainting:
 
             x = torch.where(CONV3_COND_EXP, x + alpha[:, :, None, None] * p, x )
             r = torch.where(CONV3_COND_EXP, s, r)
-
+            # print(self.analyseImage(x, "x"))
+            # print(self.analyseImage(r, "r"))
+            
             # =======================================
             # No RESTART and INVERSE CONVERGENCE CONDITION 
             # =======================================
@@ -980,22 +1006,25 @@ class OsmosisInpainting:
             if verbose:
                 print(f"RESTART NOT REQUIRED and ELSE CONV :\n {CONV4_COND}")
 
-            st = time.time()
             t = torch.where(CONV4_COND_EXP, self.applyStencilGS(s, self.boo, self.bmo, self.bom, self.bop, self.bpo), t)
-            et = time.time()
-            ttt += (et - st)
+            # print(self.analyseImage(t, "t"))
             omega  = torch.where(CONV4_COND, torch.sum( torch.mul(t, s), dim = (2, 3)) / torch.sum(t**2, dim = (2, 3)), omega )            
             x = torch.where(CONV4_COND_EXP, x + (alpha[:, :, None, None] * p) + (omega[:, :, None, None] * s), x)
+            # print(self.analyseImage(x, "x"))
             r_old = torch.where(CONV4_COND_EXP, r, r_old)
             r = torch.where(CONV4_COND_EXP, s - omega[:, :, None, None] * t, r)
+            # print(self.analyseImage(r, "r"))
             beta = torch.where(CONV4_COND
                             , (alpha / omega) * (torch.sum(torch.mul(r, r_0), dim = (2, 3)) / torch.sum(torch.mul(r_old, r_0), dim = (2, 3)))
                             , beta)
-            
+            # print(self.analyseImage(omega[:, :, None, None], "omega"))
+            # print(self.analyseImage(beta[:, :, None, None], "beta"))
+
             if verbose:
                 print(f"k : {k} , omega : {omega}, beta : {beta}")
 
             p = torch.where(CONV4_COND_EXP, r + beta[:, :, None, None] * ( p - omega[:, :, None, None] * v), p)
+            # print(self.analyseImage(p, "p"))
 
             # =======================================
             # NOT REQUIRING RESTART SYSTEMS ; UPDATE
@@ -1007,5 +1036,4 @@ class OsmosisInpainting:
             if verbose:
                 print(f"k : {k}, RESIDUAL : {r_abs}")
 
-        print(f"applyStencil total time : {ttt}")
         return x

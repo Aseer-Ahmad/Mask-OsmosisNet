@@ -17,13 +17,13 @@ INP_CHANNELS   : 1
 OUT_CHANNELS   : 1
 
 # HYPER PARAMS
-LR             : 0.001
-WEIGHT_DECAY   : 0.01
+LR             : 0.000001
+WEIGHT_DECAY   : 0.0001
 MOMENTUM       : 0.9
 OPT            : Adam
 SCHEDL         : exp
-TRAIN_BATCH    : 32
-TEST_BATCH     : 32
+TRAIN_BATCH    : 1
+TEST_BATCH     : 1
 ALPHA1         : 0.0001
 ALPHA2         : 0.001
 MASK_DEN       : 0.1

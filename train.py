@@ -185,7 +185,7 @@ class ModelTrainer():
 
         def custom_collate_fn(batch):
             
-            images      = []
+            images       = []
             images_scale = []
 
             for item in batch :
@@ -197,11 +197,11 @@ class ModelTrainer():
             
             return images, images_scale
 
-        train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size, collate_fn=custom_collate_fn)
-        test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size, collate_fn=custom_collate_fn)
+        # train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size, collate_fn=custom_collate_fn)
+        # test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size, collate_fn=custom_collate_fn)
 
-        # train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size)
-        # test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size)
+        train_dataloader = DataLoader(train_dataset, shuffle = False, batch_size=self.train_batch_size)
+        test_dataloader  = DataLoader(test_dataset, shuffle = False, batch_size=self.test_batch_size)
 
         print(f"train and test dataloaders created")
         print(f"total train batches  : {len(train_dataloader)}")
@@ -231,13 +231,13 @@ class ModelTrainer():
             for i, (X, X_scale) in enumerate(test_dataloader):
 
                 X = X.to(self.device, dtype=torch.float64)
-                X_scale = X_scale.to(self.device, dtype=torch.float64) 
+
                 mask = model(X) # non-binary [0,1]
                 loss1 = invLoss(mask)
                 # mask_bin = self.hardRoundBinarize(mask) # binarized {0,1}
                 loss2 = denLoss(mask)
 
-                osmosis = OsmosisInpainting(None, X, mask, mask, offset=1, tau=90000, device = self.device, apply_canny=False)
+                osmosis = OsmosisInpainting(None, X, mask, mask, offset=1, tau=7000, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(False, False, False)
                 loss3, tts = osmosis.solveBatchParallel(1, save_batch = [False], verbose = False)
 
@@ -278,6 +278,12 @@ class ModelTrainer():
             if m.bias is not None:
                 nn.init.constant_(m.bias, 0)
 
+    def init_weights_xavier(self, m):
+        if isinstance(m, nn.Conv2d):
+            nn.init.xavier_uniform_(m.weight)
+            if m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+
     def train(self, model, epochs, alpha1, alpha2, mask_density, img_size, resume_checkpoint_file, save_every, batch_plot_every, val_every, train_dataset ,test_dataset):
         
         # loss lists
@@ -314,9 +320,6 @@ class ModelTrainer():
         invLoss = InvarianceLoss()
         denLoss  = DensityLoss(density = mask_density)
 
-        print("\ncleaning torch mem and cache")
-        torch.cuda.empty_cache()
-
         print("\nbeginning training ...")
 
         st_tt = time.time()
@@ -332,17 +335,13 @@ class ModelTrainer():
                 print(f'Epoch {epoch}/{epochs} , batch {i}/{len(train_dataloader)} ')
 
                 X = X.to(self.device, dtype=torch.float64)
-                # X_scale = X_scale.to(self.device, dtype=torch.bfloat16)
 
-                mask = model(X) # non-binary [0,1]
+                mask  = model(X) # non-binary [0,1]
                 loss1 = invLoss(mask)
-                # mask_bin = self.hardRoundBinarize(mask) # binarized {0,1} # evaluation step
                 loss2 = denLoss(mask)
 
-                # mask = mask.to(self.device, torch.bfloat16)
-                osmosis = OsmosisInpainting(None, X, mask, mask, offset=1, tau=90000, device = self.device, apply_canny=False)
-                osmosis.calculateWeights(False, False, False)
-                # loss2, tts = osmosis.solveBatchSeq(100, save_batch = True, verbose = False)
+                osmosis = OsmosisInpainting(None, X, mask, mask, offset=0, tau=7000, device = self.device, apply_canny=False)
+                osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)
                 
                 if (i) % batch_plot_every == 0: 
                     save_batch = [True, os.path.join(self.output_dir, "imgs", f"batch_epoch_{str(epoch)}_iter_{str(i)}.png")]
@@ -357,7 +356,7 @@ class ModelTrainer():
                 total_loss.backward()
 
                 total_norm = self.check_gradients(model)
-                
+
                 optimizer.step()
                 scheduler.step()
                 optimizer.zero_grad()
@@ -433,6 +432,9 @@ class ModelTrainer():
             epochloss_list.append(epoch_loss.item())
             print('Epoch [{}/{}], epoch Loss: {:.4f}'.format(epoch+1, epochs, epoch_loss))
             save_plot([epochloss_list], [i for i in range(epoch+1)], ["epoch loss"], os.path.join(self.output_dir, "epochloss.png"))
+
+            print("\ncleaning torch mem and cache . End of epoch")
+            torch.cuda.empty_cache()
 
         et_tt = time.time()
         print(f"total time for training : {str((et_tt-st_tt) / 3600)} hr")

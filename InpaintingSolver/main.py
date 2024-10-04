@@ -55,7 +55,7 @@ if __name__ == '__main__':
     # V = V.to(device)
     print(V1.shape)
 
-    osmosis = OsmosisInpainting(None, V1, mask, mask, offset=1, tau=7000, device = device, apply_canny=False)
+    osmosis = OsmosisInpainting(None, V1, mask, mask, offset=1, tau=9000, device = device, apply_canny=False)
     st = time.time()
     osmosis.calculateWeights(False, False, False)
     et = time.time()
