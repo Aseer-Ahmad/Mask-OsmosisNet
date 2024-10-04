@@ -1,7 +1,7 @@
 #train.py
 import sys
 from torch.utils.data import DataLoader
-from torch.optim import AdamW, Adam, SGD
+from torch.optim import AdamW, Adam, SGD, RMSprop, Adagrad
 from torch.optim.lr_scheduler import ExponentialLR, MultiStepLR, LambdaLR
 import torch
 import torch.nn as nn
@@ -98,13 +98,14 @@ def save_plot(loss_lists, x, legend_list, save_path):
 
 class ModelTrainer():
 
-    def __init__(self, output_dir, optimizer, scheduler, lr, weight_decay, train_batch_size, test_batch_size):
+    def __init__(self, output_dir, optimizer, scheduler, lr, weight_decay, momentum, train_batch_size, test_batch_size):
         
         self.output_dir= output_dir
         self.optimizer= optimizer
         self.scheduler= scheduler
         self.lr= lr
         self.weight_decay= weight_decay
+        self.momentum = momentum
         self.train_batch_size = train_batch_size
         self.test_batch_size = test_batch_size
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -118,8 +119,20 @@ class ModelTrainer():
             opt = Adam(model.parameters(), lr=self.lr, betas=(0.9, 0.999), eps=1e-08, weight_decay = self.weight_decay)
 
         elif self.optimizer == "SGD":
-            opt = SGD(model.parameters(), lr=self.lr, momentum = self.weight_decay)
-              
+            opt = SGD(model.parameters(), lr=self.lr, momentum = self.momentum, weight_decay = self.weight_decay)
+
+        elif self.optimizer == "SGD-Nestrov":
+            opt = SGD(model.parameters(), lr=self.lr, nesterov = True, momentum = self.momentum , weight_decay = self.weight_decay)
+
+        elif self.optimizer == "AdamW":
+            opt = AdamW(model.parameters(), lr=self.lr, weight_decay = self.weight_decay)
+
+        elif self.optimizer == "RMSprop":
+            opt = RMSprop(model.parameters(), lr=self.lr, weight_decay = self.weight_decay)
+
+        elif self.optimizer == "Adagrad":
+            opt = Adagrad(model.parameters(), lr=self.lr, momentum = self.momentum, weight_decay = self.weight_decay)
+
         return opt
 
     def getScheduler(self, optim):

@@ -118,6 +118,7 @@ def main(config):
         scheduler= config['SCHEDL'],
         lr = config['LR'],
         weight_decay= config['WEIGHT_DECAY'], 
+        momentum = config['MOMENTUM'],
         train_batch_size = config['TRAIN_BATCH'],
         test_batch_size = config['TEST_BATCH'],
     )
