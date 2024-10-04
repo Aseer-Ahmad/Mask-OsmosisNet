@@ -96,7 +96,8 @@ class OsmosisInpainting:
                 self.U = self.U + self.offset
 
     def solveBatchParallel(self, kmax = 100, save_batch = False, verbose = False):
-                        
+
+        # init = self.U
         X = self.U
         U = self.U
         tt = 0
@@ -133,7 +134,7 @@ class OsmosisInpainting:
             out = torch.cat( ( (self.V.type(torch.float64).reshape(self.batch*(self.nx+2), self.ny+2) - self.offset), 
                             (self.mask1 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
                             # (self.canny_mask * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
-                            # (init-self.offset)[0][0],
+                            # (init-self.offset).reshape(self.batch*(self.nx+2), self.ny+2),
                             (self.U-self.offset).reshape(self.batch*(self.nx+2), self.ny+2)),
                             dim = 1)
             self.writePGMImage(out.cpu().detach().numpy().T, fname)
@@ -323,9 +324,13 @@ class OsmosisInpainting:
         m  = torch.mean(self.V, dim = (2,3))
 
         # create a flat image ; avg gray val same as guidance
-        u  = torch.ones_like(self.V, device = self.device) * m.view(self.batch, self.channel, 1, 1)
+        # u  = torch.ones_like(self.V, device = self.device) * m.view(self.batch, self.channel, 1, 1)
 
         # create a noisy image ; avg gray val same as guidance
+        noisy_tensor = torch.randn(self.V.shape, device=self.device) * 1.0 
+        current_mean = torch.mean(noisy_tensor, dim = (2,3))
+        u = noisy_tensor - current_mean[:, :, None, None] + m[:, :, None, None]
+
         return u
 
     def hardRoundBinarize(self):
@@ -897,24 +902,24 @@ class OsmosisInpainting:
         stagnant_count = torch.zeros( (self.batch, self.channel), dtype = torch.float64, device = self.device)
 
         # register backward hook
-        v_abs.register_hook(self.backward_hook)
-        r0_abs.register_hook(self.backward_hook)
-        sigma.register_hook(self.backward_hook)
-        alpha.register_hook(self.backward_hook)
-        omega.register_hook(self.backward_hook)
-        beta.register_hook(self.backward_hook)
+        # v_abs.register_hook(self.backward_hook)
+        # r0_abs.register_hook(self.backward_hook)
+        # sigma.register_hook(self.backward_hook)
+        # alpha.register_hook(self.backward_hook)
+        # omega.register_hook(self.backward_hook)
+        # beta.register_hook(self.backward_hook)
 
-        r_0.register_hook(self.backward_hook)
-        r.register_hook(self.backward_hook)
-        r_old.register_hook(self.backward_hook)
-        p.register_hook(self.backward_hook)
-        v.register_hook(self.backward_hook)
-        s.register_hook(self.backward_hook)
-        t.register_hook(self.backward_hook)
+        # r_0.register_hook(self.backward_hook)
+        # r.register_hook(self.backward_hook)
+        # r_old.register_hook(self.backward_hook)
+        # p.register_hook(self.backward_hook)
+        # v.register_hook(self.backward_hook)
+        # s.register_hook(self.backward_hook)
+        # t.register_hook(self.backward_hook)
 
         r_0 = self.applyStencilGS(x, self.boo, self.bmo, self.bom, self.bop, self.bpo) 
         p   = self.zeroPadGS(b - r_0)
-        # print(self.analyseImage(p, "p"))
+        print(self.analyseImage(p, "p"))
         r_0 = r = p
         r0_abs = torch.norm(r_0, dim = (2, 3), p = "fro")
         r_abs  = r0_abs
@@ -937,7 +942,7 @@ class OsmosisInpainting:
             v_abs = torch.where(CONV_COND, torch.norm(v, dim = (2, 3),  p = "fro"), v_abs)
             
             # print(self.analyseImage(sigma[:, :, None, None], "sigma"))
-            # print(self.analyseImage(v, "v"))
+            print(self.analyseImage(v, "v"))
             
             if verbose:
                 print(f"k : {k}, sigma : {sigma}, vabs : {v_abs}")
@@ -961,7 +966,7 @@ class OsmosisInpainting:
             k = torch.where(RES1_COND, k+1, k)
 
             # print(self.analyseImage(r_abs[:, :, None, None], "r_abs"))
-            # print(self.analyseImage(p, "p"))
+            print(self.analyseImage(p, "p"))
 
             if verbose:
                 print(f"r_abs when restarted: {r_abs}")
@@ -980,7 +985,7 @@ class OsmosisInpainting:
 
             s = torch.where(NOT_RES_COND[:, :, None, None], r - (alpha[:, :, None, None] * v), s)
             # print(self.analyseImage(alpha[:, :, None, None], "alpha"))
-            # print(self.analyseImage(s, "s"))
+            print(self.analyseImage(s, "s"))
             # =======================================
             # No RESTART and CONVERGENCE CONDITION 
             # =======================================
@@ -994,8 +999,8 @@ class OsmosisInpainting:
 
             x = torch.where(CONV3_COND_EXP, x + alpha[:, :, None, None] * p, x )
             r = torch.where(CONV3_COND_EXP, s, r)
-            # print(self.analyseImage(x, "x"))
-            # print(self.analyseImage(r, "r"))
+            print(self.analyseImage(x, "x"))
+            print(self.analyseImage(r, "r"))
             
             # =======================================
             # No RESTART and INVERSE CONVERGENCE CONDITION 
@@ -1007,13 +1012,13 @@ class OsmosisInpainting:
                 print(f"RESTART NOT REQUIRED and ELSE CONV :\n {CONV4_COND}")
 
             t = torch.where(CONV4_COND_EXP, self.applyStencilGS(s, self.boo, self.bmo, self.bom, self.bop, self.bpo), t)
-            # print(self.analyseImage(t, "t"))
+            print(self.analyseImage(t, "t"))
             omega  = torch.where(CONV4_COND, torch.sum( torch.mul(t, s), dim = (2, 3)) / torch.sum(t**2, dim = (2, 3)), omega )            
             x = torch.where(CONV4_COND_EXP, x + (alpha[:, :, None, None] * p) + (omega[:, :, None, None] * s), x)
-            # print(self.analyseImage(x, "x"))
+            print(self.analyseImage(x, "x"))
             r_old = torch.where(CONV4_COND_EXP, r, r_old)
             r = torch.where(CONV4_COND_EXP, s - omega[:, :, None, None] * t, r)
-            # print(self.analyseImage(r, "r"))
+            print(self.analyseImage(r, "r"))
             beta = torch.where(CONV4_COND
                             , (alpha / omega) * (torch.sum(torch.mul(r, r_0), dim = (2, 3)) / torch.sum(torch.mul(r_old, r_0), dim = (2, 3)))
                             , beta)
@@ -1024,7 +1029,7 @@ class OsmosisInpainting:
                 print(f"k : {k} , omega : {omega}, beta : {beta}")
 
             p = torch.where(CONV4_COND_EXP, r + beta[:, :, None, None] * ( p - omega[:, :, None, None] * v), p)
-            # print(self.analyseImage(p, "p"))
+            print(self.analyseImage(p, "p"))
 
             # =======================================
             # NOT REQUIRING RESTART SYSTEMS ; UPDATE

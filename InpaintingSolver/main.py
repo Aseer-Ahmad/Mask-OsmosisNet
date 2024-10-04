@@ -53,7 +53,7 @@ if __name__ == '__main__':
     mask = mask.repeat(16, 1, 1, 1)
     # V = torch.cat((V, V1), dim = 0)
     # V = V.to(device)
-    print(V1.shape)
+    # print(V1.shape)
 
     osmosis = OsmosisInpainting(None, V1, mask, mask, offset=1, tau=9000, device = device, apply_canny=False)
     st = time.time()
