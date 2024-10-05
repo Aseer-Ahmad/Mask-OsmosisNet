@@ -3,6 +3,7 @@ import torch
 import numpy as np
 import cv2
 import time
+from torchvision import transforms, utils
 
 def write_tensor_to_pgm(filename, tensor):
     tensor = torch.clamp(tensor, 0, 255).byte()
@@ -21,6 +22,9 @@ def readPGMImage( pth):
     pgm_T = torch.tensor(pgm, dtype = torch.float64)
     nx, ny = pgm_T.size()
     pgm_T = pgm_T.reshape(1, 1, nx, ny)
+    # norm = transforms.Normalize(mean = [0.], std = [1.])
+    # pgm_T = norm(pgm_T)
+    pgm_T = normalize(pgm_T)
     return pgm_T
 
 
@@ -33,34 +37,34 @@ def normalize(X, scale = 1.):
     return X
 
 if __name__ == '__main__':
-    # u_pth = 'kani-init.pgm'    
-    # U = readPGMImage(u_pth)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     V = readPGMImage('cameraman.pgm')
     V = V.to(device)
     mask = normalize(readPGMImage('cameraman-edge.pgm'))
 
-    V1 = readPGMImage("kaniza.pgm")
+    V1 = readPGMImage("scarf.pgm")
     V1 = V1.to(device)
     mask = normalize(readPGMImage('kaniza-edge.pgm'))
     mask = mask.to(device)
-    # osmosis = OsmosisInpainting(None, V, mask, mask, offset=1, tau=300, apply_canny=False)
-    # osmosis.calculateWeights(False, False, False)
-    # osmosis.solve(10, save_every = 10, verbose = False)
 
+    
     V1 = V1.repeat(16, 1, 1, 1)
     mask = mask.repeat(16, 1, 1, 1)
-    # V = torch.cat((V, V1), dim = 0)
     # V = V.to(device)
-    # print(V1.shape)
+    print(V1)
 
-    osmosis = OsmosisInpainting(None, V1, mask, mask, offset=1, tau=9000, device = device, apply_canny=False)
+    osmosis = OsmosisInpainting(None, V1, None, None, offset=1, tau=9000, device = device, apply_canny=True)
     st = time.time()
     osmosis.calculateWeights(False, False, False)
     et = time.time()
     print(f"calculate weights total time : {(et - st)} sec")
     osmosis.solveBatchParallel(1, save_batch = [True, "solved_b.pgm"], verbose = False)
+
+
+    # osmosis = OsmosisInpainting(None, V, mask, mask, offset=1, tau=300, apply_canny=False)
+    # osmosis.calculateWeights(False, False, False)
+    # osmosis.solve(10, save_every = 10, verbose = False)
 
     # image = np.array([[3,8,0],
     #                   [6,0,1],

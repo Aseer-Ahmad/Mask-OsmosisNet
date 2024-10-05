@@ -368,6 +368,8 @@ class ModelTrainer():
                 total_loss = loss3 + loss2 * alpha2 + loss1 * alpha1 
                 total_loss.backward()
 
+                nn.utils.clip_grad_norm_(model.parameters(), 10.0)
+                
                 total_norm = self.check_gradients(model)
 
                 optimizer.step()
