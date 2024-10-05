@@ -1,0 +1,323 @@
+CONFIG :
+{'EPOCHS': 10, 'RESUME_CHECKPOINT': None, 'SAVE_EVERY_ITER': 200, 'VAL_EVERY_ITER': 500, 'BATCH_PLOT_EVERY_ITER': 30, 'OUTPUT_DIR': 'outputs', 'EXP_NAME': 'imagenet_t7', 'TRAIN_FILENAME': 'iids_train.txt', 'TEST_FILENAME': 'iids_test.txt', 'ROOT_DIR': 'dataset/BSDS300/images', 'IMG_SIZE': 64, 'INP_CHANNELS': 1, 'OUT_CHANNELS': 1, 'LR': 1e-06, 'WEIGHT_DECAY': 0.0001, 'MOMENTUM': 0.9, 'OPT': 'Adam', 'SCHEDL': 'exp', 'TRAIN_BATCH': 1, 'TEST_BATCH': 1, 'ALPHA1': 0.0001, 'ALPHA2': 0.001, 'MASK_DEN': 0.1, 'BIN_METH': 'QUANT', 'OFFSET': None, 'TAU': None, 'ITERATIONS': None, 'NOTE': 'model levels inc 2 -> 3; removed density loss ; nanmean -> mean'}
+
+train test dataset loaded
+train size : 200
+test  size  : 100
+model loaded
+model summary
+=================================================================
+Layer (type:depth-idx)                   Param #
+=================================================================
+??DoubleConv: 1-1                        --
+|    ??Sequential: 2-1                   --
+|    |    ??Conv2d: 3-1                  288
+|    |    ??BatchNorm2d: 3-2             64
+|    |    ??ReLU: 3-3                    --
+|    |    ??Conv2d: 3-4                  9,216
+|    |    ??BatchNorm2d: 3-5             64
+|    |    ??ReLU: 3-6                    --
+??Down: 1-2                              --
+|    ??Sequential: 2-2                   --
+|    |    ??MaxPool2d: 3-7               --
+|    |    ??DoubleConv: 3-8              55,552
+??Down: 1-3                              --
+|    ??Sequential: 2-3                   --
+|    |    ??MaxPool2d: 3-9               --
+|    |    ??DoubleConv: 3-10             221,696
+??Down: 1-4                              --
+|    ??Sequential: 2-4                   --
+|    |    ??MaxPool2d: 3-11              --
+|    |    ??DoubleConv: 3-12             885,760
+??Up: 1-5                                --
+|    ??ConvTranspose2d: 2-5              131,200
+|    ??DoubleConv: 2-6                   --
+|    |    ??Sequential: 3-13             442,880
+??Up: 1-6                                --
+|    ??ConvTranspose2d: 2-7              32,832
+|    ??DoubleConv: 2-8                   --
+|    |    ??Sequential: 3-14             110,848
+??Up: 1-7                                --
+|    ??ConvTranspose2d: 2-9              8,224
+|    ??DoubleConv: 2-10                  --
+|    |    ??Sequential: 3-15             27,776
+??OutConv: 1-8                           --
+|    ??Conv2d: 2-11                      33
+=================================================================
+Total params: 1,926,433
+Trainable params: 1,926,433
+Non-trainable params: 0
+=================================================================
+device : cuda
+trainer configurations set
+train and test dataloaders created
+total train batches  : 200
+total test  batches  : 100
+optimizer : Adam, scheduler : exp loaded
+optimizer : Adam (
+Parameter Group 0
+    amsgrad: False
+    betas: (0.9, 0.999)
+    capturable: False
+    differentiable: False
+    eps: 1e-08
+    foreach: None
+    fused: None
+    initial_lr: 1e-06
+    lr: 1e-06
+    maximize: False
+    weight_decay: 0.0001
+)
+scheduler : <torch.optim.lr_scheduler.ExponentialLR object at 0x000001AEE5E8B2E0>
+C:\Users\Aseer\miniconda3\envs\osmosis\lib\site-packages\torch\nn\modules\module.py:1160: UserWarning: expandable_segments not supported on this platform (Triggered internally at C:\actions-runner\_work\pytorch\pytorch\builder\windows\pytorch\c10/cuda/CUDAAllocatorConfig.h:28.)
+  return t.to(
+initializing weights using Kaiming/He Initialization
+
+beginning training ...
+Epoch 0/10 , batch 1/200
+ITERATION : 1, loss : 0.043919561330279
+Gradient of shape torch.Size([1, 1]) has norm 0.0
+Gradient of shape torch.Size([1, 1, 66, 66]) has norm 0.0
+Gradient of shape torch.Size([1, 1]) has norm 0.0
+Gradient of shape torch.Size([1, 1, 66, 66]) has norm 0.0
+Gradient of shape torch.Size([1, 1, 66, 66]) has norm 0.0
+Gradient of shape torch.Size([1, 1]) has norm 0.0
+Gradient of shape torch.Size([1, 1]) has norm 0.0
+Gradient of shape torch.Size([1, 1, 66, 66]) has norm 0.0
+gradient norm in None layer : 5.980700297158671
+gradient norm in None layer : 0.304772244010979
+gradient norm in None layer : 0.23181237193557633
+gradient norm in None layer : 6.081910869419193
+gradient norm in None layer : 0.335236675483812
+gradient norm in None layer : 0.24343579900521026
+gradient norm in None layer : 4.2921736427339425
+gradient norm in None layer : 0.15504373011921643
+gradient norm in None layer : 0.1261908652564512
+gradient norm in None layer : 4.043180445852243
+gradient norm in None layer : 0.15875861092607432
+gradient norm in None layer : 0.10431013862351386
+gradient norm in None layer : 2.8194756611410705
+gradient norm in None layer : 0.07932664009119487
+gradient norm in None layer : 0.07462072257206695
+gradient norm in None layer : 2.764667342525127
+gradient norm in None layer : 0.06951247370326383
+gradient norm in None layer : 0.05087440085966877
+gradient norm in None layer : 1.3832848902890995
+gradient norm in None layer : 0.027396285051200488
+gradient norm in None layer : 0.02221348013687062
+gradient norm in None layer : 1.2995061701295931
+gradient norm in None layer : 0.025753519651205356
+gradient norm in None layer : 0.022810161152581977
+gradient norm in None layer : 1.042863767748403
+gradient norm in None layer : 0.015269215467882832
+gradient norm in None layer : 2.6129082856915824
+gradient norm in None layer : 0.05222063490992108
+gradient norm in None layer : 0.04070178972211205
+gradient norm in None layer : 1.7412665322071585
+gradient norm in None layer : 0.04928973128018437
+gradient norm in None layer : 0.04914790699408235
+gradient norm in None layer : 1.310604086488296
+gradient norm in None layer : 0.01931238419354371
+gradient norm in None layer : 3.4804592820248716
+gradient norm in None layer : 0.08911414050243831
+gradient norm in None layer : 0.07596420375601068
+gradient norm in None layer : 2.430608950474937
+gradient norm in None layer : 0.1097718818715217
+gradient norm in None layer : 0.10530296981505116
+gradient norm in None layer : 2.3341177092738854
+gradient norm in None layer : 0.026459887727759743
+gradient norm in None layer : 5.338904258421795
+gradient norm in None layer : 0.18557364014108696
+gradient norm in None layer : 0.1549813911657842
+gradient norm in None layer : 3.9039745273584785
+gradient norm in None layer : 0.19319605408544235
+gradient norm in None layer : 0.17543095483060084
+gradient norm in None layer : 0.8630288629162275
+gradient norm in None layer : 0.17658266511883325
+Total gradient norm: 14.421112727977201
+invariance loss : 1517.8152553705727, avg_den : 0.0999999998197744, density loss : 1.802256122118706e-10, solver time : 1.388261079788208 sec , mse loss : 0.043919561330279, total loss : 0.19570108686751653, running loss : 0.19570108686751653
+Epoch 0/10 , batch 2/200
+ITERATION : 1, loss : 0.027005536969249698
+Gradient of shape torch.Size([1, 1]) has norm 0.0
+Gradient of shape torch.Size([1, 1, 66, 66]) has norm 0.0
+Gradient of shape torch.Size([1, 1]) has norm 0.0
+Gradient of shape torch.Size([1, 1, 66, 66]) has norm 0.0
+Gradient of shape torch.Size([1, 1, 66, 66]) has norm 0.0
+Gradient of shape torch.Size([1, 1]) has norm 0.0
+Gradient of shape torch.Size([1, 1]) has norm 0.0
+Gradient of shape torch.Size([1, 1, 66, 66]) has norm 0.0
+gradient norm in None layer : 1.0830961956440799
+gradient norm in None layer : 0.04818432579381653
+gradient norm in None layer : 0.03549478818198097
+gradient norm in None layer : 0.7910013950011616
+gradient norm in None layer : 0.03955421442597655
+gradient norm in None layer : 0.030532305514333443
+gradient norm in None layer : 0.47673110585326617
+gradient norm in None layer : 0.01557378012922598
+gradient norm in None layer : 0.014451775020364169
+gradient norm in None layer : 0.43539568207202617
+gradient norm in None layer : 0.014973588756885252
+gradient norm in None layer : 0.010113346925963725
+gradient norm in None layer : 0.27387476169969915
+gradient norm in None layer : 0.007401285620762543
+gradient norm in None layer : 0.005854501955294927
+gradient norm in None layer : 0.2651686148050358
+gradient norm in None layer : 0.006299660930322349
+gradient norm in None layer : 0.004356097403063604
+gradient norm in None layer : 0.14161604312458934
+gradient norm in None layer : 0.002817058729410531
+gradient norm in None layer : 0.002178727162023581
+gradient norm in None layer : 0.12937087813424805
+gradient norm in None layer : 0.0025931739487510914
+gradient norm in None layer : 0.0021445854800111637
+gradient norm in None layer : 0.10331270035351073
+gradient norm in None layer : 0.0015537570508977136
+gradient norm in None layer : 0.2587630961689786
+gradient norm in None layer : 0.005636718331798185
+gradient norm in None layer : 0.003963707317610288
+gradient norm in None layer : 0.17065166581049648
+gradient norm in None layer : 0.004767954327043229
+gradient norm in None layer : 0.0035307787749748556
+gradient norm in None layer : 0.12937660302249754
+gradient norm in None layer : 0.003442177442255287
+gradient norm in None layer : 0.3765536701983818
+gradient norm in None layer : 0.010283346203152542
+gradient norm in None layer : 0.008112025625593704
+gradient norm in None layer : 0.26429397254872217
+gradient norm in None layer : 0.012973088219495528
+gradient norm in None layer : 0.012168138796281636
+gradient norm in None layer : 0.26302385653808374
+gradient norm in None layer : 0.005409460308537371
+gradient norm in None layer : 0.7468675318976187
+gradient norm in None layer : 0.027578405034189138
+gradient norm in None layer : 0.02316268053508651
+gradient norm in None layer : 0.6257614470836059
+gradient norm in None layer : 0.10405380221696417
+gradient norm in None layer : 0.09738291054518362
+gradient norm in None layer : 0.3805581769467144
+gradient norm in None layer : 0.13117540221871596
+Total gradient norm: 1.9856292990221627
+invariance loss : 1402.8916797367192, avg_den : 0.09999999982064409, density loss : 1.793559190055305e-10, solver time : 12.787401914596558 sec , mse loss : 0.027005536969249698, total loss : 0.16729470494310097, running loss : 0.18149789590530874
+Epoch 0/10 , batch 3/200
+ITERATION : 1, loss : 0.029219396802332803
+Gradient of shape torch.Size([1, 1]) has norm 0.0
+Gradient of shape torch.Size([1, 1, 66, 66]) has norm 0.0
+Gradient of shape torch.Size([1, 1]) has norm 0.0
+Gradient of shape torch.Size([1, 1, 66, 66]) has norm 0.0
+Gradient of shape torch.Size([1, 1, 66, 66]) has norm 0.0
+Gradient of shape torch.Size([1, 1]) has norm 0.0
+Gradient of shape torch.Size([1, 1]) has norm 0.0
+Gradient of shape torch.Size([1, 1, 66, 66]) has norm 0.0
+gradient norm in None layer : 0.6657601323321701
+gradient norm in None layer : 0.02847105702943219
+gradient norm in None layer : 0.0236976990282247
+gradient norm in None layer : 0.4627714679876036
+gradient norm in None layer : 0.021531924421332994
+gradient norm in None layer : 0.01889209158843868
+gradient norm in None layer : 0.2558533824425697
+gradient norm in None layer : 0.009929948328785831
+gradient norm in None layer : 0.009040928807849432
+gradient norm in None layer : 0.2482115692167285
+gradient norm in None layer : 0.007270441862985218
+gradient norm in None layer : 0.005624076833777832
+gradient norm in None layer : 0.16506635992556767
+gradient norm in None layer : 0.0039849943186095966
+gradient norm in None layer : 0.004038595027517603
+gradient norm in None layer : 0.15955861265074647
+gradient norm in None layer : 0.003663591383901677
+gradient norm in None layer : 0.0030484858489723617
+gradient norm in None layer : 0.08155497700707376
+gradient norm in None layer : 0.0016353488839803564
+gradient norm in None layer : 0.0013913107899182074
+gradient norm in None layer : 0.07663977136005976
+gradient norm in None layer : 0.001654775998402422
+gradient norm in None layer : 0.0015663625920288892
+gradient norm in None layer : 0.06058264869850669
+gradient norm in None layer : 0.0011421713591155862
+gradient norm in None layer : 0.14493294460894898
+gradient norm in None layer : 0.0026569430970749563
+gradient norm in None layer : 0.002340010063346324
+gradient norm in None layer : 0.09662243803455854
+gradient norm in None layer : 0.0028288963290323786
+gradient norm in None layer : 0.0027287033714581874
+gradient norm in None layer : 0.07551789487131748
+gradient norm in None layer : 0.0016430120482318299
+gradient norm in None layer : 0.1974318131351638
+gradient norm in None layer : 0.005845278412132787
+gradient norm in None layer : 0.004139127906165005
+gradient norm in None layer : 0.13071646991856123
+gradient norm in None layer : 0.008364975096758738
+gradient norm in None layer : 0.00913661237304657
+gradient norm in None layer : 0.17131967725961642
+gradient norm in None layer : 0.0027451732868730193
+gradient norm in None layer : 0.45544606611400057
+gradient norm in None layer : 0.01882765249330591
+gradient norm in None layer : 0.013172335537722539
+gradient norm in None layer : 0.3570055122065813
+gradient norm in None layer : 0.09200707618782117
+gradient norm in None layer : 0.0894195715505879
+gradient norm in None layer : 0.3478090366577821
+gradient norm in None layer : 0.12881482458986926
+Total gradient norm: 1.211210130039638
+invariance loss : 1391.9785562168458, avg_den : 0.09999999982047292, density loss : 1.7952708764035208e-10, solver time : 1.3151922225952148 sec , mse loss : 0.029219396802332803, total loss : 0.16841725242419692, running loss : 0.1771376814116048
+Epoch 0/10 , batch 4/200
+ITERATION : 1, loss : 0.056524531456729234
+Gradient of shape torch.Size([1, 1]) has norm 0.0
+Gradient of shape torch.Size([1, 1, 66, 66]) has norm 0.0
+Gradient of shape torch.Size([1, 1]) has norm 0.0
+Gradient of shape torch.Size([1, 1, 66, 66]) has norm 0.0
+Gradient of shape torch.Size([1, 1, 66, 66]) has norm 0.0
+Gradient of shape torch.Size([1, 1]) has norm 0.0
+Gradient of shape torch.Size([1, 1]) has norm 0.0
+Gradient of shape torch.Size([1, 1, 66, 66]) has norm 0.0
+gradient norm in None layer : 76391602458.2836
+gradient norm in None layer : 5444574800.916517
+gradient norm in None layer : 3576856739.7648354
+gradient norm in None layer : 74424854303.9281
+gradient norm in None layer : 2738108230.65888
+gradient norm in None layer : 1720308764.220089
+gradient norm in None layer : 46245134905.37903
+gradient norm in None layer : 1909999494.6523392
+gradient norm in None layer : 1321512804.5124009
+gradient norm in None layer : 44111440749.078224
+gradient norm in None layer : 1289764794.6666076
+gradient norm in None layer : 838643430.5213304
+gradient norm in None layer : 28050471138.166576
+gradient norm in None layer : 765053486.2666227
+gradient norm in None layer : 596154612.6449703
+gradient norm in None layer : 27189202587.45963
+gradient norm in None layer : 706940692.3270715
+gradient norm in None layer : 453941020.0767659
+gradient norm in None layer : 13258683810.683655
+gradient norm in None layer : 280747693.0960017
+gradient norm in None layer : 209692913.2948035
+gradient norm in None layer : 12630509464.303892
+gradient norm in None layer : 243998477.39659083
+gradient norm in None layer : 217274847.05613884
+gradient norm in None layer : 9906502697.603485
+gradient norm in None layer : 205987456.31561333
+gradient norm in None layer : 26291534734.548904
+gradient norm in None layer : 602672994.5939841
+gradient norm in None layer : 397687315.21271306
+gradient norm in None layer : 17460718032.333305
+gradient norm in None layer : 486518577.0935722
+gradient norm in None layer : 367365387.7028284
+gradient norm in None layer : 13618499473.20658
+gradient norm in None layer : 244132808.0579079
+gradient norm in None layer : 38232007610.339195
+gradient norm in None layer : 1014251524.6696736
+gradient norm in None layer : 686445014.3974268
+gradient norm in None layer : 26429629756.83803
+gradient norm in None layer : 1080205596.3592956
+gradient norm in None layer : 740526662.6336056
+gradient norm in None layer : 20044332807.746296
+gradient norm in None layer : 231745252.55501056
+gradient norm in None layer : 58848729041.037834
+gradient norm in None layer : 1945953324.6880598
+gradient norm in None layer : 1417502375.201341
+gradient norm in None layer : 38526909301.23896
+gradient norm in None layer : 2157990420.699498
+gradient norm in None layer : 1147831031.2682621
+gradient norm in None layer : 10567231762.70236
+gradient norm in None layer : 1118354292.5009384
+Total gradient norm: 162176635287.74026

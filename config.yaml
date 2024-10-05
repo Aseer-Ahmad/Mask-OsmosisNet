@@ -3,27 +3,27 @@ EPOCHS : 10
 RESUME_CHECKPOINT : 
 SAVE_EVERY_ITER : 200
 VAL_EVERY_ITER : 500
-BATCH_PLOT_EVERY_ITER : 30
+BATCH_PLOT_EVERY_ITER : 1
 OUTPUT_DIR : outputs
 EXP_NAME : imagenet_t7
 
 # DATA PARMS
 TRAIN_FILENAME : iids_train.txt
 TEST_FILENAME  : iids_test.txt
-ROOT_DIR       : dataset/BSDS300/images
+ROOT_DIR       : dataset/imagenet/images
 
-IMG_SIZE       : 64 
+IMG_SIZE       : 128 
 INP_CHANNELS   : 1
 OUT_CHANNELS   : 1
 
 # HYPER PARAMS
-LR             : 0.001
-WEIGHT_DECAY   : 0.01
-MOMENTUM       : 0.9
+LR             : 0.01
+WEIGHT_DECAY   : 0.0
+MOMENTUM       : 0.009
 OPT            : Adam
 SCHEDL         : exp
-TRAIN_BATCH    : 32
-TEST_BATCH     : 32
+TRAIN_BATCH    : 8
+TEST_BATCH     : 8
 ALPHA1         : 0.0001
 ALPHA2         : 0.001
 MASK_DEN       : 0.1
@@ -33,5 +33,5 @@ BIN_METH       : QUANT
 OFFSET         :
 TAU            :
 ITERATIONS     :
-NOTE           : model levels inc 2 -> 3; removed density loss ; nanmean -> mean
+NOTE           : 
                  
