@@ -111,7 +111,7 @@ class OsmosisInpainting:
 
         for i in range(kmax):
 
-            X = self.BiCGSTAB_GS(x = U, b = X, kmax = 30, eps = 1e-9, verbose=verbose)
+            X = self.BiCGSTAB_GS(x = U, b = X, kmax = 3, eps = 1e-9, verbose=verbose)
             U = X
             loss = mse( U, self.V)
             print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)
@@ -849,7 +849,7 @@ class OsmosisInpainting:
 
     def create_backward_hook(self, var_name):
         def hook(grad):
-            print(f"Gradient of {var_name}\n grad norm{grad.norm()}\n grad : {grad}")
+            print(f"Gradient of {var_name}\n grad norm : {grad.norm()}\n grad : {grad}")
         return hook
 
     def applyStencilGS(self, inp, boo, bmo, bom, bop, bpo, verbose = False):
@@ -893,11 +893,11 @@ class OsmosisInpainting:
         sigma   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True)
         alpha   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True)
         omega   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True)
-        beta    = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True)
+        beta    = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True) + 1e-7
 
         r_0     = torch.zeros_like(x, dtype = torch.float64, requires_grad = True)
         r       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True)
-        r_old   = torch.zeros_like(x, dtype = torch.float64, requires_grad = True)
+        r_old   = torch.zeros_like(x, dtype = torch.float64, requires_grad = True) + 1e-7
         p       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True)
         v       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True)
         s       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True)
@@ -1041,7 +1041,7 @@ class OsmosisInpainting:
                             , (alpha / omega) * (torch.sum(torch.mul(r, r_0), dim = (2, 3)) / torch.sum(torch.mul(r_old, r_0), dim = (2, 3)))
                             , beta)
             # print(self.analyseImage(omega[:, :, None, None], "omega"))
-            # print(self.analyseImage(beta[:, :, None, None], "beta"))
+            print(self.analyseImage(beta[:, :, None, None], "beta"))
 
             if verbose:
                 print(f"k : {k} , omega : {omega}, beta : {beta}")
