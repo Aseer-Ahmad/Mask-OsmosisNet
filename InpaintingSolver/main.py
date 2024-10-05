@@ -21,10 +21,7 @@ def readPGMImage( pth):
     pgm = cv2.imread(pth, cv2.IMREAD_GRAYSCALE) 
     pgm_T = torch.tensor(pgm, dtype = torch.float64)
     nx, ny = pgm_T.size()
-    pgm_T = pgm_T.reshape(1, 1, nx, ny)
-    # norm = transforms.Normalize(mean = [0.], std = [1.])
-    # pgm_T = norm(pgm_T)
-    pgm_T = normalize(pgm_T)
+    pgm_T = pgm_T.reshape(1, 1, nx, ny) / 255.
     return pgm_T
 
 
@@ -39,22 +36,23 @@ def normalize(X, scale = 1.):
 if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    V = readPGMImage('cameraman.pgm')
-    V = V.to(device)
-    mask = normalize(readPGMImage('cameraman-edge.pgm'))
 
-    V1 = readPGMImage("scarf.pgm")
+    V1 = readPGMImage("kaniza.pgm")
     V1 = V1.to(device)
-    mask = normalize(readPGMImage('kaniza-edge.pgm'))
+    mask = readPGMImage('kaniza-edge.pgm')
     mask = mask.to(device)
 
+    V = readPGMImage('cameraman.pgm')
+    V = V.to(device)
+    mask = readPGMImage('cameraman-edge.pgm')
+    mask = mask.to(device)
     
-    V1 = V1.repeat(16, 1, 1, 1)
-    mask = mask.repeat(16, 1, 1, 1)
+    # V1 = V1.repeat(16, 1, 1, 1)
+    # mask = mask.repeat(16, 1, 1, 1)
     # V = V.to(device)
     print(V1)
 
-    osmosis = OsmosisInpainting(None, V1, None, None, offset=1, tau=9000, device = device, apply_canny=True)
+    osmosis = OsmosisInpainting(None, V, mask, mask, offset=1, tau=9000, device = device, apply_canny=True)
     st = time.time()
     osmosis.calculateWeights(False, False, False)
     et = time.time()

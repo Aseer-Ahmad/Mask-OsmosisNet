@@ -61,20 +61,20 @@ def getMaskDataset(config):
         - train_dataset: Datasets for the training dataset.
         - test_dataset: Datasets for the testing dataset.
     """
-    train_dataset = MaskDataset(config['TRAIN_FILENAME'], 
-                             config['ROOT_DIR'], 
-                             "train", 
-                             config['IMG_SIZE'])
+    # train_dataset = MaskDataset(config['TRAIN_FILENAME'], 
+    #                          config['ROOT_DIR'], 
+    #                          "train", 
+    #                          config['IMG_SIZE'])
     
-    test_dataset = MaskDataset(config['TEST_FILENAME'], 
-                             config['ROOT_DIR'], 
-                             "test", 
-                             config['IMG_SIZE'])
+    # test_dataset = MaskDataset(config['TEST_FILENAME'], 
+    #                          config['ROOT_DIR'], 
+    #                          "test", 
+    #                          config['IMG_SIZE'])
     
-    # test_dataset  = load_dataset("aseeransari/ImageNet-Sampled", split="test")
-    # train_dataset = load_dataset("aseeransari/ImageNet-Sampled", split="train")
-    # test_dataset = test_dataset.remove_columns(['file_name'])
-    # train_dataset = train_dataset.remove_columns(['file_name'])
+    test_dataset  = load_dataset("aseeransari/ImageNet-Sampled", split="test")
+    train_dataset = load_dataset("aseeransari/ImageNet-Sampled", split="train")
+    test_dataset = test_dataset.remove_columns(['file_name'])
+    train_dataset = train_dataset.remove_columns(['file_name'])
     
     return (train_dataset, test_dataset)
     

@@ -81,11 +81,11 @@ class OsmosisInpainting:
             tt += (et-st)
             self.U = X
             
-            comm = self.analyseImage(self.U, f"evolving U at iter {i}")
-            comm += f"time for iteration : {str(et-st)} sec\n"
-            comm += f"total time         : {str(tt)} sec\n"
-            comm += self.getMetrics()
-            print(comm)
+            # comm = self.analyseImage(self.U, f"evolving U at iter {i}")
+            # comm += f"time for iteration : {str(et-st)} sec\n"
+            # comm += f"total time         : {str(tt)} sec\n"
+            # comm += self.getMetrics()
+            # print(comm)
 
             if (i+1) % self.save_every == 0:
                 self.U = self.U - self.offset
@@ -104,29 +104,32 @@ class OsmosisInpainting:
         
         mse = MSELoss()
 
-        # print(self.analyseImage(X, f"inital input"))
-        # print(self.analyseImage(self.mask1, f"input mask"))
+        print(self.analyseImage(X, f"inital input"))
+        print(self.analyseImage(self.mask1, f"input mask"))
 
         st = time.time()
 
         for i in range(kmax):
 
-            X = self.BiCGSTAB_GS(x = U, b = X, kmax = 3000, eps = 1e-11, verbose=verbose)
+            X = self.BiCGSTAB_GS(x = U, b = X, kmax = 30, eps = 1e-9, verbose=verbose)
             U = X
-            loss = mse( self.normalize(U), self.normalize(self.V))
-            print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)        
+            loss = mse( U, self.V)
+            print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)
+
         print()
         
         et = time.time()
         tt += (et-st)
 
+        print(self.analyseImage(X, f"final output"))
+
         self.U = X
 
-        comm = self.analyseImage(X, f"solution")
-        comm += f"time for iteration : {str(et-st)} sec\n"
-        comm += f"total time         : {str(tt)} sec\n"
-        comm += self.getMetrics()
-        print(comm)
+        # comm = self.analyseImage(X, f"solution")
+        # comm += f"time for iteration : {str(et-st)} sec\n"
+        # comm += f"total time         : {str(tt)} sec\n"
+        # comm += self.getMetrics()
+        # print(comm)
 
         if save_batch[0]:
             fname = save_batch[1]
@@ -140,11 +143,11 @@ class OsmosisInpainting:
             self.writePGMImage(out.cpu().detach().numpy().T, fname)
 
         # normalize solution and guidance
-        U = self.normalize(self.U)
-        V = self.normalize(self.V)
+        # U = self.normalize(self.U)
+        # V = self.normalize(self.V)
         
         # calculate loss self.U and self.V
-        loss = mse(U, V)
+        loss = mse(self.U, self.V)
 
         return loss, tt
 
@@ -217,7 +220,7 @@ class OsmosisInpainting:
     def calculateWeights(self, d_verbose = False, m_verbose = False, s_verbose = False):
         self.prepareInp()
 
-        # print(self.analyseImage(self.V, "guidance image"))
+        print(self.analyseImage(self.V, "guidance image"))
 
         self.getDriftVectors(d_verbose)
         if d_verbose:
@@ -340,7 +343,7 @@ class OsmosisInpainting:
 
     def createMaskfromCanny(self):
         output_batch = []
-        images = self.V.detach().cpu().numpy()
+        images = self.normalize(self.V, 255.).detach().cpu().numpy()
 
         for image in images:
             image = image.squeeze(0) # assuming grey scale image
@@ -377,8 +380,8 @@ class OsmosisInpainting:
         # compute d1 = [-1/hx 1/hx] ∗ V / [.5 .5] ∗ v 
         # compute d2 = [-1/hy 1/hy].T ∗ V / [.5 .5].T ∗ v 
         """
-        self.d1  = torch.zeros_like(self.V, dtype = torch.float64, device = self.device)
-        self.d2  = torch.zeros_like(self.V, dtype = torch.float64, device = self.device)
+        self.d1  = torch.zeros_like(self.V, dtype = torch.float64, device = self.device, requires_grad = True)
+        self.d2  = torch.zeros_like(self.V, dtype = torch.float64, device = self.device, requires_grad = True)
                 
         # row-direction filters  
         f1 = torch.tensor([[[[-1/self.hx], [1/self.hx]]]], dtype = torch.float64, device = self.device)
@@ -408,13 +411,14 @@ class OsmosisInpainting:
             print(self.analyseImage(self.d1, "d1"))
             print(self.analyseImage(self.d2, "d2"))
             
+    
     def getStencilMatrices(self, verbose = False):
 
-        self.boo  = torch.zeros_like(self.V, dtype = torch.float64, device = self.device)# C++ weickert init. has ones
-        self.bop  = torch.zeros_like(self.V, dtype = torch.float64, device = self.device)# neighbour entries for [i+1,j]
-        self.bpo  = torch.zeros_like(self.V, dtype = torch.float64, device = self.device)# neighbour entries for [i,j+1]
-        self.bmo  = torch.zeros_like(self.V, dtype = torch.float64, device = self.device)# neighbour entries for [i-1,j]
-        self.bom  = torch.zeros_like(self.V, dtype = torch.float64, device = self.device)# neighbour entries for [i,j-1]
+        self.boo  = torch.zeros_like(self.V, dtype = torch.float64, device = self.device, requires_grad = True)# C++ weickert init. has ones
+        self.bop  = torch.zeros_like(self.V, dtype = torch.float64, device = self.device, requires_grad = True)# neighbour entries for [i+1,j]
+        self.bpo  = torch.zeros_like(self.V, dtype = torch.float64, device = self.device, requires_grad = True)# neighbour entries for [i,j+1]
+        self.bmo  = torch.zeros_like(self.V, dtype = torch.float64, device = self.device, requires_grad = True)# neighbour entries for [i-1,j]
+        self.bom  = torch.zeros_like(self.V, dtype = torch.float64, device = self.device, requires_grad = True)# neighbour entries for [i,j-1]
 
         #time savers
         rx  = self.tau / (2 * self.hx)
@@ -841,8 +845,12 @@ class OsmosisInpainting:
 
 
     def backward_hook(self, grad):
-        print(f"Gradient of shape {grad.shape} has norm {grad.norm()}")
+        print(f"gradient of shape {grad.shape} has norm {grad}")
 
+    def create_backward_hook(self, var_name):
+        def hook(grad):
+            print(f"Gradient of {var_name}\n grad norm{grad.norm()}\n grad : {grad}")
+        return hook
 
     def applyStencilGS(self, inp, boo, bmo, bom, bop, bpo, verbose = False):
         """
@@ -879,21 +887,21 @@ class OsmosisInpainting:
         
         restart = torch.ones( (self.batch, self.channel), dtype=torch.bool, device = self.device)
         k       = torch.zeros((self.batch, self.channel), dtype=torch.long, device = self.device)
-        r_abs   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device)
-        v_abs   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device)
-        r0_abs  = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device)
-        sigma   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device)
-        alpha   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device)
-        omega   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device)
-        beta    = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device)
+        r_abs   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True)
+        v_abs   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True)
+        r0_abs  = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True)
+        sigma   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True)
+        alpha   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True)
+        omega   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True)
+        beta    = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True)
 
-        r_0     = torch.zeros_like(x, dtype = torch.float64)
-        r       = torch.zeros_like(x, dtype = torch.float64)
-        r_old   = torch.zeros_like(x, dtype = torch.float64)
-        p       = torch.zeros_like(x, dtype = torch.float64)
-        v       = torch.zeros_like(x, dtype = torch.float64)
-        s       = torch.zeros_like(x, dtype = torch.float64)
-        t       = torch.zeros_like(x, dtype = torch.float64)
+        r_0     = torch.zeros_like(x, dtype = torch.float64, requires_grad = True)
+        r       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True)
+        r_old   = torch.zeros_like(x, dtype = torch.float64, requires_grad = True)
+        p       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True)
+        v       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True)
+        s       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True)
+        t       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True)
 
         # variables to check info. to skip solving systems 
         r_abs_init = torch.zeros( (self.batch, self.channel), dtype = torch.float64, device = self.device)
@@ -902,20 +910,29 @@ class OsmosisInpainting:
         stagnant_count = torch.zeros( (self.batch, self.channel), dtype = torch.float64, device = self.device)
 
         # register backward hook
-        # v_abs.register_hook(self.backward_hook)
-        # r0_abs.register_hook(self.backward_hook)
-        # sigma.register_hook(self.backward_hook)
-        # alpha.register_hook(self.backward_hook)
-        # omega.register_hook(self.backward_hook)
-        # beta.register_hook(self.backward_hook)
+        v_abs.register_hook(self.create_backward_hook("v_abs"))
+        r0_abs.register_hook(self.create_backward_hook("r0_abs"))
+        sigma.register_hook(self.create_backward_hook("sigma"))
+        alpha.register_hook(self.create_backward_hook("alpha"))
+        omega.register_hook(self.create_backward_hook("omega"))
+        beta.register_hook(self.create_backward_hook("beta"))
 
-        # r_0.register_hook(self.backward_hook)
-        # r.register_hook(self.backward_hook)
-        # r_old.register_hook(self.backward_hook)
-        # p.register_hook(self.backward_hook)
-        # v.register_hook(self.backward_hook)
-        # s.register_hook(self.backward_hook)
-        # t.register_hook(self.backward_hook)
+        r_0.register_hook(self.create_backward_hook("r_0"))
+        r.register_hook(self.create_backward_hook("r"))
+        r_old.register_hook(self.create_backward_hook("r_old"))
+        p.register_hook(self.create_backward_hook("p"))
+        v.register_hook(self.create_backward_hook("v"))
+        s.register_hook(self.create_backward_hook("s"))
+        t.register_hook(self.create_backward_hook("t"))
+
+        self.boo.register_hook(self.create_backward_hook("boo"))
+        self.bpo.register_hook(self.create_backward_hook("bpo"))
+        self.bop.register_hook(self.create_backward_hook("bop"))
+        self.bom.register_hook(self.create_backward_hook("bom"))
+        self.bmo.register_hook(self.create_backward_hook("bmo"))
+        self.d1.register_hook(self.create_backward_hook("d1"))
+        self.d2.register_hook(self.create_backward_hook("d2"))
+        
 
         r_0 = self.applyStencilGS(x, self.boo, self.bmo, self.bom, self.bop, self.bpo) 
         p   = self.zeroPadGS(b - r_0)

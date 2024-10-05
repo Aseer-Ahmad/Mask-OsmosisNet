@@ -180,7 +180,7 @@ class ModelTrainer():
         transform = transforms.Compose([
                     transforms.Resize((img_size, img_size), antialias = True),
                     transforms.Grayscale(),
-                    transforms.ToTensor()
+                    transforms.ToTensor()   
                 ])
 
         transform_norm = transforms.Compose([
@@ -205,16 +205,16 @@ class ModelTrainer():
                 images.append(transform(item['image']))
                 images_scale.append(transform_scale(item['image']))
 
-            images      = torch.stack(images)
+            images       = torch.stack(images)
             images_scale = torch.stack(images_scale)
             
             return images, images_scale
 
-        # train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size, collate_fn=custom_collate_fn)
-        # test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size, collate_fn=custom_collate_fn)
+        train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size, collate_fn=custom_collate_fn)
+        test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size, collate_fn=custom_collate_fn)
 
-        train_dataloader = DataLoader(train_dataset, shuffle = False, batch_size=self.train_batch_size)
-        test_dataloader  = DataLoader(test_dataset, shuffle = False, batch_size=self.test_batch_size)
+        # train_dataloader = DataLoader(train_dataset, shuffle = False, batch_size=self.train_batch_size)
+        # test_dataloader  = DataLoader(test_dataset, shuffle = False, batch_size=self.test_batch_size)
 
         print(f"train and test dataloaders created")
         print(f"total train batches  : {len(train_dataloader)}")
@@ -368,7 +368,7 @@ class ModelTrainer():
                 total_loss = loss3 + loss2 * alpha2 + loss1 * alpha1 
                 total_loss.backward()
 
-                nn.utils.clip_grad_norm_(model.parameters(), 10.0)
+                # nn.utils.clip_grad_norm_(model.parameters(), 10.0)
                 
                 total_norm = self.check_gradients(model)
 
