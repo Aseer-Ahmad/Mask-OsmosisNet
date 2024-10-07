@@ -180,7 +180,7 @@ class ModelTrainer():
         transform = transforms.Compose([
                     transforms.Resize((img_size, img_size), antialias = True),
                     transforms.Grayscale(),
-                    transforms.ToTensor()   
+                    transforms.ToTensor(),   
                 ])
 
         transform_norm = transforms.Compose([
@@ -210,11 +210,11 @@ class ModelTrainer():
             
             return images, images_scale
 
-        train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size, collate_fn=custom_collate_fn)
-        test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size, collate_fn=custom_collate_fn)
+        # train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size, collate_fn=custom_collate_fn)
+        # test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size, collate_fn=custom_collate_fn)
 
-        # train_dataloader = DataLoader(train_dataset, shuffle = False, batch_size=self.train_batch_size)
-        # test_dataloader  = DataLoader(test_dataset, shuffle = False, batch_size=self.test_batch_size)
+        train_dataloader = DataLoader(train_dataset, shuffle = False, batch_size=self.train_batch_size)
+        test_dataloader  = DataLoader(test_dataset, shuffle = False, batch_size=self.test_batch_size)
 
         print(f"train and test dataloaders created")
         print(f"total train batches  : {len(train_dataloader)}")
@@ -250,7 +250,7 @@ class ModelTrainer():
                 # mask_bin = self.hardRoundBinarize(mask) # binarized {0,1}
                 loss2 = denLoss(mask)
 
-                osmosis = OsmosisInpainting(None, X, mask, mask, offset=1, tau=7000, device = self.device, apply_canny=False)
+                osmosis = OsmosisInpainting(None, X, mask, mask, offset=0, tau=7000, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(False, False, False)
                 loss3, tts = osmosis.solveBatchParallel(1, save_batch = [False], verbose = False)
 
@@ -271,9 +271,10 @@ class ModelTrainer():
         for p in model.parameters():
             if p.grad is not None:
                 param_norm = p.grad.detach().data.norm(2).item()  # L2 norm of gradients
+                print(f"gradient norm in {p.name} layer : {param_norm}")
             else : 
                 param_norm = 0.
-            print(f"gradient norm in {p.name} layer : {param_norm}")
+                print(f"gradient norm in {p.name} layer : zero")
             total_norm += param_norm ** 2
         total_norm = total_norm ** 0.5
         print(f"Total gradient norm: {total_norm}")
@@ -333,6 +334,7 @@ class ModelTrainer():
         invLoss = InvarianceLoss()
         denLoss  = DensityLoss(density = mask_density)
 
+        torch.autograd.set_detect_anomaly(True)
         print("\nbeginning training ...")
 
         st_tt = time.time()
@@ -348,13 +350,12 @@ class ModelTrainer():
                 print(f'Epoch {epoch}/{epochs} , batch {i}/{len(train_dataloader)} ')
 
                 X = X.to(self.device, dtype=torch.float64)
-
                 mask  = model(X) # non-binary [0,1]
                 loss1 = invLoss(mask)
                 loss2 = denLoss(mask)
 
-                osmosis = OsmosisInpainting(None, X, mask, mask, offset=0, tau=7000, device = self.device, apply_canny=False)
-                osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)
+                osmosis = OsmosisInpainting(None, X, mask, mask, offset=10, tau=7000, device = self.device, apply_canny=False)
+                osmosis.calculateWeights(d_verbose=False, m_verbose=True, s_verbose=True)
                 
                 if (i) % batch_plot_every == 0: 
                     save_batch = [True, os.path.join(self.output_dir, "imgs", f"batch_epoch_{str(epoch)}_iter_{str(i)}.png")]
@@ -362,13 +363,8 @@ class ModelTrainer():
                     save_batch = [False]
                 loss3, tts = osmosis.solveBatchParallel(1, save_batch = save_batch, verbose = False)
 
-                # if torch.isnan(loss3):
-                #     print(f"input X : {X}")
-
                 total_loss = loss3 + loss2 * alpha2 + loss1 * alpha1 
                 total_loss.backward()
-
-                # nn.utils.clip_grad_norm_(model.parameters(), 10.0)
                 
                 total_norm = self.check_gradients(model)
 

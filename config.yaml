@@ -17,8 +17,8 @@ INP_CHANNELS   : 1
 OUT_CHANNELS   : 1
 
 # HYPER PARAMS
-LR             : 0.00001
-WEIGHT_DECAY   : 0.
+LR             : 0.001
+WEIGHT_DECAY   : 0
 MOMENTUM       : 0.009
 OPT            : Adam
 SCHEDL         : exp

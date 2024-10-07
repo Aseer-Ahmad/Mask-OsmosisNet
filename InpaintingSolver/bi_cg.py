@@ -111,7 +111,7 @@ class OsmosisInpainting:
 
         for i in range(kmax):
 
-            X = self.BiCGSTAB_GS(x = U, b = X, kmax = 3, eps = 1e-9, verbose=verbose)
+            X = self.BiCGSTAB_GS(x = U, b = X, kmax = 3000, eps = 1e-6, verbose=verbose)
             U = X
             loss = mse( U, self.V)
             print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)
@@ -146,7 +146,7 @@ class OsmosisInpainting:
         # U = self.normalize(self.U)
         # V = self.normalize(self.V)
         
-        # calculate loss self.U and self.V
+        # mse loss 
         loss = mse(self.U, self.V)
 
         return loss, tt
@@ -306,10 +306,15 @@ class OsmosisInpainting:
         
         print(f"analyzing {name}")
         
-        comm += f"min  : {str(torch.min(x).item())}\n"
-        comm += f"max  : {str(torch.max(x).item())}\n"
-        comm += f"mean : {str(torch.mean(x).item())}\n"
-        comm += f"std  : {str(torch.std(x).item())}\n"
+        comm += f"min  : {torch.min(x)}\n"
+        comm += f"max  : {torch.max(x)}\n"
+        comm += f"mean : {torch.mean(x)}\n"
+        comm += f"std  : {torch.std(x)}\n"
+
+        # comm += f"min  : {torch.amin(x, dim = (2, 3)) }\n"
+        # comm += f"max  : {torch.amax(x, dim = (2, 3))}\n"
+        # comm += f"mean : {torch.mean(x, dim = (2, 3))}\n"
+        # comm += f"std  : {torch.std(x, dim = (2, 3))}\n"
 
         return comm
         
@@ -369,10 +374,10 @@ class OsmosisInpainting:
         self.d2 = torch.mul(self.d2, self.mask2)
 
         if verbose:
-            self.analyseImage(self.mask1, "mask1")
-            self.analyseImage(self.mask2, "mask2")
-            self.analyseImage(self.d1, "d1")
-            self.analyseImage(self.d2, "d2")
+            print(self.analyseImage(self.mask1, "mask1"))
+            print(self.analyseImage(self.mask2, "mask2"))
+            print(self.analyseImage(self.d1, "d1"))
+            print(self.analyseImage(self.d2, "d2"))
 
     def getDriftVectors(self, verbose = False):
         """
@@ -404,10 +409,6 @@ class OsmosisInpainting:
         self.d2[:, :, 1:self.nx+1, :self.ny+1] = d2[:, :, 1:self.nx+1, :] # convolved and reduced in col dir , hence one less
 
         if verbose:
-            print(f"V shape : {self.V.size()}")
-            print(f"V_padded : \n{self.V[0][0]}\n")
-            print(f"d1 : {self.d1[0][0]}")
-            print(f"d2 : {self.d2[0][0]}")
             print(self.analyseImage(self.d1, "d1"))
             print(self.analyseImage(self.d2, "d2"))
             
@@ -863,14 +864,14 @@ class OsmosisInpainting:
         # print(inp.shape, boo.shape, bmo.shape, bom.shape, bop.shape, bpo.shape)
 
         # from top to bottom -> center, left, down, up, right
-        l   = boo * inp[:, :, 1:self.nx+1, 1:self.ny+1] \
+        res   = boo * inp[:, :, 1:self.nx+1, 1:self.ny+1] \
             + bmo * inp[:, :, :self.nx, 1:self.ny+1] \
             + bom * inp[:, :, 1:self.nx+1, :self.ny] \
             + bop * inp[:, :, 1:self.nx+1, 2:self.ny+2] \
             + bpo * inp[:, :, 2:self.nx+2, 1:self.ny+1]
                 
         temp = temp.clone()
-        temp[:, :, 1:self.nx+1, 1:self.ny+1 ] = l
+        temp[:, :, 1:self.nx+1, 1:self.ny+1 ] = res
 
         if verbose :
             self.analyseImage(temp, "X")
@@ -890,18 +891,18 @@ class OsmosisInpainting:
         r_abs   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True)
         v_abs   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True)
         r0_abs  = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True)
-        sigma   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True)
-        alpha   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True)
-        omega   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True)
-        beta    = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True) + 1e-7
+        sigma   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True) 
+        alpha   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True) 
+        omega   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True) 
+        beta    = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True) 
 
         r_0     = torch.zeros_like(x, dtype = torch.float64, requires_grad = True)
-        r       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True)
-        r_old   = torch.zeros_like(x, dtype = torch.float64, requires_grad = True) + 1e-7
-        p       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True)
-        v       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True)
-        s       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True)
-        t       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True)
+        r       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True) 
+        r_old   = torch.zeros_like(x, dtype = torch.float64, requires_grad = True) 
+        p       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True) 
+        v       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True) 
+        s       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True) 
+        t       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True) 
 
         # variables to check info. to skip solving systems 
         r_abs_init = torch.zeros( (self.batch, self.channel), dtype = torch.float64, device = self.device)
@@ -936,7 +937,7 @@ class OsmosisInpainting:
 
         r_0 = self.applyStencilGS(x, self.boo, self.bmo, self.bom, self.bop, self.bpo) 
         p   = self.zeroPadGS(b - r_0)
-        # print(self.analyseImage(p, "p"))
+        # print(self.analyseImage(p, "init p"))
         r_0 = r = p
         r0_abs = torch.norm(r_0, dim = (2, 3), p = "fro")
         r_abs  = r0_abs
@@ -983,7 +984,7 @@ class OsmosisInpainting:
             k = torch.where(RES1_COND, k+1, k)
 
             # print(self.analyseImage(r_abs[:, :, None, None], "r_abs"))
-            # print(self.analyseImage(p, "p"))
+            # print(self.analyseImage(p, "1st p"))
 
             if verbose:
                 print(f"r_abs when restarted: {r_abs}")
@@ -1041,13 +1042,13 @@ class OsmosisInpainting:
                             , (alpha / omega) * (torch.sum(torch.mul(r, r_0), dim = (2, 3)) / torch.sum(torch.mul(r_old, r_0), dim = (2, 3)))
                             , beta)
             # print(self.analyseImage(omega[:, :, None, None], "omega"))
-            print(self.analyseImage(beta[:, :, None, None], "beta"))
+            # print(self.analyseImage(beta[:, :, None, None], "beta"))
 
             if verbose:
                 print(f"k : {k} , omega : {omega}, beta : {beta}")
 
             p = torch.where(CONV4_COND_EXP, r + beta[:, :, None, None] * ( p - omega[:, :, None, None] * v), p)
-            # print(self.analyseImage(p, "p"))
+            # print(self.analyseImage(p, "2nd p"))
 
             # =======================================
             # NOT REQUIRING RESTART SYSTEMS ; UPDATE
