@@ -41,7 +41,7 @@ class MaskDataset(Dataset):
                     transforms.ToTensor(),
                     transforms.Grayscale(),
                     transforms.Resize((self.img_size, self.img_size), antialias = True),
-                    transforms.Normalize(mean = [0.], std = [1.])
+                    # transforms.Normalize(mean = [0.], std = [1.])
                     ])
         
         tensor_transformed = transform(image)
