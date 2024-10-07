@@ -30,12 +30,12 @@ class MaskDataset(Dataset):
         return len(self.data_list)
 
     def __getitem__(self, idx):
-
-        img_pth = os.path.join(self.root_dir, self.split_type,
-                                str(self.data_list[idx]))
+        
+        img_name = str(self.data_list[idx])
+        img_pth = os.path.join(self.root_dir, self.split_type,img_name)
 
         image = cv2.imread(img_pth) 
-        
+
         # resizing ; Tobias paper cropped images
         transform = transforms.Compose([
                     transforms.ToTensor(),
@@ -50,5 +50,5 @@ class MaskDataset(Dataset):
         # tensor_transformed = transforms.Normalize(mean = [0.44531356896770125], std = [0.2692461874154524])(tensor)
         # tensor_transformed = transforms.Normalize(mean = [0.], std = [1.])(tensor)     
         
-        return (tensor_transformed, tensor)
+        return (tensor_transformed, tensor, img_name)
     

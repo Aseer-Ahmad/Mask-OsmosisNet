@@ -5,11 +5,12 @@ import torch
 import torch.nn as nn
 
 class UNet(nn.Module):
-    def __init__(self, in_channels, out_channels, bilinear=False):
+    def __init__(self, in_channels, out_channels, tar_den = 0.1, bilinear=False):
         super(UNet, self).__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.bilinear = bilinear
+        self.tar_den = tar_den
 
         self.inc = (DoubleConv(in_channels, 32))
         self.down1 = (Down(32, 64))
@@ -22,7 +23,6 @@ class UNet(nn.Module):
         self.up3 = (Up(128, 64 // factor, bilinear))
         self.up4 = (Up(64, 32, bilinear))
         self.outc = (OutConv(32, out_channels))
-
 
         # self.inc = (DoubleConv(in_channels, 64))
         # self.down1 = (Down(64, 128))
@@ -54,9 +54,9 @@ class UNet(nn.Module):
     def scaleDensity(self, inp):
         b, c, h, w = inp.shape
         hw = h*w
-        tar_den = 0.1
+        tar_den = self.tar_den
         curr_den = torch.norm(inp, p = 1, dim = (2, 3)).view(b, c, 1, 1) / (hw)
-        return torch.where(curr_den > tar_den, inp / (curr_den + 1e-9) * tar_den, inp)
+        return torch.where(curr_den > tar_den, inp / (curr_den) * tar_den, inp)
 
     def use_checkpointing(self):
         self.inc = torch.utils.checkpoint(self.inc)

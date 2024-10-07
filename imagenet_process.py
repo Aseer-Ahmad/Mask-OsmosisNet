@@ -8,6 +8,7 @@ import sys
 train_pth = os.path.join("dataset", "imagenet", "images", "train")
 test_pth  = os.path.join("dataset", "imagenet", "images", "test")
 
+# make directories
 if not os.path.isdir(train_pth):
     os.makedirs(train_pth)
     os.makedirs(test_pth)
@@ -23,7 +24,7 @@ shutil.move(old_test_pth, test_pth)
 
 
 # imagenet
-data_pth = "dataset\imagenet\images"
+data_pth = "dataset/BSDS300/images"
 
 train_pth = os.path.join(data_pth, "train")
 test_pth = os.path.join(data_pth, "test")

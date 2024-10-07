@@ -102,12 +102,12 @@ def main(config):
     print(f"test  size  : {test_dataset.__len__()}")
     
     # get model based on inp and out channels
-    model = UNet(config['INP_CHANNELS'], config['OUT_CHANNELS'])
+    model = UNet(config['INP_CHANNELS'], config['OUT_CHANNELS'], tar_den = config['MASK_DEN'])
     print(f"model loaded")
     
     #print model summary
     print(f"model summary")
-    model_sum = summary(model, input_size=(config['INP_CHANNELS'], config['IMG_SIZE'], config['IMG_SIZE']), verbose =0)
+    model_sum = summary(model, input_size=(config['INP_CHANNELS'], config['IMG_SIZE'], config['IMG_SIZE']))
     model_sum = str(model_sum).encode('ascii', errors='replace')
     print(model_sum.decode())
 

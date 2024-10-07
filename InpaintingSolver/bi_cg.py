@@ -111,7 +111,7 @@ class OsmosisInpainting:
 
         for i in range(kmax):
 
-            X = self.BiCGSTAB_GS(x = U, b = X, kmax = 3000, eps = 1e-6, verbose=verbose)
+            X = self.BiCGSTAB_GS(x = U, b = X, kmax = 300, eps = 1e-9, verbose=verbose)
             U = X
             loss = mse( U, self.V)
             print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)
@@ -439,38 +439,24 @@ class OsmosisInpainting:
                 - ry * F.conv2d(self.d2, f2, padding='same')
         
         # cloning stencils to avoid incorrect gradients due to in-place indexing
-        self.boo = self.boo.clone()
-        self.boo[:, :, 1:self.nx+1, 1:self.ny+1] = boo[:, :, 1:self.nx+1, 1:self.ny+1]
-
+        self.boo = boo[:, :, 1:self.nx+1, 1:self.ny+1]
 
         # indexing to avoid boundaries being affected
-        self.bpo = self.bpo.clone()
-        self.bpo[:, :, 1:self.nx+1, 1:self.ny+1] = -rxx + rx * self.d1[:, :, 1:self.nx+1, 1:self.ny+1]
-        self.bop = self.bop.clone()
-        self.bop[:, :, 1:self.nx+1, 1:self.ny+1] = -ryy + ry * self.d2[:, :, 1:self.nx+1, 1:self.ny+1]
-
-        self.bmo = self.bmo.clone()
-        self.bmo[:, :, 1:self.nx+1, 1:self.ny+1] = -rxx - rx * self.d1[:, :, :self.nx, 1:self.ny+1]
-        self.bom = self.bom.clone()
-        self.bom[:, :, 1:self.nx+1, 1:self.ny+1] = -ryy - ry * self.d2[:, :, 1:self.nx+1, :self.ny]
+        self.bpo = -rxx + rx * self.d1[:, :, 1:self.nx+1, 1:self.ny+1]
+        self.bop = -ryy + ry * self.d2[:, :, 1:self.nx+1, 1:self.ny+1]
+        self.bmo = -rxx - rx * self.d1[:, :,  :self.nx,   1:self.ny+1]
+        self.bom = -ryy - ry * self.d2[:, :, 1:self.nx+1,  :self.ny  ]
  
-        # slice indexing here to avoid repetitive indexing in BiCG solver
-        self.boo = self.boo[ :, :, 1:self.nx+1, 1:self.ny+1]
-        self.bpo = self.bpo[ :, :, 1:self.nx+1, 1:self.ny+1]
-        self.bop = self.bop[ :, :, 1:self.nx+1, 1:self.ny+1]
-        self.bmo = self.bmo[ :, :, 1:self.nx+1, 1:self.ny+1]
-        self.bom = self.bom[ :, :, 1:self.nx+1, 1:self.ny+1]
-
         if verbose :
-            # print(self.boo)
+            print(self.boo.shape)
             print(self.analyseImage(self.boo, "boo"))
-            # print(self.bpo)
+            print(self.bpo.shape)
             print(self.analyseImage(self.bpo, "bpo"))
-            # print(self.bop)
+            print(self.bop.shape)
             print(self.analyseImage(self.bop, "bop"))
-            # print(self.bmo)
+            print(self.bmo.shape)
             print(self.analyseImage(self.bmo, "bmo"))
-            # print(self.bom)
+            print(self.bom.shape)
             print(self.analyseImage(self.bom, "bom"))
 
     def applyStencil(self, inp, batch, verbose = False):
@@ -845,12 +831,10 @@ class OsmosisInpainting:
         return x
 
 
-    def backward_hook(self, grad):
-        print(f"gradient of shape {grad.shape} has norm {grad}")
 
     def create_backward_hook(self, var_name):
         def hook(grad):
-            print(f"Gradient of {var_name}\n grad norm : {grad.norm()}\n grad : {grad}")
+            print(f"Gradient of {var_name}\n grad norm : {grad.norm()}\n grad stats:\n {self.analyseImage(grad, var_name)}")
         return hook
 
     def applyStencilGS(self, inp, boo, bmo, bom, bop, bpo, verbose = False):
@@ -864,11 +848,11 @@ class OsmosisInpainting:
         # print(inp.shape, boo.shape, bmo.shape, bom.shape, bop.shape, bpo.shape)
 
         # from top to bottom -> center, left, down, up, right
-        res   = boo * inp[:, :, 1:self.nx+1, 1:self.ny+1] \
-            + bmo * inp[:, :, :self.nx, 1:self.ny+1] \
-            + bom * inp[:, :, 1:self.nx+1, :self.ny] \
-            + bop * inp[:, :, 1:self.nx+1, 2:self.ny+2] \
-            + bpo * inp[:, :, 2:self.nx+2, 1:self.ny+1]
+        res     = boo * inp[:, :, 1:self.nx+1, 1:self.ny+1] \
+                + bmo * inp[:, :,  :self.nx,   1:self.ny+1] \
+                + bom * inp[:, :, 1:self.nx+1,  :self.ny  ] \
+                + bop * inp[:, :, 1:self.nx+1, 2:self.ny+2] \
+                + bpo * inp[:, :, 2:self.nx+2, 1:self.ny+1]
                 
         temp = temp.clone()
         temp[:, :, 1:self.nx+1, 1:self.ny+1 ] = res
@@ -1057,7 +1041,7 @@ class OsmosisInpainting:
             k  = torch.where(NOT_RES_COND, k+1, k) 
             r_abs = torch.where(NOT_RES_COND, torch.norm(r, dim = (2, 3), p = 'fro'), r_abs)
 
-            if verbose:
-                print(f"k : {k}, RESIDUAL : {r_abs}")
+            # if verbose:
+            print(f"k : {k}, RESIDUAL : {r_abs}")
 
         return x

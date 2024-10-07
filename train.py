@@ -21,7 +21,17 @@ from torch.optim import Optimizer
 
 from InpaintingSolver.bi_cg import OsmosisInpainting
 
+SEED = 1
 torch.backends.cuda.matmul.allow_tf32 = True
+torch.manual_seed(SEED)
+
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    numpy.random.seed(worker_seed)
+    random.seed(worker_seed)
+
+g = torch.Generator()
+g.manual_seed(SEED)
 
 class InvarianceLoss(nn.Module):
     """
@@ -213,8 +223,8 @@ class ModelTrainer():
         # train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size, collate_fn=custom_collate_fn)
         # test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size, collate_fn=custom_collate_fn)
 
-        train_dataloader = DataLoader(train_dataset, shuffle = False, batch_size=self.train_batch_size)
-        test_dataloader  = DataLoader(test_dataset, shuffle = False, batch_size=self.test_batch_size)
+        train_dataloader = DataLoader(train_dataset, shuffle = False, batch_size=self.train_batch_size, worker_init_fn=seed_worker,generator=g)
+        test_dataloader  = DataLoader(test_dataset, shuffle = False, batch_size=self.test_batch_size, worker_init_fn=seed_worker,generator=g)
 
         print(f"train and test dataloaders created")
         print(f"total train batches  : {len(train_dataloader)}")
@@ -345,16 +355,17 @@ class ModelTrainer():
             model.train()
             st = time.time()
             
-            for i, (X, X_scale) in enumerate(train_dataloader, start = 1): 
+            for i, (X, X_scale, name) in enumerate(train_dataloader, start = 1): 
                 
                 print(f'Epoch {epoch}/{epochs} , batch {i}/{len(train_dataloader)} ')
 
+                print(name)
                 X = X.to(self.device, dtype=torch.float64)
                 mask  = model(X) # non-binary [0,1]
                 loss1 = invLoss(mask)
                 loss2 = denLoss(mask)
 
-                osmosis = OsmosisInpainting(None, X, mask, mask, offset=10, tau=7000, device = self.device, apply_canny=False)
+                osmosis = OsmosisInpainting(None, X, mask, mask, offset=1e-5, tau=7000, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(d_verbose=False, m_verbose=True, s_verbose=True)
                 
                 if (i) % batch_plot_every == 0: 
