@@ -21,6 +21,8 @@ from torch.optim import Optimizer
 from InpaintingSolver.bi_cg_nn import BiCG_Net
 from InpaintingSolver.bi_cg import OsmosisInpainting
 
+from utils import get_df
+
 SEED = 1
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.manual_seed(SEED)
@@ -325,6 +327,7 @@ class ModelTrainer():
         loss1_list, loss2_list, loss3_list, gradnorm_list, running_loss_list = [], [], [], [], []
         avg_den_list, epochloss_list = [], []
         val_list = []
+        df_stencils = get_df()
 
         train_dataloader, test_dataloader = self.getDataloaders(train_dataset, test_dataset, img_size)
 
@@ -376,7 +379,7 @@ class ModelTrainer():
                 
                 print(f'Epoch {epoch}/{epochs} , batch {i}/{len(train_dataloader)} ')
                 print(name)
-                
+
                 # data prep
                 X = X.to(self.device, dtype=torch.float64)
 
@@ -395,7 +398,8 @@ class ModelTrainer():
                     save_batch = [True, os.path.join(self.output_dir, "imgs", f"batch_epoch_{str(epoch)}_iter_{str(i)}.png")]
                 else:
                     save_batch = [False]
-                loss3, tts = osmosis.solveBatchParallel(1, save_batch = save_batch, verbose = False)
+                df_stencils["iter"].append(i)
+                loss3, tts, df_stencils = osmosis.solveBatchParallel(df_stencils, 1, save_batch = save_batch, verbose = False)
                 
                 # tts = 0
                 # X_rec = bicg_model(X, mask, mask)
@@ -404,7 +408,11 @@ class ModelTrainer():
                 total_loss = loss3 + loss2 * alpha2 + loss1 * alpha1 
                 total_loss.backward()
                 total_norm = self.check_gradients(model)
-                
+                df_stencils["grad_norm"].append(total_norm)
+
+                df = pd.DataFrame(df_stencils)
+                df.to_csv( os.path.join(self.output_dir, "stencils.csv"), sep=',', encoding='utf-8', index=False, header=True)
+
 
                 optimizer.step()
                 scheduler.step()

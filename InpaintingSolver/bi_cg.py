@@ -100,17 +100,48 @@ class OsmosisInpainting:
                 # self.writeToPGM(fname = fname, t = self.U[0][0].T, comments= comm)
                 self.U = self.U + self.offset
 
-    def solveBatchParallel(self, kmax = 100, save_batch = False, verbose = False):
+    def solveBatchParallel(self, df_stencils, kmax = 100, save_batch = False, verbose = False):
 
         # init = self.U
+        self.df_stencils = df_stencils
         X = self.U
         U = self.U
         tt = 0
         
+        # write forward drift stencil stats to df
+        comm, min_, max_, mean_, std_ = self.analyseImage(self.d1, f"d1")
+        df_stencils["d1_forward_max"].append(max_)
+        df_stencils["d1_forward_min"].append(min_)
+        df_stencils["d1_forward_mean"].append(mean_)
+        comm, min_, max_, mean_, std_ = self.analyseImage(self.d2, f"d1")
+        df_stencils["d2_forward_max"].append(max_)
+        df_stencils["d2_forward_min"].append(min_)
+        df_stencils["d2_forward_mean"].append(mean_)
+        comm, min_, max_, mean_, std_ = self.analyseImage(self.boo, f"boo")
+        df_stencils["boo_forward_max"].append(max_)
+        df_stencils["boo_forward_min"].append(min_)
+        df_stencils["boo_forward_mean"].append(mean_)
+        comm, min_, max_, mean_, std_ = self.analyseImage(self.bom, f"bom")
+        df_stencils["bom_forward_max"].append(max_)
+        df_stencils["bom_forward_min"].append(min_)
+        df_stencils["bom_forward_mean"].append(mean_)
+        comm, min_, max_, mean_, std_ = self.analyseImage(self.bmo, f"bmo")
+        df_stencils["bmo_forward_max"].append(max_)
+        df_stencils["bmo_forward_min"].append(min_)
+        df_stencils["bmo_forward_mean"].append(mean_)
+        comm, min_, max_, mean_, std_ = self.analyseImage(self.bpo, f"bpo")
+        df_stencils["bpo_forward_max"].append(max_)
+        df_stencils["bpo_forward_min"].append(min_)
+        df_stencils["bpo_forward_mean"].append(mean_)
+        comm, min_, max_, mean_, std_ = self.analyseImage(self.bop, f"bop")
+        df_stencils["bop_forward_max"].append(max_)
+        df_stencils["bop_forward_min"].append(min_)
+        df_stencils["bop_forward_mean"].append(mean_)
+
         mse = MSELoss()
 
-        print(self.analyseImage(X, f"inital input"))
-        print(self.analyseImage(self.mask1, f"input mask"))
+        self.analyseImage(X, f"inital input")
+        self.analyseImage(self.mask1, f"input mask")
 
         st = time.time()
 
@@ -126,7 +157,7 @@ class OsmosisInpainting:
         et = time.time()
         tt += (et-st)
 
-        print(self.analyseImage(X, f"final output"))
+        self.analyseImage(X, f"final output")
 
         self.U = X
 
@@ -154,7 +185,7 @@ class OsmosisInpainting:
         # mse loss 
         loss = mse(self.U, self.V)
 
-        return loss, tt
+        return loss, tt, df_stencils
 
     def solveBatchSeq(self, kmax , save_batch = False, verbose = False):
 
@@ -225,7 +256,7 @@ class OsmosisInpainting:
     def calculateWeights(self, d_verbose = False, m_verbose = False, s_verbose = False):
         self.prepareInp()
 
-        print(self.analyseImage(self.V, "guidance image"))
+        self.analyseImage(self.V, "guidance image")
 
         self.getDriftVectors(d_verbose)
         if d_verbose:
@@ -310,18 +341,22 @@ class OsmosisInpainting:
         # x = x[:, :, 1:self.nx+1, 1:self.ny+1]
         
         print(f"analyzing {name}")
-        
-        comm += f"min  : {torch.min(x)}\n"
-        comm += f"max  : {torch.max(x)}\n"
-        comm += f"mean : {torch.mean(x)}\n"
-        comm += f"std  : {torch.std(x)}\n"
+
+        min_, max_, mean_, std_ = torch.min(x).item(), torch.max(x).item(), torch.mean(x).item(), torch.std(x).item()
+
+        comm += f"min  : {min_}\n"
+        comm += f"max  : {max_}\n"
+        comm += f"mean : {mean_}\n"
+        comm += f"std  : {std_}\n"
+
+        print(comm)
 
         # comm += f"min  : {torch.amin(x, dim = (2, 3)) }\n"
         # comm += f"max  : {torch.amax(x, dim = (2, 3))}\n"
         # comm += f"mean : {torch.mean(x, dim = (2, 3))}\n"
         # comm += f"std  : {torch.std(x, dim = (2, 3))}\n"
 
-        return comm
+        return comm, min_, max_, mean_, std_
         
     def getMetrics(self):
         metrics = ""
@@ -414,8 +449,8 @@ class OsmosisInpainting:
         self.d2[:, :, 1:self.nx+1, :self.ny+1] = d2[:, :, 1:self.nx+1, :] # convolved and reduced in col dir , hence one less
 
         if verbose:
-            print(self.analyseImage(self.d1, "d1"))
-            print(self.analyseImage(self.d2, "d2"))
+            self.analyseImage(self.d1, "d1")
+            self.analyseImage(self.d2, "d2")
             
     
     def getStencilMatrices(self, verbose = False):
@@ -454,15 +489,15 @@ class OsmosisInpainting:
  
         if verbose :
             print(self.boo.shape)
-            print(self.analyseImage(self.boo, "boo"))
+            self.analyseImage(self.boo, "boo")
             print(self.bpo.shape)
-            print(self.analyseImage(self.bpo, "bpo"))
+            self.analyseImage(self.bpo, "bpo")
             print(self.bop.shape)
-            print(self.analyseImage(self.bop, "bop"))
+            self.analyseImage(self.bop, "bop")
             print(self.bmo.shape)
-            print(self.analyseImage(self.bmo, "bmo"))
+            self.analyseImage(self.bmo, "bmo")
             print(self.bom.shape)
-            print(self.analyseImage(self.bom, "bom"))
+            self.analyseImage(self.bom, "bom")
 
     def applyStencil(self, inp, batch, verbose = False):
         """
@@ -836,10 +871,13 @@ class OsmosisInpainting:
         return x
 
 
-
     def create_backward_hook(self, var_name):
         def hook(grad):
-            print(f"Gradient of {var_name}\n grad norm : {grad.norm()}\n grad stats:\n {self.analyseImage(grad, var_name)}")
+            comm, min_, max_, mean_, std_ = self.analyseImage(grad, var_name)
+            self.df_stencils[var_name + "_max"].append(max_)
+            self.df_stencils[var_name + "_min"].append(min_)
+            self.df_stencils[var_name + "_mean"].append(mean_)
+            print(f"Gradient of {var_name}\n grad norm : {grad.norm()}\n grad stats:\n{comm}")
         return hook
 
     def applyStencilGS(self, inp, boo, bmo, bom, bop, bpo, verbose = False):
@@ -1018,28 +1056,28 @@ class OsmosisInpainting:
             print(f"k : {k}, RESIDUAL : {r_abs}")
 
             # register backward hook
-            v_abs.register_hook(self.create_backward_hook("v_abs"))
-            r0_abs.register_hook(self.create_backward_hook("r0_abs"))
-            sigma.register_hook(self.create_backward_hook("sigma"))
-            alpha.register_hook(self.create_backward_hook("alpha"))
-            omega.register_hook(self.create_backward_hook("omega"))
-            beta.register_hook(self.create_backward_hook("beta"))
+            # v_abs.register_hook(self.create_backward_hook("v_abs"))
+            # r0_abs.register_hook(self.create_backward_hook("r0_abs"))
+            # sigma.register_hook(self.create_backward_hook("sigma"))
+            # alpha.register_hook(self.create_backward_hook("alpha"))
+            # omega.register_hook(self.create_backward_hook("omega"))
+            # beta.register_hook(self.create_backward_hook("beta"))
 
-            r_0.register_hook(self.create_backward_hook("r_0"))
-            r.register_hook(self.create_backward_hook("r"))
-            r_old.register_hook(self.create_backward_hook("r_old"))
-            p.register_hook(self.create_backward_hook("p"))
-            v.register_hook(self.create_backward_hook("v"))
-            s.register_hook(self.create_backward_hook("s"))
-            t.register_hook(self.create_backward_hook("t"))
+            # r_0.register_hook(self.create_backward_hook("r_0"))
+            # r.register_hook(self.create_backward_hook("r"))
+            # r_old.register_hook(self.create_backward_hook("r_old"))
+            # p.register_hook(self.create_backward_hook("p"))
+            # v.register_hook(self.create_backward_hook("v"))
+            # s.register_hook(self.create_backward_hook("s"))
+            # t.register_hook(self.create_backward_hook("t"))
 
-        self.boo.register_hook(self.create_backward_hook("boo"))
-        self.bpo.register_hook(self.create_backward_hook("bpo"))
-        self.bop.register_hook(self.create_backward_hook("bop"))
-        self.bom.register_hook(self.create_backward_hook("bom"))
-        self.bmo.register_hook(self.create_backward_hook("bmo"))
-        self.d1.register_hook(self.create_backward_hook("d1"))
-        self.d2.register_hook(self.create_backward_hook("d2"))
+        self.boo.register_hook(self.create_backward_hook("boo_backward"))
+        self.bpo.register_hook(self.create_backward_hook("bpo_backward"))
+        self.bop.register_hook(self.create_backward_hook("bop_backward"))
+        self.bom.register_hook(self.create_backward_hook("bom_backward"))
+        self.bmo.register_hook(self.create_backward_hook("bmo_backward"))
+        self.d1.register_hook(self.create_backward_hook("d1_backward"))
+        self.d2.register_hook(self.create_backward_hook("d2_backward"))
 
 
         return x
