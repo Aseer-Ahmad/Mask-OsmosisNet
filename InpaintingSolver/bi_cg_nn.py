@@ -9,26 +9,30 @@ import torchvision
 import numpy as np
 import time
 import torch.nn as nn
+from torch.nn import Parameter
 
 
 class BiCG_Module(nn.Module):
     def __init__(self, ):
         super(BiCG_Module, self).__init__()
-
         pass
 
     def forward(self, ):
         pass
 
+def create_backward_hook(var_name):
+    def hook(grad):
+        # print(f"Gradient of {var_name}\n grad norm : {grad.norm()}\n grad stats:\n {self.analyseImage(grad, var_name)}")
+        print(f"Gradient of {var_name}\n grad norm : {grad.norm()}")
+    return hook
+
 class BiCG_Net(nn.Module):
-    def __init__(self, U, V, mask1, mask2, offset, tau, hx = 1, hy = 1, device = None, apply_canny = False):
+    def __init__(self, offset, tau, b, c, nx, ny, hx = 1., hy = 1.):
         super(BiCG_Net, self).__init__()
-        # (b, c, h, w)
-        self.V       = V + offset  # guidance image
-        self.batch   = V.size(0) 
-        self.channel = V.size(1) 
-        self.nx      = V.size(2) 
-        self.ny      = V.size(3) 
+
+        # shape
+        self.batch, self.channel = b, c
+        self.nx, self.ny = nx, ny
 
         self.offset  = offset
         self.tau     = tau
@@ -39,35 +43,35 @@ class BiCG_Net(nn.Module):
 
         # img 
         self.save_every  = 10
-        self.apply_canny = apply_canny
-        self.canny_mask  = None
-
-        # drift matrices 
-        self.d1  = torch.zeros_like(self.V, requires_grad = True)
-        self.d2  = torch.zeros_like(self.V, requires_grad = True)
-
-        # stencil matrices 
-        self.boo  = torch.zeros_like(self.V, requires_grad = True)# C++ weickert init. has ones
-        self.bop  = torch.zeros_like(self.V, requires_grad = True)# neighbour entries for [i+1,j]
-        self.bpo  = torch.zeros_like(self.V, requires_grad = True)# neighbour entries for [i,j+1]
-        self.bmo  = torch.zeros_like(self.V, requires_grad = True)# neighbour entries for [i-1,j]
-        self.bom  = torch.zeros_like(self.V, requires_grad = True)# neighbour entries for [i,j-1]
-
-        # bi-cg matrices 
 
         # others
-        self.pad = Pad(1, padding_mode = "symmetric")
-
+        self.pad      = Pad(1, padding_mode = "symmetric") # mirror
+        self.zero_pad = Pad(1,fill=0, padding_mode='constant') # zero padding
 
     def forward(self, V, mask1, mask2):
-        
+
+        # drift matrices 
+        self.d1  = torch.zeros((self.batch,self.channel,self.nx+2,self.ny+2), requires_grad = True)
+        self.d2  = torch.zeros((self.batch,self.channel,self.nx+2,self.ny+2), requires_grad = True)
+
+        # stencil matrices 
+        self.boo  = torch.zeros((self.batch,self.channel,self.nx+2,self.ny+2), requires_grad = True) # C++ weickert init. has ones
+        self.bop  = torch.zeros((self.batch,self.channel,self.nx+2,self.ny+2), requires_grad = True) # neighbour entries for [i+1,j]
+        self.bpo  = torch.zeros((self.batch,self.channel,self.nx+2,self.ny+2), requires_grad = True) # neighbour entries for [i,j+1]
+        self.bmo  = torch.zeros((self.batch,self.channel,self.nx+2,self.ny+2), requires_grad = True) # neighbour entries for [i-1,j]
+        self.bom  = torch.zeros((self.batch,self.channel,self.nx+2,self.ny+2), requires_grad = True) # neighbour entries for [i,j-1]
+
+        # bi-cg matrices
+
+
         #========
         # create init from guidance
         #========
-        U  = torch.ones_like(V) * torch.mean(V, dim = (2,3), keepdim = True)
+        
+        U     = torch.ones_like(V) * torch.mean(V, dim = (2,3), keepdim = True)
 
-        U     = torch.transpose(self.pad(U), 2, 3)
-        V     = torch.transpose(self.pad(V), 2, 3)
+        U     = torch.transpose(self.pad(U), 2, 3) + self.offset
+        V     = torch.transpose(self.pad(V), 2, 3) + self.offset
         mask1 = torch.transpose(self.pad(mask1), 2, 3)
         mask2 = torch.transpose(self.pad(mask2), 2, 3)
         self.nx, self.ny = self.ny, self.nx
@@ -75,14 +79,13 @@ class BiCG_Net(nn.Module):
         #========
         # calculate drift vectors                
         #========
-
         # row-direction filters  
-        f1 = torch.tensor([[[[-1/self.hx], [1/self.hx]]]])
-        f2 = torch.tensor([[[[.5], [.5]]]])
+        f1 = torch.tensor([[[[-1./self.hx], [1./self.hx]]]], dtype = torch.float64)
+        f2 = torch.tensor([[[[.5], [.5]]]], dtype = torch.float64)
         
         # col-direction filters
-        f3 = torch.tensor([[[[-1/self.hy, 1/self.hy]]]])
-        f4 = torch.tensor([[[[.5, .5]]]])
+        f3 = torch.tensor([[[[-1./self.hy, 1./self.hy]]]], dtype = torch.float64)
+        f4 = torch.tensor([[[[.5, .5]]]], dtype = torch.float64)
 
         d1 = F.conv2d(V, f1) / F.conv2d(V, f2)
         d2 = F.conv2d(V, f3) / F.conv2d(V, f4) 
@@ -101,17 +104,16 @@ class BiCG_Net(nn.Module):
         #========
         # calculate stencils 
         #========
-
-        rx  = self.tau / (2 * self.hx)
-        ry  = self.tau / (2 * self.hy)
+        rx  = self.tau / (2. * self.hx)
+        ry  = self.tau / (2. * self.hy)
         rxx = self.tau / (self.hx * self.hx)
         ryy = self.tau / (self.hy * self.hy)
 
         # x direction filter ; this is a backward difference kernel hence the extra 0 
-        f1 = torch.tensor([[[[1], [-1], [0]]]])
+        f1 = torch.tensor([[[[1], [-1], [0]]]], dtype = torch.float64)
         
         # y direction filter ; this is a backward difference kernel hence the extra 0 
-        f2 = torch.tensor([[[[1, -1, 0]]]])
+        f2 = torch.tensor([[[[1, -1, 0]]]], dtype = torch.float64)
 
         # osmosis weights 
         boo = 1 + 2 * (rxx + ryy) - rx * F.conv2d(self.d1, f1, padding='same') - ry * F.conv2d(self.d2, f2, padding='same')
@@ -129,65 +131,50 @@ class BiCG_Net(nn.Module):
         # solver
         #========
         x = U
+        x = self.BiCGSTAB_GS(x = U, b = x, kmax = 30, eps = 1e-9, verbose=False)
+
+        return x[:, :, 1:-1, 1:-1]
 
 
-        x = self.BiCGSTAB_GS(x = U, b = x, kmax = 300, eps = 1e-9, verbose=verbose)
-        U = x
-
-        return U
-
-
-
-
-    def applyStencilGS(self, inp, boo, bmo, bom, bop, bpo, verbose = False):
+    def applyStencilGS(self, x, boo, bmo, bom, bop, bpo, verbose = False):
         """
         inp : (batch, channel, nx, ny)
         """
-        pad_mirror = Pad(1, padding_mode = "symmetric")
-        inp        = pad_mirror(inp[:, :, 1:self.nx+1, 1:self.ny+1])
-        temp       = torch.zeros_like(inp, dtype = torch.float64)
+        inp     = self.pad(x[:, :, 1:self.nx+1, 1:self.ny+1])
 
-        # print(inp.shape, boo.shape, bmo.shape, bom.shape, bop.shape, bpo.shape)
-
-        # from top to bottom -> center, left, down, up, right
+        # from top to bottom => center, left, down, up, right
         res     = boo * inp[:, :, 1:self.nx+1, 1:self.ny+1] \
-                + bmo * inp[:, :,  :self.nx,   1:self.ny+1] \
+                + bmo * inp[:, :,  :self.nx  , 1:self.ny+1] \
                 + bom * inp[:, :, 1:self.nx+1,  :self.ny  ] \
                 + bop * inp[:, :, 1:self.nx+1, 2:self.ny+2] \
-                + bpo * inp[:, :, 2:self.nx+2, 1:self.ny+1]
-                
-        temp = temp.clone()
-        temp[:, :, 1:self.nx+1, 1:self.ny+1 ] = res
+                + bpo * inp[:, :, 2:self.nx+2, 1:self.ny+1]                
 
         if verbose :
-            self.analyseImage(temp, "X")
+            self.analyseImage(res, "X")
 
-        return temp
+        return self.zero_pad(res)
 
     def zeroPadGS(self, x):
-        t = torch.zeros_like(x, dtype = torch.float64, device = self.device)
-        t = t.clone()
-        t[:, :, 1:self.nx+1, 1 :self.ny+1] = x[ :, :, 1:self.nx+1, 1 :self.ny+1]
-        return t
+        return self.zero_pad(x[ :, :, 1:self.nx+1, 1 :self.ny+1])
 
     def BiCGSTAB_GS(self, x, b, kmax=10000, eps=1e-9, verbose = False):
         
-        k       = torch.zeros((self.batch, self.channel), dtype=torch.long, device = self.device)
-        r_abs   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True)
-        v_abs   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True)
-        r0_abs  = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True)
-        sigma   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True) 
-        alpha   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True) 
-        omega   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True) 
-        beta    = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device, requires_grad = True) 
+        k       = torch.zeros((self.batch, self.channel), dtype=torch.long)
+        r_abs   = torch.zeros((self.batch, self.channel), dtype=torch.float64)
+        v_abs   = torch.zeros((self.batch, self.channel), dtype=torch.float64)
+        r0_abs  = torch.zeros((self.batch, self.channel), dtype=torch.float64)
+        sigma   = torch.zeros((self.batch, self.channel), dtype=torch.float64) 
+        alpha   = torch.zeros((self.batch, self.channel), dtype=torch.float64) 
+        omega   = torch.zeros((self.batch, self.channel), dtype=torch.float64) 
+        beta    = torch.zeros((self.batch, self.channel), dtype=torch.float64) 
 
-        r_0     = torch.zeros_like(x, dtype = torch.float64, requires_grad = True)
-        r       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True) 
-        r_old   = torch.zeros_like(x, dtype = torch.float64, requires_grad = True) 
-        p       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True) 
-        v       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True) 
-        s       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True) 
-        t       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True) 
+        r_0     = torch.zeros_like(x, dtype = torch.float64)
+        r       = torch.zeros_like(x, dtype = torch.float64) 
+        r_old   = torch.zeros_like(x, dtype = torch.float64) 
+        p       = torch.zeros_like(x, dtype = torch.float64) 
+        v       = torch.zeros_like(x, dtype = torch.float64) 
+        s       = torch.zeros_like(x, dtype = torch.float64) 
+        t       = torch.zeros_like(x, dtype = torch.float64) 
 
 
         r_0 = self.applyStencilGS(x, self.boo, self.bmo, self.bom, self.bop, self.bpo) 
@@ -314,6 +301,30 @@ class BiCG_Net(nn.Module):
 
             # if verbose:
             print(f"k : {k}, RESIDUAL : {r_abs}")
+
+
+            v_abs.register_hook(create_backward_hook("v_abs"))
+            r0_abs.register_hook(create_backward_hook("r0_abs"))
+            sigma.register_hook(create_backward_hook("sigma"))
+            alpha.register_hook(create_backward_hook("alpha"))
+            omega.register_hook(create_backward_hook("omega"))
+            beta.register_hook(create_backward_hook("beta"))
+
+            r_0.register_hook(create_backward_hook("r_0"))
+            r.register_hook(create_backward_hook("r"))
+            r_old.register_hook(create_backward_hook("r_old"))
+            p.register_hook(create_backward_hook("p"))
+            v.register_hook(create_backward_hook("v"))
+            s.register_hook(create_backward_hook("s"))
+            t.register_hook(create_backward_hook("t"))
+
+        self.boo.register_hook(create_backward_hook("boo"))
+        self.bpo.register_hook(create_backward_hook("bpo"))
+        self.bop.register_hook(create_backward_hook("bop"))
+        self.bom.register_hook(create_backward_hook("bom"))
+        self.bmo.register_hook(create_backward_hook("bmo"))
+        self.d1.register_hook(create_backward_hook("d1"))
+        self.d2.register_hook(create_backward_hook("d2"))
 
         return x
 

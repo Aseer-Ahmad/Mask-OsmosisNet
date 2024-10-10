@@ -22,8 +22,8 @@ WEIGHT_DECAY   : 0
 MOMENTUM       : 0.009
 OPT            : Adam
 SCHEDL         : exp
-TRAIN_BATCH    : 4
-TEST_BATCH     : 4
+TRAIN_BATCH    : 1
+TEST_BATCH     : 1
 ALPHA1         : 0.0001
 ALPHA2         : 0.001
 MASK_DEN       : 0.1

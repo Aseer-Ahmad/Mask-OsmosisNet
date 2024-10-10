@@ -18,7 +18,7 @@ import torch._dynamo
 torch._dynamo.reset()
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.optim import Optimizer
-
+from InpaintingSolver.bi_cg_nn import BiCG_Net
 from InpaintingSolver.bi_cg import OsmosisInpainting
 
 SEED = 1
@@ -57,6 +57,17 @@ class DensityLoss(nn.Module):
         h, w = mask.shape[2], mask.shape[3]
         return torch.mean( torch.abs( (torch.norm(mask, p = 1, dim = (2, 3))/ (h*w)) 
                                      - self.density) )
+
+class MSELoss(nn.Module):
+    """
+    Means squared loss : 
+    """
+    def __init__(self):
+        super(MSELoss, self).__init__()
+
+    def forward(self, U, V):
+        nxny = U.shape[2] * U.shape[3]
+        return torch.mean(torch.norm(U-V, p = 2, dim = (2,3))**2 / nxny)
 
 class WarmupScheduler(_LRScheduler):
     def __init__(self, optimizer: Optimizer, warmup_steps: int, final_lr: float, base_lr: float = 1e-6, last_epoch: int = -1):
@@ -334,6 +345,10 @@ class ModelTrainer():
         model = model.double()
         model.to(self.device)
         
+        bicg_model = BiCG_Net(offset = 0, tau = 7000., b=self.train_batch_size, c=1, nx=img_size, ny=img_size)
+        bicg_model = bicg_model.double()
+        bicg_model.to(self.device)
+
         print(f"initializing weights using Kaiming/He Initialization")
         model.apply(self.initialize_weights_he)
 
@@ -342,9 +357,11 @@ class ModelTrainer():
         #     layer.register_full_backward_hook(self.inspect_gradients)
 
         invLoss = InvarianceLoss()
-        denLoss  = DensityLoss(density = mask_density)
+        denLoss = DensityLoss(density = mask_density)
+        mseLoss = MSELoss()
 
         torch.autograd.set_detect_anomaly(True)
+
         print("\nbeginning training ...")
 
         st_tt = time.time()
@@ -358,13 +375,19 @@ class ModelTrainer():
             for i, (X, X_scale, name) in enumerate(train_dataloader, start = 1): 
                 
                 print(f'Epoch {epoch}/{epochs} , batch {i}/{len(train_dataloader)} ')
-
                 print(name)
+                
+                # data prep
                 X = X.to(self.device, dtype=torch.float64)
+
+                # mask model
                 mask  = model(X) # non-binary [0,1]
+
+                # mask losses
                 loss1 = invLoss(mask)
                 loss2 = denLoss(mask)
 
+                # osmosis solver
                 osmosis = OsmosisInpainting(None, X, mask, mask, offset=1e-5, tau=7000, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(d_verbose=False, m_verbose=True, s_verbose=True)
                 
@@ -373,24 +396,28 @@ class ModelTrainer():
                 else:
                     save_batch = [False]
                 loss3, tts = osmosis.solveBatchParallel(1, save_batch = save_batch, verbose = False)
+                
+                # tts = 0
+                # X_rec = bicg_model(X, mask, mask)
+                # loss3 = mseLoss(X, X_rec)
 
                 total_loss = loss3 + loss2 * alpha2 + loss1 * alpha1 
                 total_loss.backward()
-                
                 total_norm = self.check_gradients(model)
+                
 
                 optimizer.step()
                 scheduler.step()
                 optimizer.zero_grad()
 
-                running_loss += total_loss
+                running_loss += total_loss.item()
                 avg_den = self.mean_density(mask)
 
                 avg_den_list.append(avg_den.item())
                 loss1_list.append(loss1.item())
                 loss2_list.append(loss2.item())
                 loss3_list.append(loss3.item())
-                running_loss_list.append((running_loss / i).item())
+                running_loss_list.append((running_loss / i))
                 gradnorm_list.append(total_norm)
                 print(f"invariance loss : {loss1}, avg_den : {avg_den.item()}, ", end='')
                 print(f"density loss : {loss2}, solver time : {str(tts)} sec , ", end='')

@@ -63,6 +63,11 @@ class OsmosisInpainting:
         self.apply_canny = apply_canny
         self.canny_mask  = None
 
+        # others
+        self.pad      = Pad(1, padding_mode = "symmetric") # mirror
+        self.zero_pad = Pad(1,fill=0, padding_mode='constant') # zero padding
+
+
     def solve(self, kmax = 2, save_every = 10, verbose = False):
         
         self.save_every = save_every
@@ -111,7 +116,7 @@ class OsmosisInpainting:
 
         for i in range(kmax):
 
-            X = self.BiCGSTAB_GS(x = U, b = X, kmax = 300, eps = 1e-9, verbose=verbose)
+            X = self.BiCGSTAB_GS(x = U, b = X, kmax = 30, eps = 1e-9, verbose=verbose)
             U = X
             loss = mse( U, self.V)
             print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)
@@ -283,18 +288,18 @@ class OsmosisInpainting:
         """
         pad_mirror = Pad(1, padding_mode = "symmetric")
 
-        self.U     = pad_mirror(self.U)
+        self.U     = self.pad(self.U)
         self.U     = torch.transpose(self.U, 2, 3)
 
-        self.V     = pad_mirror(self.V)
+        self.V     = self.pad(self.V)
         self.V     = torch.transpose(self.V, 2, 3)
 
         if self.mask1 != None :
-            self.mask1     = pad_mirror(self.mask1)
+            self.mask1     = self.pad(self.mask1)
             self.mask1     = torch.transpose(self.mask1, 2, 3)
 
         if self.mask2 != None:
-            self.mask2     = pad_mirror(self.mask2)
+            self.mask2     = self.pad(self.mask2)
             self.mask2     = torch.transpose(self.mask2, 2, 3)
 
         # since we transposed 
@@ -359,8 +364,7 @@ class OsmosisInpainting:
 
         output_batch = torch.tensor(np.stack(output_batch), device = self.device, dtype = torch.int8) * -1
         return output_batch
-
-            
+      
     def applyMask(self , verbose = False):
 
         # get CannyMask
@@ -378,6 +382,7 @@ class OsmosisInpainting:
             print(self.analyseImage(self.mask2, "mask2"))
             print(self.analyseImage(self.d1, "d1"))
             print(self.analyseImage(self.d2, "d2"))
+
 
     def getDriftVectors(self, verbose = False):
         """
@@ -464,7 +469,7 @@ class OsmosisInpainting:
         inp : (batch, channel, nx, ny)
         """
         pad_mirror = Pad(1, padding_mode = "symmetric")
-        inp        = pad_mirror(inp[:, :, 1:self.nx+1, 1:self.ny+1])
+        inp        = self.pad(inp[:, :, 1:self.nx+1, 1:self.ny+1])
 
         temp       = torch.zeros_like(inp, device = self.device)
 
@@ -575,7 +580,7 @@ class OsmosisInpainting:
         inp : (batch, channel, nx, ny)
         """
         pad_mirror = Pad(1, padding_mode = "symmetric")
-        inp        = pad_mirror(inp[ :, 1:self.nx+1, 1:self.ny+1])
+        inp        = self.pad(inp[ :, 1:self.nx+1, 1:self.ny+1])
 
         temp       = torch.zeros_like(inp, dtype = torch.float64)
 
@@ -841,9 +846,7 @@ class OsmosisInpainting:
         """
         inp : (batch, channel, nx, ny)
         """
-        pad_mirror = Pad(1, padding_mode = "symmetric")
-        inp        = pad_mirror(inp[:, :, 1:self.nx+1, 1:self.ny+1])
-        temp       = torch.zeros_like(inp, dtype = torch.float64)
+        inp        = self.pad(inp[:, :, 1:self.nx+1, 1:self.ny+1])
 
         # print(inp.shape, boo.shape, bmo.shape, bom.shape, bop.shape, bpo.shape)
 
@@ -854,19 +857,13 @@ class OsmosisInpainting:
                 + bop * inp[:, :, 1:self.nx+1, 2:self.ny+2] \
                 + bpo * inp[:, :, 2:self.nx+2, 1:self.ny+1]
                 
-        temp = temp.clone()
-        temp[:, :, 1:self.nx+1, 1:self.ny+1 ] = res
-
         if verbose :
             self.analyseImage(temp, "X")
 
-        return temp
+        return self.zero_pad(res)
 
     def zeroPadGS(self, x):
-        t = torch.zeros_like(x, dtype = torch.float64, device = self.device)
-        t = t.clone()
-        t[:, :, 1:self.nx+1, 1 :self.ny+1] = x[ :, :, 1:self.nx+1, 1 :self.ny+1]
-        return t
+        return self.zero_pad(x[ :, :, 1:self.nx+1, 1 :self.ny+1])
 
     def BiCGSTAB_GS(self, x, b, kmax=10000, eps=1e-9, verbose = False):
         
@@ -893,30 +890,6 @@ class OsmosisInpainting:
         r_abs_last = torch.zeros( (self.batch, self.channel), dtype = torch.float64, device = self.device)
         r_abs_skip = torch.zeros( (self.batch, self.channel), dtype = torch.float64, device = self.device)
         stagnant_count = torch.zeros( (self.batch, self.channel), dtype = torch.float64, device = self.device)
-
-        # register backward hook
-        v_abs.register_hook(self.create_backward_hook("v_abs"))
-        r0_abs.register_hook(self.create_backward_hook("r0_abs"))
-        sigma.register_hook(self.create_backward_hook("sigma"))
-        alpha.register_hook(self.create_backward_hook("alpha"))
-        omega.register_hook(self.create_backward_hook("omega"))
-        beta.register_hook(self.create_backward_hook("beta"))
-
-        r_0.register_hook(self.create_backward_hook("r_0"))
-        r.register_hook(self.create_backward_hook("r"))
-        r_old.register_hook(self.create_backward_hook("r_old"))
-        p.register_hook(self.create_backward_hook("p"))
-        v.register_hook(self.create_backward_hook("v"))
-        s.register_hook(self.create_backward_hook("s"))
-        t.register_hook(self.create_backward_hook("t"))
-
-        self.boo.register_hook(self.create_backward_hook("boo"))
-        self.bpo.register_hook(self.create_backward_hook("bpo"))
-        self.bop.register_hook(self.create_backward_hook("bop"))
-        self.bom.register_hook(self.create_backward_hook("bom"))
-        self.bmo.register_hook(self.create_backward_hook("bmo"))
-        self.d1.register_hook(self.create_backward_hook("d1"))
-        self.d2.register_hook(self.create_backward_hook("d2"))
         
 
         r_0 = self.applyStencilGS(x, self.boo, self.bmo, self.bom, self.bop, self.bpo) 
@@ -960,12 +933,12 @@ class OsmosisInpainting:
             if verbose:
                 print(f"RESTART REQUIRED :\n {RES1_COND}, shape : {RES1_COND.shape}")
 
-            p = torch.where(RES1_COND_EXP, self.zeroPadGS(b - self.applyStencilGS(x, self.boo, self.bmo, self.bom, self.bop, self.bpo)), p)
-            r = torch.where(RES1_COND_EXP, p, r)
-            r_0 = torch.where(RES1_COND_EXP, p, r_0)
+            p       = torch.where(RES1_COND_EXP, self.zeroPadGS(b - self.applyStencilGS(x, self.boo, self.bmo, self.bom, self.bop, self.bpo)), p)
+            r       = torch.where(RES1_COND_EXP, p, r)
+            r_0     = torch.where(RES1_COND_EXP, p, r_0)
             r0_abs  = torch.where(RES1_COND, torch.norm(r_0, dim = (2, 3), p = "fro"), r0_abs)
-            r_abs = torch.where(RES1_COND, r0_abs, r_abs)
-            k = torch.where(RES1_COND, k+1, k)
+            r_abs   = torch.where(RES1_COND, r0_abs, r_abs)
+            k       = torch.where(RES1_COND, k+1, k)
 
             # print(self.analyseImage(r_abs[:, :, None, None], "r_abs"))
             # print(self.analyseImage(p, "1st p"))
@@ -1043,5 +1016,30 @@ class OsmosisInpainting:
 
             # if verbose:
             print(f"k : {k}, RESIDUAL : {r_abs}")
+
+            # register backward hook
+            v_abs.register_hook(self.create_backward_hook("v_abs"))
+            r0_abs.register_hook(self.create_backward_hook("r0_abs"))
+            sigma.register_hook(self.create_backward_hook("sigma"))
+            alpha.register_hook(self.create_backward_hook("alpha"))
+            omega.register_hook(self.create_backward_hook("omega"))
+            beta.register_hook(self.create_backward_hook("beta"))
+
+            r_0.register_hook(self.create_backward_hook("r_0"))
+            r.register_hook(self.create_backward_hook("r"))
+            r_old.register_hook(self.create_backward_hook("r_old"))
+            p.register_hook(self.create_backward_hook("p"))
+            v.register_hook(self.create_backward_hook("v"))
+            s.register_hook(self.create_backward_hook("s"))
+            t.register_hook(self.create_backward_hook("t"))
+
+        self.boo.register_hook(self.create_backward_hook("boo"))
+        self.bpo.register_hook(self.create_backward_hook("bpo"))
+        self.bop.register_hook(self.create_backward_hook("bop"))
+        self.bom.register_hook(self.create_backward_hook("bom"))
+        self.bmo.register_hook(self.create_backward_hook("bmo"))
+        self.d1.register_hook(self.create_backward_hook("d1"))
+        self.d2.register_hook(self.create_backward_hook("d2"))
+
 
         return x
