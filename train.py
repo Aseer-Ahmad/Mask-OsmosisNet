@@ -21,7 +21,7 @@ from torch.optim import Optimizer
 from InpaintingSolver.bi_cg_nn import BiCG_Net
 from InpaintingSolver.bi_cg import OsmosisInpainting
 
-from utils import get_df
+from utils import get_dfStencil, get_bicgDict
 
 SEED = 1
 torch.backends.cuda.matmul.allow_tf32 = True
@@ -327,7 +327,6 @@ class ModelTrainer():
         loss1_list, loss2_list, loss3_list, gradnorm_list, running_loss_list = [], [], [], [], []
         avg_den_list, epochloss_list = [], []
         val_list = []
-        df_stencils = get_df()
 
         train_dataloader, test_dataloader = self.getDataloaders(train_dataset, test_dataset, img_size)
 
@@ -374,11 +373,15 @@ class ModelTrainer():
             running_loss = 0.0
             model.train()
             st = time.time()
-            
+
+            df_stencils = get_dfStencil()
+
             for i, (X, X_scale, name) in enumerate(train_dataloader, start = 1): 
                 
                 print(f'Epoch {epoch}/{epochs} , batch {i}/{len(train_dataloader)} ')
                 print(name)
+    
+                bicg_mat = get_bicgDict()
 
                 # data prep
                 X = X.to(self.device, dtype=torch.float64)
@@ -392,14 +395,14 @@ class ModelTrainer():
 
                 # osmosis solver
                 osmosis = OsmosisInpainting(None, X, mask, mask, offset=1e-5, tau=7000, device = self.device, apply_canny=False)
-                osmosis.calculateWeights(d_verbose=False, m_verbose=True, s_verbose=True)
+                osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=True)
                 
                 if (i) % batch_plot_every == 0: 
                     save_batch = [True, os.path.join(self.output_dir, "imgs", f"batch_epoch_{str(epoch)}_iter_{str(i)}.png")]
                 else:
                     save_batch = [False]
                 df_stencils["iter"].append(i)
-                loss3, tts, df_stencils = osmosis.solveBatchParallel(df_stencils, 1, save_batch = save_batch, verbose = False)
+                loss3, tts, df_stencils, bicg_mat = osmosis.solveBatchParallel(df_stencils, bicg_mat, 1, save_batch = save_batch, verbose = False)
                 
                 # tts = 0
                 # X_rec = bicg_model(X, mask, mask)
@@ -408,10 +411,16 @@ class ModelTrainer():
                 total_loss = loss3 + loss2 * alpha2 + loss1 * alpha1 
                 total_loss.backward()
                 total_norm = self.check_gradients(model)
-                df_stencils["grad_norm"].append(total_norm)
 
+                
+                # write forward backward stencils
+                df_stencils["grad_norm"].append(total_norm)
                 df = pd.DataFrame(df_stencils)
                 df.to_csv( os.path.join(self.output_dir, "stencils.csv"), sep=',', encoding='utf-8', index=False, header=True)
+
+                bicg_mat["grad_norm"].append(total_norm)
+                df = pd.DataFrame(dict([(key, pd.Series(value)) for key, value in bicg_mat.items()]))
+                df.to_csv( os.path.join(self.output_dir, f"bicg_wt_{i}.csv"), sep=',', encoding='utf-8', index=False, header=True)
 
 
                 optimizer.step()
