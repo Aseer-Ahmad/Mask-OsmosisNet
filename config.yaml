@@ -1,7 +1,7 @@
 # MODEL PARAMS
 EPOCHS : 10
-RESUME_CHECKPOINT : 
-SAVE_EVERY_ITER : 200
+RESUME_CHECKPOINT : outputs/imagenet_t7/ckp_epoch_1_iter_5.pt
+SAVE_EVERY_ITER : 50
 VAL_EVERY_ITER : 500
 BATCH_PLOT_EVERY_ITER : 1
 OUTPUT_DIR : outputs
@@ -22,8 +22,8 @@ WEIGHT_DECAY   : 0
 MOMENTUM       : 0.009
 OPT            : Adam
 SCHEDL         : exp
-TRAIN_BATCH    : 1
-TEST_BATCH     : 1
+TRAIN_BATCH    : 2
+TEST_BATCH     : 2
 ALPHA1         : 0.0001
 ALPHA2         : 0.001
 MASK_DEN       : 0.1

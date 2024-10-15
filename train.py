@@ -187,7 +187,7 @@ class ModelTrainer():
         
         checkpoint = torch.load(path)
         model.load_state_dict(checkpoint['model_state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        # optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
         return model, optimizer
 
@@ -394,7 +394,7 @@ class ModelTrainer():
                 loss2 = denLoss(mask)
 
                 # osmosis solver
-                osmosis = OsmosisInpainting(None, X, mask, mask, offset=1e-5, tau=7000, device = self.device, apply_canny=False)
+                osmosis = OsmosisInpainting(None, X, mask, mask, offset=4, tau=4096, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=True)
                 
                 if (i) % batch_plot_every == 0: 
@@ -423,8 +423,8 @@ class ModelTrainer():
                 df.to_csv( os.path.join(self.output_dir, f"bicg_wt_{i}.csv"), sep=',', encoding='utf-8', index=False, header=True)
 
 
-                optimizer.step()
-                scheduler.step()
+                # optimizer.step()
+                # scheduler.step()
                 optimizer.zero_grad()
 
                 running_loss += total_loss.item()
