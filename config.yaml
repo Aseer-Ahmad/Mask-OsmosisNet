@@ -1,7 +1,7 @@
 # MODEL PARAMS
 EPOCHS : 10
-RESUME_CHECKPOINT : outputs/imagenet_t7/ckp_epoch_1_iter_5.pt
-SAVE_EVERY_ITER : 50
+RESUME_CHECKPOINT : outputs/imagenet_t7/test_wts.pt
+SAVE_EVERY_ITER : 30
 VAL_EVERY_ITER : 500
 BATCH_PLOT_EVERY_ITER : 1
 OUTPUT_DIR : outputs
@@ -10,20 +10,20 @@ EXP_NAME : imagenet_t7
 # DATA PARMS
 TRAIN_FILENAME : iids_train.txt
 TEST_FILENAME  : iids_test.txt
-ROOT_DIR       : dataset/BSDS300/images
+ROOT_DIR       : dataset/imagenet/images
 
 IMG_SIZE       : 64 
 INP_CHANNELS   : 1
 OUT_CHANNELS   : 1
 
 # HYPER PARAMS
-LR             : 0.001
+LR             : 0.00001
 WEIGHT_DECAY   : 0
 MOMENTUM       : 0.009
 OPT            : Adam
 SCHEDL         : exp
-TRAIN_BATCH    : 2
-TEST_BATCH     : 2
+TRAIN_BATCH    : 8
+TEST_BATCH     : 8
 ALPHA1         : 0.0001
 ALPHA2         : 0.001
 MASK_DEN       : 0.1

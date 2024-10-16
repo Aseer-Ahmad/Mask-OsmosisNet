@@ -114,7 +114,7 @@ class OsmosisInpainting:
         df_stencils["d1_forward_max"].append(max_)
         df_stencils["d1_forward_min"].append(min_)
         df_stencils["d1_forward_mean"].append(mean_)
-        comm, min_, max_, mean_, std_ = self.analyseImage(self.d2, f"d1")
+        comm, min_, max_, mean_, std_ = self.analyseImage(self.d2, f"d2")
         df_stencils["d2_forward_max"].append(max_)
         df_stencils["d2_forward_min"].append(min_)
         df_stencils["d2_forward_mean"].append(mean_)
@@ -141,14 +141,14 @@ class OsmosisInpainting:
 
         mse = MSELoss()
 
-        self.analyseImage(X, f"inital input")
-        self.analyseImage(self.mask1, f"input mask")
+        # self.analyseImage(X, f"inital input")
+        # self.analyseImage(self.mask1, f"input mask")
 
         st = time.time()
 
         for i in range(kmax):
 
-            X = self.BiCGSTAB_GS(x = U, b = X, kmax = 600, eps = 1e-9, verbose=verbose)
+            X = self.BiCGSTAB_GS(x = U, b = X, kmax = 600, eps = 1e-6, verbose=verbose)
             U = X
             loss = mse( U, self.V)
             print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)
@@ -162,8 +162,8 @@ class OsmosisInpainting:
 
         self.U = X
 
-        # comm = self.analyseImage(X, f"solution")
-        # comm += f"time for iteration : {str(et-st)} sec\n"
+        # self.analyseImage(X, f"solution")
+        # comm = f"time for iteration : {str(et-st)} sec\n"
         # comm += f"total time         : {str(tt)} sec\n"
         # comm += self.getMetrics()
         # print(comm)
@@ -180,11 +180,11 @@ class OsmosisInpainting:
             self.writePGMImage(out.cpu().detach().numpy().T, fname)
 
         # normalize solution and guidance
-        # U = self.normalize(self.U)
-        # V = self.normalize(self.V)
+        U = self.normalize(self.U)
+        V = self.normalize(self.V)
         
         # mse loss 
-        loss = mse(self.U, self.V)
+        loss = mse(U, V)
 
         return loss, tt, self.df_stencils, self.bicg_mat
 
@@ -257,7 +257,7 @@ class OsmosisInpainting:
     def calculateWeights(self, d_verbose = False, m_verbose = False, s_verbose = False):
         self.prepareInp()
 
-        self.analyseImage(self.V, "guidance image")
+        # self.analyseImage(self.V, "guidance image")
 
         self.getDriftVectors(d_verbose)
         if d_verbose:
@@ -912,7 +912,7 @@ class OsmosisInpainting:
                 + bpo * inp[:, :, 2:self.nx+2, 1:self.ny+1]
                 
         if verbose :
-            self.analyseImage(temp, "X")
+            self.analyseImage(res, "X")
 
         return self.zero_pad(res)
 
@@ -939,13 +939,6 @@ class OsmosisInpainting:
         s       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True) 
         t       = torch.zeros_like(x, dtype = torch.float64, requires_grad = True) 
 
-        # variables to check info. to skip solving systems 
-        r_abs_init = torch.zeros( (self.batch, self.channel), dtype = torch.float64, device = self.device)
-        r_abs_last = torch.zeros( (self.batch, self.channel), dtype = torch.float64, device = self.device)
-        r_abs_skip = torch.zeros( (self.batch, self.channel), dtype = torch.float64, device = self.device)
-        stagnant_count = torch.zeros( (self.batch, self.channel), dtype = torch.float64, device = self.device)
-        
-
         p   = self.zeroPadGS(b - self.applyStencilGS(x, self.boo, self.bmo, self.bom, self.bop, self.bpo))      
         r_0 = r = p
         r0_abs = torch.norm(r_0, dim = (2, 3), p = "fro")
@@ -956,7 +949,6 @@ class OsmosisInpainting:
     
         while ( (k < kmax) & (r_abs > eps * self.nx * self.ny) ).any():
             
-
             # self.bicg_mat["bicg_iter"].append(k.item())
             
             # =======================================
@@ -964,29 +956,24 @@ class OsmosisInpainting:
             # =======================================
             
             CONV_COND = (k < kmax) & (r_abs > eps * self.nx * self.ny) 
-            if verbose:
-                print(f"WHILE CONVERGENCE CONDITION :\n {CONV_COND} and shape : {CONV_COND.shape}")
             
             v = torch.where(CONV_COND[:, :, None, None], self.applyStencilGS(p, self.boo, self.bmo, self.bom, self.bop, self.bpo), v)
             sigma = torch.where(CONV_COND, torch.sum(torch.mul(v, r_0), dim = (2, 3)), sigma)
             v_abs = torch.where(CONV_COND, torch.norm(v, dim = (2, 3),  p = "fro"), v_abs)
-            
-            self.write_bicg_weights(v, "v_forward")
-            self.write_bicg_weights(sigma[:, :, None, None], "sigma_forward")
-            
+                    
             if verbose:
-                print(f"k : {k}, sigma : {sigma}, vabs : {v_abs}")
+                # print(f"WHILE CONVERGENCE CONDITION :\n {CONV_COND} and shape : {CONV_COND.shape}")
+                # print(f"k : {k}, sigma : {sigma}, vabs : {v_abs}")
+                self.write_bicg_weights(v, "v_forward")
+                self.write_bicg_weights(sigma[:, :, None, None], "sigma_forward")
             
             # =======================================
             # SET RESTART CONDITION
             # =======================================
 
-            RES_COND = (sigma <= 1e-11 * v_abs * r0_abs)
+            RES_COND = (sigma <= 1e-9 * v_abs * r0_abs)
             RES1_COND = CONV_COND & RES_COND 
             RES1_COND_EXP = RES1_COND[:, :, None, None]
-
-            if verbose:
-                print(f"RESTART REQUIRED :\n {RES1_COND}, shape : {RES1_COND.shape}")
 
             p       = torch.where(RES1_COND_EXP, self.zeroPadGS(b - self.applyStencilGS(x, self.boo, self.bmo, self.bom, self.bop, self.bpo)), p)
             r       = torch.where(RES1_COND_EXP, p, r)
@@ -995,32 +982,30 @@ class OsmosisInpainting:
             r_abs   = torch.where(RES1_COND, r0_abs, r_abs)
             k       = torch.where(RES1_COND, k+1, k)
 
-            # print(self.analyseImage(r_abs[:, :, None, None], "r_abs"))
-            # self.bicg_mat["restart"].append(RES1_COND_EXP.item())
 
             if verbose:
-                print(f"r_abs when restarted: {r_abs}")
-            self.write_bicg_weights(r_0, "r_0_forward")
-            self.write_bicg_weights(p, "p_forward")
+                # print(f"RESTART REQUIRED :\n {RES1_COND}, shape : {RES1_COND.shape}")
+                # print(f"r_abs when restarted: {r_abs}")
+                # print(self.analyseImage(r_abs[:, :, None, None], "r_abs"))
+                # self.bicg_mat["restart"].append(RES1_COND_EXP.item())
+                self.write_bicg_weights(r_0, "r_0_forward")
+                self.write_bicg_weights(p, "p_forward")
 
             # =======================================
             # INVERSE RESTART CONDITION : systems that dont require restart
             # =======================================
             NOT_RES_COND = CONV_COND & (~RES_COND)
 
-            if verbose:
-                print(f"RESTART NOT REQUIRED :\n {NOT_RES_COND}")
-
             alpha = torch.where(NOT_RES_COND, torch.sum( torch.mul(r, r_0), dim = (2, 3)) / sigma , alpha)
             
-            if verbose:
-                print(f"k : {k}, alpha : {alpha}")
-
             s = torch.where(NOT_RES_COND[:, :, None, None], r - (alpha[:, :, None, None] * v), s)
             
-            # self.bicg_mat["no_restart"].append(NOT_RES_COND.item())
-            self.write_bicg_weights(alpha[:, :, None, None], "alpha_forward")
-            self.write_bicg_weights(s, "s_forward")
+            if verbose :
+                # print(f"RESTART NOT REQUIRED :\n {NOT_RES_COND}")
+                # print(f"k : {k}, alpha : {alpha}")
+                # self.bicg_mat["no_restart"].append(NOT_RES_COND.item())
+                self.write_bicg_weights(alpha[:, :, None, None], "alpha_forward")
+                self.write_bicg_weights(s, "s_forward")
             # =======================================
             # No RESTART and CONVERGENCE CONDITION 
             # =======================================
@@ -1029,23 +1014,19 @@ class OsmosisInpainting:
             CONV3_COND = NOT_RES_COND & CONV2_COND
             CONV3_COND_EXP = CONV3_COND[:, :, None, None]
 
-            if verbose:
-                print(f"RESTART NOT REQUIRED and CONV :\n {CONV3_COND}")
-
             x = torch.where(CONV3_COND_EXP, x + alpha[:, :, None, None] * p, x )
             r = torch.where(CONV3_COND_EXP, s, r)
             
-            # self.bicg_mat["no_restart_1f"].append(CONV3_COND_EXP.item())
-            self.write_bicg_weights(r, "r_forward")
+            if verbose:
+                print(f"RESTART NOT REQUIRED and CONV :\n {CONV3_COND}")
+                # self.bicg_mat["no_restart_1f"].append(CONV3_COND_EXP.item())
+                self.write_bicg_weights(r, "r_forward")
             
             # =======================================
             # No RESTART and INVERSE CONVERGENCE CONDITION 
             # =======================================
             CONV4_COND = NOT_RES_COND & (~CONV2_COND)
             CONV4_COND_EXP = CONV4_COND[:, :, None, None]  # this is to match the dimention when matching using torch.where
-
-            if verbose:
-                print(f"RESTART NOT REQUIRED and ELSE CONV :\n {CONV4_COND}")
 
             t = torch.where(CONV4_COND_EXP, self.applyStencilGS(s, self.boo, self.bmo, self.bom, self.bop, self.bpo), t)
             omega  = torch.where(CONV4_COND, torch.sum( torch.mul(t, s), dim = (2, 3)) / torch.sum(t**2, dim = (2, 3)), omega )            
@@ -1058,14 +1039,15 @@ class OsmosisInpainting:
                             , (alpha / omega) * (torch.sum(torch.mul(r, r_0), dim = (2, 3)) / torch.sum(torch.mul(r_old, r_0), dim = (2, 3)))
                             , beta)
 
-            # self.bicg_mat["no_restart_2f"].append(CONV4_COND.item())
-            self.write_bicg_weights(t, "t_forward")
-            self.write_bicg_weights(r_old, "r_old_forward")
-            self.write_bicg_weights(omega[:, :, None, None], "omega_forward")
-            self.write_bicg_weights(beta[:, :, None, None], "beta_forward")
 
             if verbose:
-                print(f"k : {k} , omega : {omega}, beta : {beta}")
+                print(f"RESTART NOT REQUIRED and ELSE CONV :\n {CONV4_COND}")
+                # print(f"k : {k} , omega : {omega}, beta : {beta}")
+                # self.bicg_mat["no_restart_2f"].append(CONV4_COND.item())
+                self.write_bicg_weights(t, "t_forward")
+                self.write_bicg_weights(r_old, "r_old_forward")
+                self.write_bicg_weights(omega[:, :, None, None], "omega_forward")
+                self.write_bicg_weights(beta[:, :, None, None], "beta_forward")
 
             p = torch.where(CONV4_COND_EXP, r + beta[:, :, None, None] * ( p - omega[:, :, None, None] * v), p)
             # print(self.analyseImage(p, "2nd p"))
@@ -1078,23 +1060,24 @@ class OsmosisInpainting:
             r_abs = torch.where(NOT_RES_COND, torch.norm(r, dim = (2, 3), p = 'fro'), r_abs)
 
             if verbose:
+                pass
                 print(f"k : {k}, RESIDUAL : {r_abs}")
 
-            # register backward hook
+            ## register backward hook
             # v_abs.register_hook(self.create_backward_hook2("v_abs"))
             # r0_abs.register_hook(self.create_backward_hook2("r0_abs"))
-            sigma.register_hook(self.create_backward_hook2("sigma_backward"))
-            alpha.register_hook(self.create_backward_hook2("alpha_backward"))
-            omega.register_hook(self.create_backward_hook2("omega_backward"))
-            beta.register_hook(self.create_backward_hook2("beta_backward"))
+            # sigma.register_hook(self.create_backward_hook2("sigma_backward"))
+            # alpha.register_hook(self.create_backward_hook2("alpha_backward"))
+            # omega.register_hook(self.create_backward_hook2("omega_backward"))
+            # beta.register_hook(self.create_backward_hook2("beta_backward"))
 
-            r_0.register_hook(self.create_backward_hook2("r_0_backward"))
-            r.register_hook(self.create_backward_hook2("r_backward"))
-            r_old.register_hook(self.create_backward_hook2("r_old_backward"))
-            p.register_hook(self.create_backward_hook2("p_backward"))
-            v.register_hook(self.create_backward_hook2("v_backward"))
-            s.register_hook(self.create_backward_hook2("s_backward"))
-            t.register_hook(self.create_backward_hook2("t_backward"))
+            # r_0.register_hook(self.create_backward_hook2("r_0_backward"))
+            # r.register_hook(self.create_backward_hook2("r_backward"))
+            # r_old.register_hook(self.create_backward_hook2("r_old_backward"))
+            # p.register_hook(self.create_backward_hook2("p_backward"))
+            # v.register_hook(self.create_backward_hook2("v_backward"))
+            # s.register_hook(self.create_backward_hook2("s_backward"))
+            # t.register_hook(self.create_backward_hook2("t_backward"))
 
         self.boo.register_hook(self.create_backward_hook("boo_backward"))
         self.bpo.register_hook(self.create_backward_hook("bpo_backward"))
