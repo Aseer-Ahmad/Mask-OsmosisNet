@@ -4,6 +4,12 @@ import numpy as np
 import cv2
 import time
 from torchvision import transforms, utils
+import sys
+
+# setting path
+sys.path.append('../')
+from utils import get_dfStencil, get_bicgDict
+
 
 def write_tensor_to_pgm(filename, tensor):
     tensor = torch.clamp(tensor, 0, 255).byte()
@@ -50,14 +56,12 @@ if __name__ == '__main__':
     # V1 = V1.repeat(16, 1, 1, 1)
     # mask = mask.repeat(16, 1, 1, 1)
     # V = V.to(device)
-    print(V1)
 
-    osmosis = OsmosisInpainting(None, V, mask, mask, offset=1, tau=9000, device = device, apply_canny=True)
-    st = time.time()
+    df_stencils = get_dfStencil()
+    bicg_mat = get_bicgDict()
+    osmosis = OsmosisInpainting(None, V, None, None, offset=0, tau=9000, device = device, apply_canny=True)
     osmosis.calculateWeights(False, False, False)
-    et = time.time()
-    print(f"calculate weights total time : {(et - st)} sec")
-    osmosis.solveBatchParallel(1, save_batch = [True, "solved_b.pgm"], verbose = False)
+    osmosis.solveBatchParallel(df_stencils, bicg_mat, 1, save_batch = [True, "solved_b.pgm"], verbose = False)
 
 
     # osmosis = OsmosisInpainting(None, V, mask, mask, offset=1, tau=300, apply_canny=False)

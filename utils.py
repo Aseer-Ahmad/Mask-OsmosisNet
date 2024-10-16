@@ -3,6 +3,7 @@
 
 def get_bicgDict():
     bicg_mat = {
+    "f_name" : [],
     "bicg_iter" : [],
 
     "restart" : [],
@@ -96,6 +97,8 @@ def get_dfStencil():
 
     df_stencils = {
         "iter" : [],
+        "f_name" : [],
+
         "d1_forward_max"  : [],
         "d1_forward_min"  : [],
         "d1_forward_mean" : [],

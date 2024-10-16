@@ -347,9 +347,9 @@ class ModelTrainer():
         model = model.double()
         model.to(self.device)
         
-        bicg_model = BiCG_Net(offset = 0, tau = 7000., b=self.train_batch_size, c=1, nx=img_size, ny=img_size)
-        bicg_model = bicg_model.double()
-        bicg_model.to(self.device)
+        # bicg_model = BiCG_Net(offset = 0, tau = 7000., b=self.train_batch_size, c=1, nx=img_size, ny=img_size)
+        # bicg_model = bicg_model.double()
+        # bicg_model.to(self.device)
 
         print(f"initializing weights using Kaiming/He Initialization")
         model.apply(self.initialize_weights_he)
@@ -378,13 +378,13 @@ class ModelTrainer():
 
             for i, (X, X_scale, name) in enumerate(train_dataloader, start = 1): 
                 
-                print(f'Epoch {epoch}/{epochs} , batch {i}/{len(train_dataloader)} ')
-                print(name)
-    
                 bicg_mat = get_bicgDict()
+                
+                print(f'Epoch {epoch}/{epochs} , batch {i}/{len(train_dataloader)} ')
+                df_stencils["f_name"].append(name)
 
                 # data prep
-                X = X.to(self.device, dtype=torch.float64)
+                X = X.to(self.device, dtype=torch.float64) 
 
                 # mask model
                 mask  = model(X) # non-binary [0,1]
@@ -394,8 +394,8 @@ class ModelTrainer():
                 loss2 = denLoss(mask)
 
                 # osmosis solver
-                osmosis = OsmosisInpainting(None, X, mask, mask, offset=4, tau=4096, device = self.device, apply_canny=False)
-                osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=True)
+                osmosis = OsmosisInpainting(None, X, mask, mask, offset=8, tau=4096, device = self.device, apply_canny=False)
+                osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)
                 
                 if (i) % batch_plot_every == 0: 
                     save_batch = [True, os.path.join(self.output_dir, "imgs", f"batch_epoch_{str(epoch)}_iter_{str(i)}.png")]
@@ -422,8 +422,8 @@ class ModelTrainer():
                 df = pd.DataFrame(dict([(key, pd.Series(value)) for key, value in bicg_mat.items()]))
                 df.to_csv( os.path.join(self.output_dir, f"bicg_wt_{i}.csv"), sep=',', encoding='utf-8', index=False, header=True)
 
-
-                # optimizer.step()
+                # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = 100.)
+                optimizer.step()
                 # scheduler.step()
                 optimizer.zero_grad()
 
