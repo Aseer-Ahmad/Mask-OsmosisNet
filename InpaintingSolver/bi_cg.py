@@ -16,6 +16,15 @@ from torchmetrics.regression import MeanSquaredError
 torch.set_printoptions(linewidth=3000)
 torch.set_printoptions(precision=6)
 
+
+def normalize_(X, scale = 1.):
+    b, c, _ , _ = X.shape
+    X = X - torch.amin(X, dim=(2,3)).view(b,c,1,1)
+    X = X / (torch.amax(X, dim=(2,3)).view(b,c,1,1) + 1e-7)
+    X = X * scale
+
+    return X
+
 class MSELoss(nn.Module):
     """
     Means squared loss : 
@@ -25,6 +34,8 @@ class MSELoss(nn.Module):
 
     def forward(self, U, V):
         nxny = U.shape[2] * U.shape[3]
+        U = normalize_(U)
+        V = normalize_(V)
         return torch.mean(torch.norm(U-V, p = 2, dim = (2,3))**2 / nxny)
 
 class OsmosisInpainting:
@@ -148,7 +159,7 @@ class OsmosisInpainting:
 
         for i in range(kmax):
 
-            X = self.BiCGSTAB_GS(x = U, b = X, kmax = 600, eps = 1e-8, verbose=verbose)
+            X = self.BiCGSTAB_GS(x = U, b = X, kmax = 600, eps = 1e-9, verbose=verbose)
             U = X
             loss = mse( U, self.V)
             print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)
@@ -180,11 +191,11 @@ class OsmosisInpainting:
             self.writePGMImage(out.cpu().detach().numpy().T, fname)
 
         # normalize solution and guidance
-        U = self.normalize(self.U)
-        V = self.normalize(self.V)
+        # U = self.normalize(self.U)
+        # V = self.normalize(self.V)
         
         # mse loss 
-        loss = mse(U, V)
+        loss = mse(self.U, self.V)
 
         return loss, tt, self.df_stencils, self.bicg_mat
 

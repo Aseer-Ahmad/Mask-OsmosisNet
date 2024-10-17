@@ -233,8 +233,8 @@ class ModelTrainer():
             
             return images, images_scale
 
-        train_dataloader = DataLoader(train_dataset, shuffle = False, batch_size=self.train_batch_size, collate_fn=custom_collate_fn)
-        test_dataloader  = DataLoader(test_dataset, shuffle = False, batch_size=self.test_batch_size, collate_fn=custom_collate_fn)
+        train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size, collate_fn=custom_collate_fn)
+        test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size, collate_fn=custom_collate_fn)
 
         # train_dataloader = DataLoader(train_dataset, shuffle = False, batch_size=self.train_batch_size, worker_init_fn=seed_worker,generator=g)
         # test_dataloader  = DataLoader(test_dataset, shuffle = False, batch_size=self.test_batch_size, worker_init_fn=seed_worker,generator=g)
@@ -411,7 +411,7 @@ class ModelTrainer():
                 # X_rec = bicg_model(X, mask, mask)
                 # loss3 = mseLoss(X, X_rec)
 
-                total_loss = loss3 + loss2 * alpha2 + loss1 * alpha1 
+                total_loss = loss3 + loss1 * alpha1 
                 total_loss.backward()
                 total_norm = self.check_gradients(model)
 
@@ -431,7 +431,7 @@ class ModelTrainer():
                     optimizer.zero_grad()
                     continue
 
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = 5)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = 10)
 
                 optimizer.step()
                 scheduler.step()
