@@ -233,11 +233,11 @@ class ModelTrainer():
             
             return images, images_scale
 
-        # train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size, collate_fn=custom_collate_fn)
-        # test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size, collate_fn=custom_collate_fn)
+        train_dataloader = DataLoader(train_dataset, shuffle = False, batch_size=self.train_batch_size, collate_fn=custom_collate_fn)
+        test_dataloader  = DataLoader(test_dataset, shuffle = False, batch_size=self.test_batch_size, collate_fn=custom_collate_fn)
 
-        train_dataloader = DataLoader(train_dataset, shuffle = False, batch_size=self.train_batch_size, worker_init_fn=seed_worker,generator=g)
-        test_dataloader  = DataLoader(test_dataset, shuffle = False, batch_size=self.test_batch_size, worker_init_fn=seed_worker,generator=g)
+        # train_dataloader = DataLoader(train_dataset, shuffle = False, batch_size=self.train_batch_size, worker_init_fn=seed_worker,generator=g)
+        # test_dataloader  = DataLoader(test_dataset, shuffle = False, batch_size=self.test_batch_size, worker_init_fn=seed_worker,generator=g)
 
         print(f"train and test dataloaders created")
         print(f"total train batches  : {len(train_dataloader)}")
@@ -371,17 +371,20 @@ class ModelTrainer():
         for epoch in range(epochs):
 
             running_loss = 0.0
+            running_mse = 0.0
+            running_inv = 0.0
+            skipped_batches = 0
             model.train()
             st = time.time()
 
             df_stencils = get_dfStencil()
 
-            for i, (X, X_scale, name) in enumerate(train_dataloader, start = 1): 
+            for i, (X, X_scale) in enumerate(train_dataloader, start = 1): 
                 
                 bicg_mat = get_bicgDict()
                 
                 print(f'Epoch {epoch}/{epochs} , batch {i}/{len(train_dataloader)} ')
-                df_stencils["f_name"].append(name)
+                # df_stencils["f_name"].append(name)
 
                 # data prep
                 X = X.to(self.device, dtype=torch.float64) 
@@ -394,7 +397,7 @@ class ModelTrainer():
                 loss2 = denLoss(mask)
 
                 # osmosis solver
-                osmosis = OsmosisInpainting(None, X, mask, mask, offset=6, tau=4096, device = self.device, apply_canny=False)
+                osmosis = OsmosisInpainting(None, X, mask, mask, offset=8, tau=4096, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)
                 
                 if (i) % batch_plot_every == 0: 
@@ -415,32 +418,41 @@ class ModelTrainer():
                 
                 # write forward backward stencils
                 df_stencils["grad_norm"].append(total_norm)
-                df = pd.DataFrame(df_stencils)
+                df = pd.DataFrame(dict([(key, pd.Series(value)) for key, value in df_stencils.items()]))
                 df.to_csv( os.path.join(self.output_dir, "stencils.csv"), sep=',', encoding='utf-8', index=False, header=True)
 
                 bicg_mat["grad_norm"].append(total_norm)
                 df = pd.DataFrame(dict([(key, pd.Series(value)) for key, value in bicg_mat.items()]))
                 df.to_csv( os.path.join(self.output_dir, f"bicg_wt_{i}.csv"), sep=',', encoding='utf-8', index=False, header=True)
 
-                # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = 100.)
+                if total_norm > 50. :
+                    skipped_batches += 1
+                    print(f"skipping batch due to higher gradient norm : {total_norm}, total skipped : {skipped_batches}")
+                    optimizer.zero_grad()
+                    continue
+
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = 5)
+
                 optimizer.step()
-                # scheduler.step()
+                scheduler.step()
                 optimizer.zero_grad()
 
                 running_loss += total_loss.item()
+                running_mse  += loss3.item()
+                running_inv  += loss1.item()
                 avg_den = self.mean_density(mask)
 
                 avg_den_list.append(avg_den.item())
-                loss1_list.append(loss1.item())
+                loss1_list.append(running_inv / (i - skipped_batches))
                 loss2_list.append(loss2.item())
-                loss3_list.append(loss3.item())
-                running_loss_list.append((running_loss / i))
+                loss3_list.append(running_mse / (i - skipped_batches))
+                running_loss_list.append((running_loss / (i - skipped_batches)))
                 gradnorm_list.append(total_norm)
                 print(f"invariance loss : {loss1}, avg_den : {avg_den.item()}, ", end='')
                 print(f"density loss : {loss2}, solver time : {str(tts)} sec , ", end='')
                 print(f"mse loss : {loss3}, ", end='')
                 print(f"total loss : {total_loss}, " , end = '')
-                print(f"running loss : {running_loss / i}" )
+                print(f"running loss : {running_loss / (i - skipped_batches)}" )
 
                 if (i) % save_every == 0:
                     print("saving checkpoint")
@@ -461,20 +473,21 @@ class ModelTrainer():
                 clist = [l for l in range(1, len(loss1_list) + 1)]
                 save_plot([np.log(loss1_list), np.log(loss3_list), np.log(running_loss_list)], clist, ["invloss", "mse", "runningloss"], os.path.join(self.output_dir, "all_losses.png"))
                 save_plot([running_loss_list], clist, ["running loss"], os.path.join(self.output_dir, "runloss.png"))
-                save_plot([loss1_list], clist, ["invariance loss"], os.path.join(self.output_dir, "invloss.png"))
-                save_plot([loss3_list], clist, ["mse loss"], os.path.join(self.output_dir, "mseloss.png"))
+                save_plot([loss1_list], clist, ["run invariance loss"], os.path.join(self.output_dir, "invloss.png"))
+                save_plot([loss3_list], clist, ["run mse loss"], os.path.join(self.output_dir, "mseloss.png"))
                 save_plot([loss2_list, avg_den_list], clist, ["density loss", "avg den"], os.path.join(self.output_dir, "loss_density.png"))
                 save_plot([gradnorm_list], clist, ["grad norm"], os.path.join(self.output_dir, "gradnorm.png"))
                 
                 # update csv file and save
                 train_dict = {
-                    "invariance loss" : loss1_list,
-                    "mse loss" : loss3_list,
-                    "density loss" : loss2_list,
                     "grand norms" : gradnorm_list,
+                    "density loss" : loss2_list,
+                    "running invariance loss" : loss1_list,
+                    "running mse loss" : loss3_list,
                     "running loss" : running_loss_list
                     }
                 df = pd.DataFrame(train_dict)
+                print(df.tail(20))
                 fname = "data.csv"
                 df.to_csv( os.path.join(self.output_dir, fname), sep=',', encoding='utf-8', index=False, header=True)
 
@@ -494,7 +507,7 @@ class ModelTrainer():
             et = time.time()
             print(f"total time for epoch : {str((et-st) / 60)} min")
             print(f"lr rate for the epoch : {optimizer.param_groups[0]['lr']}")
-            epoch_loss = running_loss / train_dataloader.__len__()
+            epoch_loss = running_loss / (train_dataloader.__len__() - skipped_batches)
             epochloss_list.append(epoch_loss.item())
             print('Epoch [{}/{}], epoch Loss: {:.4f}'.format(epoch+1, epochs, epoch_loss))
             save_plot([epochloss_list], [i for i in range(epoch+1)], ["epoch loss"], os.path.join(self.output_dir, "epochloss.png"))
