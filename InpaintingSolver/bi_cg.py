@@ -159,7 +159,7 @@ class OsmosisInpainting:
 
         for i in range(kmax):
 
-            X = self.BiCGSTAB_GS(x = U, b = X, kmax = 600, eps = 1e-9, verbose=verbose)
+            X = self.BiCGSTAB_GS(x = U, b = X, kmax = 600, eps = 1e-8, verbose=verbose)
             U = X
             loss = mse( U, self.V)
             print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)
@@ -930,7 +930,7 @@ class OsmosisInpainting:
     def zeroPadGS(self, x):
         return self.zero_pad(x[ :, :, 1:self.nx+1, 1 :self.ny+1])
 
-    def BiCGSTAB_GS(self, x, b, kmax=10000, eps=1e-9, verbose = False):
+    def BiCGSTAB_GS(self, x, b, kmax, eps, verbose = False):
         
         restart = torch.ones( (self.batch, self.channel), dtype=torch.bool, device = self.device)
         k       = torch.zeros((self.batch, self.channel), dtype=torch.long, device = self.device)

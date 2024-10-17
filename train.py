@@ -431,7 +431,7 @@ class ModelTrainer():
                     optimizer.zero_grad()
                     continue
 
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = 10)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = 1)
 
                 optimizer.step()
                 scheduler.step()
