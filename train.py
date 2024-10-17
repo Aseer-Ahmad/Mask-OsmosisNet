@@ -394,7 +394,7 @@ class ModelTrainer():
                 loss2 = denLoss(mask)
 
                 # osmosis solver
-                osmosis = OsmosisInpainting(None, X, mask, mask, offset=8, tau=4096, device = self.device, apply_canny=False)
+                osmosis = OsmosisInpainting(None, X, mask, mask, offset=6, tau=4096, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)
                 
                 if (i) % batch_plot_every == 0: 
