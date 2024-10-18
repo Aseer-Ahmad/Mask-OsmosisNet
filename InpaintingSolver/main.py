@@ -5,6 +5,7 @@ import cv2
 import time
 from torchvision import transforms, utils
 import sys
+import torchvision.transforms.functional as F
 
 # setting path
 sys.path.append('../')
@@ -27,7 +28,7 @@ def readPGMImage( pth):
     pgm = cv2.imread(pth, cv2.IMREAD_GRAYSCALE) 
     pgm_T = torch.tensor(pgm, dtype = torch.float64)
     nx, ny = pgm_T.size()
-    pgm_T = pgm_T.reshape(1, 1, nx, ny) / 255.
+    pgm_T = F.resize(pgm_T.reshape(1, 1, nx, ny) / 255., (128, 128))
     return pgm_T
 
 
@@ -48,7 +49,7 @@ if __name__ == '__main__':
     mask = readPGMImage('kaniza-edge.pgm')
     mask = mask.to(device)
 
-    V = readPGMImage('cameraman.pgm')
+    V = readPGMImage('1.JPEG')
     V = V.to(device)
     mask = readPGMImage('cameraman-edge.pgm')
     mask = mask.to(device)
@@ -59,7 +60,7 @@ if __name__ == '__main__':
 
     df_stencils = get_dfStencil()
     bicg_mat = get_bicgDict()
-    osmosis = OsmosisInpainting(None, V, None, None, offset=0, tau=9000, device = device, apply_canny=True)
+    osmosis = OsmosisInpainting(None, V, None, None, offset=10, tau=4096, device = device, apply_canny=True)
     osmosis.calculateWeights(False, False, False)
     osmosis.solveBatchParallel(df_stencils, bicg_mat, 1, save_batch = [True, "solved_b.pgm"], verbose = False)
 

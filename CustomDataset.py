@@ -50,5 +50,5 @@ class MaskDataset(Dataset):
         # tensor_transformed = transforms.Normalize(mean = [0.44531356896770125], std = [0.2692461874154524])(tensor)
         # tensor_transformed = transforms.Normalize(mean = [0.], std = [1.])(tensor)     
         
-        return (tensor_transformed, tensor, img_name)
+        return (tensor_transformed, tensor)
     
