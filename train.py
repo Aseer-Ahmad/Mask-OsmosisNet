@@ -233,11 +233,11 @@ class ModelTrainer():
             
             return images, images_scale
 
-        train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size, collate_fn=custom_collate_fn)
-        test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size, collate_fn=custom_collate_fn)
+        # train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size, collate_fn=custom_collate_fn)
+        # test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size, collate_fn=custom_collate_fn)
 
-        # train_dataloader = DataLoader(train_dataset, shuffle = False, batch_size=self.train_batch_size, worker_init_fn=seed_worker,generator=g)
-        # test_dataloader  = DataLoader(test_dataset, shuffle = False, batch_size=self.test_batch_size, worker_init_fn=seed_worker,generator=g)
+        train_dataloader = DataLoader(train_dataset, shuffle = False, batch_size=self.train_batch_size, worker_init_fn=seed_worker,generator=g)
+        test_dataloader  = DataLoader(test_dataset, shuffle = False, batch_size=self.test_batch_size, worker_init_fn=seed_worker,generator=g)
 
         print(f"train and test dataloaders created")
         print(f"total train batches  : {len(train_dataloader)}")
@@ -267,19 +267,18 @@ class ModelTrainer():
             for i, (X, X_scale) in enumerate(test_dataloader):
 
                 X = X.to(self.device, dtype=torch.float64)
-
-                mask = model(X) # non-binary [0,1]
+                mask  = model(X) # non-binary [0,1]
                 loss1 = invLoss(mask)
-                # mask_bin = self.hardRoundBinarize(mask) # binarized {0,1}
                 loss2 = denLoss(mask)
 
-                osmosis = OsmosisInpainting(None, X, mask, mask, offset=0, tau=7000, device = self.device, apply_canny=False)
-                osmosis.calculateWeights(False, False, False)
-                loss3, tts = osmosis.solveBatchParallel(1, save_batch = [False], verbose = False)
-
-                total_loss = loss3 + loss2 * alpha2 + loss1 * alpha1 
-
+                osmosis = OsmosisInpainting(None, X, mask, mask, offset=0, tau=4096, device = self.device, apply_canny=False)
+                osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)
+                save_batch = [False]
+                loss3, tts, df_stencils, bicg_mat = osmosis.solveBatchParallel(df_stencils, bicg_mat, 1, save_batch = save_batch, verbose = True)
+                
+                total_loss = loss3 + loss1 * alpha1 
                 running_loss += total_loss.item()
+
             et = time.time()
         
         val_loss = running_loss / ((i+1)*td_len)
@@ -347,9 +346,9 @@ class ModelTrainer():
         model = model.double()
         model.to(self.device)
         
-        # bicg_model = BiCG_Net(offset = 0, tau = 7000., b=self.train_batch_size, c=1, nx=img_size, ny=img_size)
-        # bicg_model = bicg_model.double()
-        # bicg_model.to(self.device)
+        bicg_model = BiCG_Net(offset = 0, tau = 7000., b=self.train_batch_size, c=1, nx=img_size, ny=img_size)
+        bicg_model = bicg_model.double()
+        bicg_model.to(self.device)
 
         print(f"initializing weights using Kaiming/He Initialization")
         model.apply(self.initialize_weights_he)
@@ -397,7 +396,7 @@ class ModelTrainer():
                 loss2 = denLoss(mask)
 
                 # osmosis solver
-                osmosis = OsmosisInpainting(None, X, mask, mask, offset=8, tau=4096, device = self.device, apply_canny=False)
+                osmosis = OsmosisInpainting(None, X, mask, mask, offset=0, tau=4096, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)
                 
                 if (i) % batch_plot_every == 0: 
@@ -405,10 +404,9 @@ class ModelTrainer():
                 else:
                     save_batch = [False]
                 df_stencils["iter"].append(i)
-                loss3, tts, df_stencils, bicg_mat = osmosis.solveBatchParallel(df_stencils, bicg_mat, 1, save_batch = save_batch, verbose = False)
+                loss3, tts, df_stencils, bicg_mat = osmosis.solveBatchParallel(df_stencils, bicg_mat, 1, save_batch = save_batch, verbose = True)
                 
-                # tts = 0
-                # X_rec = bicg_model(X, mask, mask)
+                # X_rec, tts = bicg_model(X, mask, mask)
                 # loss3 = mseLoss(X, X_rec)
 
                 total_loss = loss3 + loss1 * alpha1 
@@ -425,13 +423,13 @@ class ModelTrainer():
                 df = pd.DataFrame(dict([(key, pd.Series(value)) for key, value in bicg_mat.items()]))
                 df.to_csv( os.path.join(self.output_dir, f"bicg_wt_{i}.csv"), sep=',', encoding='utf-8', index=False, header=True)
 
-                if total_norm > 50. :
-                    skipped_batches += 1
-                    print(f"skipping batch due to higher gradient norm : {total_norm}, total skipped : {skipped_batches}")
-                    optimizer.zero_grad()
-                    continue
+                # if total_norm > 50. :
+                #     skipped_batches += 1
+                #     print(f"skipping batch due to higher gradient norm : {total_norm}, total skipped : {skipped_batches}")
+                #     optimizer.zero_grad()
+                #     continue
 
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = 1)
+                # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = 1)
 
                 optimizer.step()
                 scheduler.step()

@@ -159,7 +159,7 @@ class OsmosisInpainting:
 
         for i in range(kmax):
 
-            X = self.BiCGSTAB_GS(x = U, b = X, kmax = 600, eps = 1e-8, verbose=verbose)
+            X = self.BiCGSTAB_GS(x = U, b = X, kmax = 600, eps = 1e-6, verbose=verbose)
             U = X
             loss = mse( U, self.V)
             print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)
@@ -173,11 +173,11 @@ class OsmosisInpainting:
 
         self.U = X
 
-        # self.analyseImage(X, f"solution")
-        # comm = f"time for iteration : {str(et-st)} sec\n"
-        # comm += f"total time         : {str(tt)} sec\n"
-        # comm += self.getMetrics()
-        # print(comm)
+        self.analyseImage(X, f"solution")
+        comm = f"time for iteration : {str(et-st)} sec\n"
+        comm += f"total time         : {str(tt)} sec\n"
+        comm += self.getMetrics()
+        print(comm)
 
         if save_batch[0]:
             fname = save_batch[1]
@@ -375,8 +375,8 @@ class OsmosisInpainting:
         psnr  = PeakSignalNoiseRatio().to(self.device)
         mse   = torch.nn.MSELoss()
 
-        metrics += f"psnr : {str(( psnr(self.U, self.V) ))}\n"
-        metrics += f"mse  : {str(( mse(self.U, self.V) ))}\n"
+        metrics += f"psnr : {str(( psnr(self.normalize(self.U), self.normalize(self.V)) ))}\n"
+        metrics += f"mse  : {str(( mse(self.normalize(self.U), self.normalize(self.V)) ))}\n"
         
         return metrics
 
@@ -998,7 +998,7 @@ class OsmosisInpainting:
                 # print(f"RESTART REQUIRED :\n {RES1_COND}, shape : {RES1_COND.shape}")
                 # print(f"r_abs when restarted: {r_abs}")
                 # print(self.analyseImage(r_abs[:, :, None, None], "r_abs"))
-                # self.bicg_mat["restart"].append(RES1_COND_EXP.item())
+                self.bicg_mat["restart"].append(RES1_COND_EXP.item())
                 self.write_bicg_weights(r_0, "r_0_forward")
                 self.write_bicg_weights(p, "p_forward")
 
@@ -1029,7 +1029,7 @@ class OsmosisInpainting:
             r = torch.where(CONV3_COND_EXP, s, r)
             
             if verbose:
-                print(f"RESTART NOT REQUIRED and CONV :\n {CONV3_COND}")
+                # print(f"RESTART NOT REQUIRED and CONV :\n {CONV3_COND}")
                 # self.bicg_mat["no_restart_1f"].append(CONV3_COND_EXP.item())
                 self.write_bicg_weights(r, "r_forward")
             
@@ -1052,7 +1052,7 @@ class OsmosisInpainting:
 
 
             if verbose:
-                print(f"RESTART NOT REQUIRED and ELSE CONV :\n {CONV4_COND}")
+                # print(f"RESTART NOT REQUIRED and ELSE CONV :\n {CONV4_COND}")
                 # print(f"k : {k} , omega : {omega}, beta : {beta}")
                 # self.bicg_mat["no_restart_2f"].append(CONV4_COND.item())
                 self.write_bicg_weights(t, "t_forward")
@@ -1075,27 +1075,27 @@ class OsmosisInpainting:
                 print(f"k : {k}, RESIDUAL : {r_abs}")
 
             ## register backward hook
-            # v_abs.register_hook(self.create_backward_hook2("v_abs"))
-            # r0_abs.register_hook(self.create_backward_hook2("r0_abs"))
-            # sigma.register_hook(self.create_backward_hook2("sigma_backward"))
-            # alpha.register_hook(self.create_backward_hook2("alpha_backward"))
-            # omega.register_hook(self.create_backward_hook2("omega_backward"))
-            # beta.register_hook(self.create_backward_hook2("beta_backward"))
+            v_abs.register_hook(self.create_backward_hook2("v_abs"))
+            r0_abs.register_hook(self.create_backward_hook2("r0_abs"))
+            sigma.register_hook(self.create_backward_hook2("sigma_backward"))
+            alpha.register_hook(self.create_backward_hook2("alpha_backward"))
+            omega.register_hook(self.create_backward_hook2("omega_backward"))
+            beta.register_hook(self.create_backward_hook2("beta_backward"))
 
-            # r_0.register_hook(self.create_backward_hook2("r_0_backward"))
-            # r.register_hook(self.create_backward_hook2("r_backward"))
-            # r_old.register_hook(self.create_backward_hook2("r_old_backward"))
-            # p.register_hook(self.create_backward_hook2("p_backward"))
-            # v.register_hook(self.create_backward_hook2("v_backward"))
-            # s.register_hook(self.create_backward_hook2("s_backward"))
-            # t.register_hook(self.create_backward_hook2("t_backward"))
+            r_0.register_hook(self.create_backward_hook2("r_0_backward"))
+            r.register_hook(self.create_backward_hook2("r_backward"))
+            r_old.register_hook(self.create_backward_hook2("r_old_backward"))
+            p.register_hook(self.create_backward_hook2("p_backward"))
+            v.register_hook(self.create_backward_hook2("v_backward"))
+            s.register_hook(self.create_backward_hook2("s_backward"))
+            t.register_hook(self.create_backward_hook2("t_backward"))
 
-        # self.boo.register_hook(self.create_backward_hook("boo_backward"))
-        # self.bpo.register_hook(self.create_backward_hook("bpo_backward"))
-        # self.bop.register_hook(self.create_backward_hook("bop_backward"))
-        # self.bom.register_hook(self.create_backward_hook("bom_backward"))
-        # self.bmo.register_hook(self.create_backward_hook("bmo_backward"))
-        # self.d1.register_hook(self.create_backward_hook("d1_backward"))
-        # self.d2.register_hook(self.create_backward_hook("d2_backward"))
+        self.boo.register_hook(self.create_backward_hook("boo_backward"))
+        self.bpo.register_hook(self.create_backward_hook("bpo_backward"))
+        self.bop.register_hook(self.create_backward_hook("bop_backward"))
+        self.bom.register_hook(self.create_backward_hook("bom_backward"))
+        self.bmo.register_hook(self.create_backward_hook("bmo_backward"))
+        self.d1.register_hook(self.create_backward_hook("d1_backward"))
+        self.d2.register_hook(self.create_backward_hook("d2_backward"))
 
         return x
