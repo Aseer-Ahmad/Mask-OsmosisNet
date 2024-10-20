@@ -28,6 +28,8 @@ ALPHA1         : 0.0001
 ALPHA2         : 0.0001
 MASK_DEN       : 0.1
 BIN_METH       : QUANT
+SKIP_NORM      : 50.
+MAX_NORM       : 50.
 
 #solver params
 OFFSET         :

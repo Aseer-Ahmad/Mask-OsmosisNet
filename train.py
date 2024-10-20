@@ -233,11 +233,11 @@ class ModelTrainer():
             
             return images, images_scale
 
-        # train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size, collate_fn=custom_collate_fn)
-        # test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size, collate_fn=custom_collate_fn)
+        train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size, collate_fn=custom_collate_fn)
+        test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size, collate_fn=custom_collate_fn)
 
-        train_dataloader = DataLoader(train_dataset, shuffle = False, batch_size=self.train_batch_size, worker_init_fn=seed_worker,generator=g)
-        test_dataloader  = DataLoader(test_dataset, shuffle = False, batch_size=self.test_batch_size, worker_init_fn=seed_worker,generator=g)
+        # train_dataloader = DataLoader(train_dataset, shuffle = False, batch_size=self.train_batch_size, worker_init_fn=seed_worker,generator=g)
+        # test_dataloader  = DataLoader(test_dataset, shuffle = False, batch_size=self.test_batch_size, worker_init_fn=seed_worker,generator=g)
 
         print(f"train and test dataloaders created")
         print(f"total train batches  : {len(train_dataloader)}")
@@ -320,7 +320,20 @@ class ModelTrainer():
             if m.bias is not None:
                 nn.init.constant_(m.bias, 0)
 
-    def train(self, model, epochs, alpha1, alpha2, mask_density, img_size, resume_checkpoint_file, save_every, batch_plot_every, val_every, train_dataset ,test_dataset):
+    def train(self, model,
+                    epochs,
+                    alpha1, 
+                    alpha2, 
+                    mask_density, 
+                    img_size, 
+                    resume_checkpoint_file, 
+                    save_every, 
+                    batch_plot_every, 
+                    val_every, 
+                    skip_norm, 
+                    max_norm, 
+                    train_dataset,
+                    test_dataset):
         
         # loss lists
         loss1_list, loss2_list, loss3_list, gradnorm_list, running_loss_list = [], [], [], [], []
@@ -396,7 +409,7 @@ class ModelTrainer():
                 loss2 = denLoss(mask)
 
                 # osmosis solver
-                osmosis = OsmosisInpainting(None, X, mask, mask, offset=0, tau=4096, device = self.device, apply_canny=False)
+                osmosis = OsmosisInpainting(None, X, mask, mask, offset=10, tau=4096, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)
                 
                 if (i) % batch_plot_every == 0: 
@@ -404,7 +417,7 @@ class ModelTrainer():
                 else:
                     save_batch = [False]
                 df_stencils["iter"].append(i)
-                loss3, tts, df_stencils, bicg_mat = osmosis.solveBatchParallel(df_stencils, bicg_mat, 1, save_batch = save_batch, verbose = True)
+                loss3, tts, df_stencils, bicg_mat = osmosis.solveBatchParallel(df_stencils, bicg_mat, 1, save_batch = save_batch, verbose = False)
                 
                 # X_rec, tts = bicg_model(X, mask, mask)
                 # loss3 = mseLoss(X, X_rec)
@@ -418,21 +431,21 @@ class ModelTrainer():
                 df_stencils["grad_norm"].append(total_norm)
                 df = pd.DataFrame(dict([(key, pd.Series(value)) for key, value in df_stencils.items()]))
                 df.to_csv( os.path.join(self.output_dir, "stencils.csv"), sep=',', encoding='utf-8', index=False, header=True)
-
                 bicg_mat["grad_norm"].append(total_norm)
                 df = pd.DataFrame(dict([(key, pd.Series(value)) for key, value in bicg_mat.items()]))
                 df.to_csv( os.path.join(self.output_dir, f"bicg_wt_{i}.csv"), sep=',', encoding='utf-8', index=False, header=True)
 
-                # if total_norm > 50. :
-                #     skipped_batches += 1
-                #     print(f"skipping batch due to higher gradient norm : {total_norm}, total skipped : {skipped_batches}")
-                #     optimizer.zero_grad()
-                #     continue
+                if total_norm > skip_norm :
+                    skipped_batches += 1
+                    print(f"skipping batch due to higher gradient norm : {total_norm}, total skipped : {skipped_batches}")
+                    optimizer.zero_grad()
+                    continue
 
-                # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = 1)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = max_norm)
 
                 optimizer.step()
-                scheduler.step()
+                if scheduler != None :
+                    scheduler.step()
                 optimizer.zero_grad()
 
                 running_loss += total_loss.item()
