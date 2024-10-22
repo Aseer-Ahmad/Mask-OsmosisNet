@@ -24,8 +24,8 @@ from InpaintingSolver.bi_cg import OsmosisInpainting
 from utils import get_dfStencil, get_bicgDict
 
 torch.backends.cuda.matmul.allow_tf32 = True
-# SEED = 1
-# torch.manual_seed(SEED)
+SEED = 1
+torch.manual_seed(SEED)
 
 # def seed_worker(worker_id):
 #     worker_seed = torch.initial_seed() % 2**32
@@ -118,6 +118,22 @@ def save_plot(loss_lists, x, legend_list, save_path):
     plt.savefig(save_path)
     plt.close()
 
+class JointModelTrainer():
+
+    def __init__(self, output_dir, optimizer, scheduler, lr, weight_decay, momentum, train_batch_size, test_batch_size):
+        
+        self.output_dir= output_dir
+        self.optimizer= optimizer
+        self.scheduler= scheduler
+        self.lr= lr
+        self.weight_decay= weight_decay
+        self.momentum = momentum
+        self.train_batch_size = train_batch_size
+        self.test_batch_size = test_batch_size
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(f"device : {self.device}")
+
+
 
 class ModelTrainer():
 
@@ -166,7 +182,7 @@ class ModelTrainer():
             schdl = ExponentialLR(optim, gamma=0.9)
         
         elif self.scheduler == "multiStep":
-            schdl = MultiStepLR(optim, milestones=[30,80], gamma=0.1)
+            schdl = MultiStepLR(optim, milestones=[1,2,3], gamma=0.1)
 
         elif self.scheduler == "lambdaLR":
             lambda1 = lambda epoch: epoch // 30
@@ -235,6 +251,9 @@ class ModelTrainer():
 
         train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size, collate_fn=custom_collate_fn)
         test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size, collate_fn=custom_collate_fn)
+
+        # train_dataloader = DataLoader(train_dataset, shuffle = False, batch_size=self.train_batch_size)
+        # test_dataloader  = DataLoader(test_dataset, shuffle = False, batch_size=self.test_batch_size)
 
         # train_dataloader = DataLoader(train_dataset, shuffle = False, batch_size=self.train_batch_size, worker_init_fn=seed_worker,generator=g)
         # test_dataloader  = DataLoader(test_dataset, shuffle = False, batch_size=self.test_batch_size, worker_init_fn=seed_worker,generator=g)
@@ -411,7 +430,7 @@ class ModelTrainer():
                 loss2 = denLoss(mask)
 
                 # osmosis solver
-                osmosis = OsmosisInpainting(None, X, mask, mask, offset=10, tau=4096, device = self.device, apply_canny=False)
+                osmosis = OsmosisInpainting(X, X, mask, mask, offset=10, tau=4096, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)
                 
                 if (i) % batch_plot_every == 0: 
@@ -430,12 +449,17 @@ class ModelTrainer():
 
                 
                 # write forward backward stencils
-                # df_stencils["grad_norm"].append(total_norm)
-                # df = pd.DataFrame(dict([(key, pd.Series(value)) for key, value in df_stencils.items()]))
-                # df.to_csv( os.path.join(self.output_dir, "stencils.csv"), sep=',', encoding='utf-8', index=False, header=True)
+                df_stencils["grad_norm"].append(total_norm)
+                df = pd.DataFrame(dict([(key, pd.Series(value)) for key, value in df_stencils.items()]))
+                df.to_csv( os.path.join(self.output_dir, "stencils.csv"), sep=',', encoding='utf-8', index=False, header=True)
                 # bicg_mat["grad_norm"].append(total_norm)
                 # df = pd.DataFrame(dict([(key, pd.Series(value)) for key, value in bicg_mat.items()]))
                 # df.to_csv( os.path.join(self.output_dir, f"bicg_wt_{i}.csv"), sep=',', encoding='utf-8', index=False, header=True)
+                
+                if (i) % save_every == 0:
+                    print("saving checkpoint")
+                    fname = f"ckp_epoch_{str(epoch+1)}_iter_{str(i)}.pt"
+                    self.saveCheckpoint(model, optimizer, fname)
 
                 if total_norm > skip_norm :
                     skipped_batches += 1
@@ -445,8 +469,9 @@ class ModelTrainer():
 
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = max_norm)
 
-                optimizer.step()
+                # optimizer.step()
                 if scheduler != None :
+                    pass
                     scheduler.step()
                 optimizer.zero_grad()
 
@@ -468,10 +493,6 @@ class ModelTrainer():
                 print(f"running loss : {running_loss / (i - skipped_batches)}" )
 
                 if (i) % save_every == 0:
-                    print("saving checkpoint")
-                    fname = f"ckp_epoch_{str(epoch+1)}_iter_{str(i)}.pt"
-                    self.saveCheckpoint(model, optimizer, fname)
-
                     # update mask distribution plot and save
                     print("plotting mask distribution")
                     fname = f"mdist_epoch_{str(epoch+1)}_iter_{str(i)}.png"
