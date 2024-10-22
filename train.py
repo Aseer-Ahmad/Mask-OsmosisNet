@@ -23,17 +23,17 @@ from InpaintingSolver.bi_cg import OsmosisInpainting
 
 from utils import get_dfStencil, get_bicgDict
 
-SEED = 1
 torch.backends.cuda.matmul.allow_tf32 = True
-torch.manual_seed(SEED)
+# SEED = 1
+# torch.manual_seed(SEED)
 
-def seed_worker(worker_id):
-    worker_seed = torch.initial_seed() % 2**32
-    numpy.random.seed(worker_seed)
-    random.seed(worker_seed)
+# def seed_worker(worker_id):
+#     worker_seed = torch.initial_seed() % 2**32
+#     numpy.random.seed(worker_seed)
+#     random.seed(worker_seed)
 
-g = torch.Generator()
-g.manual_seed(SEED)
+# g = torch.Generator()
+# g.manual_seed(SEED)
 
 class InvarianceLoss(nn.Module):
     """
@@ -259,6 +259,8 @@ class ModelTrainer():
         denLoss  = DensityLoss(density)
 
         td_len = len(test_dataloader)
+        df_stencils = get_dfStencil()
+        bicg_mat = get_bicgDict()
         
         model.eval()
 
@@ -428,12 +430,12 @@ class ModelTrainer():
 
                 
                 # write forward backward stencils
-                df_stencils["grad_norm"].append(total_norm)
-                df = pd.DataFrame(dict([(key, pd.Series(value)) for key, value in df_stencils.items()]))
-                df.to_csv( os.path.join(self.output_dir, "stencils.csv"), sep=',', encoding='utf-8', index=False, header=True)
-                bicg_mat["grad_norm"].append(total_norm)
-                df = pd.DataFrame(dict([(key, pd.Series(value)) for key, value in bicg_mat.items()]))
-                df.to_csv( os.path.join(self.output_dir, f"bicg_wt_{i}.csv"), sep=',', encoding='utf-8', index=False, header=True)
+                # df_stencils["grad_norm"].append(total_norm)
+                # df = pd.DataFrame(dict([(key, pd.Series(value)) for key, value in df_stencils.items()]))
+                # df.to_csv( os.path.join(self.output_dir, "stencils.csv"), sep=',', encoding='utf-8', index=False, header=True)
+                # bicg_mat["grad_norm"].append(total_norm)
+                # df = pd.DataFrame(dict([(key, pd.Series(value)) for key, value in bicg_mat.items()]))
+                # df.to_csv( os.path.join(self.output_dir, f"bicg_wt_{i}.csv"), sep=',', encoding='utf-8', index=False, header=True)
 
                 if total_norm > skip_norm :
                     skipped_batches += 1

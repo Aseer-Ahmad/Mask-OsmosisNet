@@ -1,11 +1,11 @@
 # MODEL PARAMS
-EPOCHS : 10
-RESUME_CHECKPOINT : outputs/imagenet_t7/test_wts.pt
-SAVE_EVERY_ITER : 30
-VAL_EVERY_ITER : 500
-BATCH_PLOT_EVERY_ITER : 1
+EPOCHS : 4
+RESUME_CHECKPOINT : 
+SAVE_EVERY_ITER : 1000
+VAL_EVERY_ITER : 13000
+BATCH_PLOT_EVERY_ITER : 50
 OUTPUT_DIR : outputs
-EXP_NAME : imagenet_t7
+EXP_NAME : run_7
 
 # DATA PARMS
 TRAIN_FILENAME : iids_train.txt
@@ -18,21 +18,24 @@ OUT_CHANNELS   : 1
 
 # HYPER PARAMS
 LR             : 0.001
-WEIGHT_DECAY   : 0.01
+WEIGHT_DECAY   : 0.0001
 MOMENTUM       : 0.009
 OPT            : Adam
-SCHEDL         : exp
-TRAIN_BATCH    : 1
-TEST_BATCH     : 1
-ALPHA1         : 0.0001
+SCHEDL         : multiStep
+TRAIN_BATCH    : 8
+TEST_BATCH     : 8
+ALPHA1         : 0.01
 ALPHA2         : 0.0001
 MASK_DEN       : 0.1
 BIN_METH       : QUANT
-SKIP_NORM      : 50.
-MAX_NORM       : 50.
+MAX_NORM       : 1
+SKIP_NORM      : 50
 
 #solver params
-OFFSET         :
-TAU            :
-ITERATIONS     :
+OFFSET         : 8
+TAU            : 4096
+ITERATIONS     : 
 NOTE           : 
+
+
+rsync -pthrvz -e "condor_ssh_to_job" 64650:outputs/* ssh_output/

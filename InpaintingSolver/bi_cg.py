@@ -448,17 +448,8 @@ class OsmosisInpainting:
         f3 = torch.tensor([[[[-1/self.hy, 1/self.hy]]]], dtype = torch.float64, device = self.device)
         f4 = torch.tensor([[[[.5, .5]]]], dtype = torch.float64, device = self.device)
 
-        d1 = F.conv2d(self.V, f1) / F.conv2d(self.V, f2)
-        d2 = F.conv2d(self.V, f3) / F.conv2d(self.V, f4) 
-
-        # correcting for dimentionality reduced by using F.conv2d
-        # eg : 1 dimension reduced for d1  changes nx+2 -> nx+2-1
-        # similarly correcting for d2
-        # cloning since indexing are in-place operations and in backward pass can cause incorrect gradients
-        self.d1 = self.d1.clone()
-        self.d1[:, :, :self.nx+1, 1:self.ny+1] = d1[:, :, :, 1:self.ny+1] # convolved and reduced in row dir , hence one less
-        self.d2 = self.d2.clone()
-        self.d2[:, :, 1:self.nx+1, :self.ny+1] = d2[:, :, 1:self.nx+1, :] # convolved and reduced in col dir , hence one less
+        self.d1 = F.conv2d(self.V, f1, padding='same') / F.conv2d(self.V, f2, padding='same')
+        self.d2 = F.conv2d(self.V, f3, padding='same') / F.conv2d(self.V, f4, padding='same') 
 
         if verbose:
             self.analyseImage(self.d1, "d1")
