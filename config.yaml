@@ -1,16 +1,16 @@
 # MODEL PARAMS
 EPOCHS : 4
-RESUME_CHECKPOINT : outputs/imagenet_t7/test_wts.pt
+RESUME_CHECKPOINT :
 SAVE_EVERY_ITER : 1000
 VAL_EVERY_ITER : 13000
 BATCH_PLOT_EVERY_ITER : 50
 OUTPUT_DIR : outputs
-EXP_NAME : imagenet_t7
+EXP_NAME : 23_10_run_6
 
 # DATA PARMS
 TRAIN_FILENAME : iids_train.txt
 TEST_FILENAME  : iids_test.txt
-ROOT_DIR       : dataset/imagenet/images
+ROOT_DIR       : dataset/BSDS300/images
 
 IMG_SIZE       : 64 
 INP_CHANNELS   : 1
@@ -18,22 +18,42 @@ OUT_CHANNELS   : 1
 
 # HYPER PARAMS
 LR             : 0.001
-WEIGHT_DECAY   : 0.0001
-MOMENTUM       : 0.009
-OPT            : AdamW
-SCHEDL         : multiStep
+WEIGHT_DECAY   : 0.001
+MOMENTUM       : 0.009  
+OPT            : SGD-Nestrov
+SCHEDL         : 
 TRAIN_BATCH    : 8
 TEST_BATCH     : 8
-ALPHA1         : 0.01
+ALPHA1         : 0.1
 ALPHA2         : 0.0001
 MASK_DEN       : 0.1
 BIN_METH       : QUANT
 MAX_NORM       : 1
 SKIP_NORM      : 50
 
+OPT1 :
+    lr : 
+    wd : 
+    momentum : 
+
+OPT2 :
+    lr : 
+    wd : 
+    momentum : 
+
 #solver params
 OFFSET         : 8
 TAU            : 4096
 ITERATIONS     : 
 NOTE           : 
+
+
+rsync -progress -pthrvz -e "condor_ssh_to_job" 64692:outputs/* ssh_output/
+rsync -progress -pthrvz -e "condor_ssh_to_job" 64693:outputs/* ssh_output/
+rsync -progress -pthrvz -e "condor_ssh_to_job" 64710:outputs/* ssh_output/
+rsync -progress -pthrvz -e "condor_ssh_to_job" 64711:outputs/* ssh_output/
+rsync -progress -pthrvz -e "condor_ssh_to_job" 64712:outputs/* ssh_output/
+rsync -progress -pthrvz -e "condor_ssh_to_job" 64713:outputs/* ssh_output/
+rsync -progress -pthrvz -e "condor_ssh_to_job" 64714:outputs/* ssh_output/
+rsync -progress -pthrvz -e "condor_ssh_to_job" 64715:outputs/* ssh_output/
 

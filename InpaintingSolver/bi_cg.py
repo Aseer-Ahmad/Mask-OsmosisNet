@@ -159,7 +159,7 @@ class OsmosisInpainting:
 
         for i in range(kmax):
 
-            X = self.BiCGSTAB_GS(x = U, b = X, kmax = 600, eps = 1e-8, verbose=verbose)
+            X = self.BiCGSTAB_GS(x = U, b = X, kmax = 600, eps = 1e-6, verbose=verbose)
             U = X
             loss = mse( U, self.V)
             print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)

@@ -32,8 +32,8 @@ torch.manual_seed(SEED)
 #     numpy.random.seed(worker_seed)
 #     random.seed(worker_seed)
 
-# g = torch.Generator()
-# g.manual_seed(SEED)
+g = torch.Generator()
+g.manual_seed(SEED)
 
 class InvarianceLoss(nn.Module):
     """
@@ -120,10 +120,11 @@ def save_plot(loss_lists, x, legend_list, save_path):
 
 class JointModelTrainer():
 
-    def __init__(self, output_dir, optimizer, scheduler, lr, weight_decay, momentum, train_batch_size, test_batch_size):
+    def __init__(self, output_dir, opt1, opt2, scheduler, lr, weight_decay, momentum, train_batch_size, test_batch_size):
         
         self.output_dir= output_dir
-        self.optimizer= optimizer
+        self.opt1 = opt1
+        self.opt2 = opt2
         self.scheduler= scheduler
         self.lr= lr
         self.weight_decay= weight_decay
@@ -132,6 +133,191 @@ class JointModelTrainer():
         self.test_batch_size = test_batch_size
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"device : {self.device}")
+
+
+    def train(self, maskModel,
+                    inpModel,
+                    epochs,
+                    alpha1, 
+                    alpha2, 
+                    mask_density, 
+                    img_size, 
+                    model_1_ckp_file, 
+                    model_2_ckp_file, 
+                    save_every, 
+                    batch_plot_every, 
+                    val_every, 
+                    skip_norm, 
+                    max_norm, 
+                    train_dataset,
+                    test_dataset):
+        
+        # loss lists
+        loss1_list, loss2_list, loss3_list, gradnorm_list, tot_mask_loss_list = [], [], [], [], []
+        avg_den_list = []
+        epochloss_MN_list, epochloss_IN_list = [],[]
+        val_list = []
+
+        train_dataloader, test_dataloader = self.getDataloaders(train_dataset, test_dataset, img_size)
+
+        opt1 = self.getOptimizer(maskModel, self.opt1)
+        opt2 = self.getOptimizer(inpModel , self.opt2)
+        # scheduler = self.getScheduler(optimizer)
+        # scheduler = WarmupScheduler(optimizer, warmup_steps=5, final_lr=self.lr, base_lr=1e-5)
+
+        print(f"optimizer : {self.optimizer}, scheduler : {self.scheduler} loaded")
+
+        if model_1_ckp_file != None:
+            print(f"loading checkpoint file : {model_1_ckp_file}")
+            model, optimizer = self.loadCheckpoint(model, optimizer, model_1_ckp_file)
+            print(f"model, opt, schdl loaded from checkpoint")
+
+        if model_2_ckp_file != None:
+            print(f"loading checkpoint file : {model_2_ckp_file}")
+            model, optimizer = self.loadCheckpoint(model, optimizer, model_2_ckp_file)
+            print(f"model, opt, schdl loaded from checkpoint")
+
+        print(f"optimizer : {opt1}")
+        # print(f"scheduler : {scheduler}")
+
+        maskModel = maskModel.double()
+        maskModel.to(self.device)
+
+        inpModel = inpModel.double()
+        inpModel.to(self.device)
+ 
+        # print(f"initializing weights using Kaiming/He Initialization")
+        # model.apply(self.initialize_weights_he)
+
+        # losses 
+        inpLoss  = MSELoss()
+        maskLoss = InvarianceLoss()
+        resLoss  = ResidualLoss()
+
+        torch.autograd.set_detect_anomaly(True)
+
+        print("\nbeginning training ...")
+
+        st_tt = time.time()
+
+        for epoch in range(epochs):
+
+            running_tmloss = 0.0
+            running_mloss = 0.0
+            running_iloss = 0.0
+            running_rloss = 0.0
+
+            skipped_batches = 0
+
+            model.train()
+
+            st = time.time()
+
+            for i, (X, X_scale) in enumerate(train_dataloader, start = 1): 
+                                
+                print(f'Epoch {epoch}/{epochs} , batch {i}/{len(train_dataloader)} ')
+                
+                X = X.to(self.device, dtype=torch.float64) 
+
+                # mask 
+                mask  = maskModel(X) # non-binary [0,1]
+                loss1 = maskLoss(mask)
+
+                # inpainting 
+                rec_X = inpModel(X, mask)
+                loss2 = inpLoss(X, rec_X)
+                loss3 = resLoss(X, rec_X, mask)
+
+                maskModelLoss = loss1 + loss2
+                
+                maskModelLoss.backward()
+                opt1.step()
+
+                loss3.backward()
+                opt2.step()
+
+                opt1.zero_grad()
+                opt2.zero_grad()
+    
+                if (i) % save_every == 0:
+                    print("saving checkpoint")
+                    fname = f"ckp_epoch_{str(epoch+1)}_iter_{str(i)}.pt"
+                    self.saveCheckpoint(model, optimizer, fname)
+
+                if (i) % batch_plot_every == 0:
+                    print("saving batch")
+                    pass
+                
+                running_tmloss += maskModelLoss.item()
+                running_mloss  += loss1.item()
+                running_iloss  += loss2.item()
+                running_rloss  += loss3.item()
+
+                avg_den = self.mean_density(mask)
+
+                avg_den_list.append(avg_den.item())
+                loss1_list.append(running_mloss / (i - skipped_batches))
+                loss2_list.append(running_iloss / (i - skipped_batches))
+                loss3_list.append(running_rloss / (i - skipped_batches))
+                tot_mask_loss_list.append((running_tmloss / (i - skipped_batches)))
+                # gradnorm_list.append(total_norm)
+
+                print(f"mask loss : {loss1}, avg_den : {avg_den.item()}, ", end='')
+                print(f"inpainting loss : {loss2}, ", end='')
+                print(f"residual loss : {loss3}, ", end='')
+                print(f"total mask loss : {maskModelLoss}, " , end = '')
+
+                if (i) % save_every == 0:
+                    # update mask distribution plot and save
+                    print("plotting mask distribution")
+                    fname = f"mdist_epoch_{str(epoch+1)}_iter_{str(i)}.png"
+                    mask_flat = mask.reshape(-1).detach().cpu().numpy()
+                    plot = sns.displot(mask_flat, kde=True)
+                    fig = plot.figure
+                    plot.set(xlabel='prob', ylabel='freq')
+                    fig.savefig(os.path.join(self.output_dir, fname) ) 
+                    plt.close(fig)
+
+                # update plot and save
+                clist = [l for l in range(1, len(loss1_list) + 1)]
+                save_plot([tot_mask_loss_list], clist, ["total mask loss"], os.path.join(self.output_dir, "tot_mask_loss.png"))
+                save_plot([loss1_list], clist, ["mask loss"], os.path.join(self.output_dir, "mask_loss.png"))
+                save_plot([loss3_list], clist, ["residual loss"], os.path.join(self.output_dir, "residual_loss.png"))
+                save_plot([loss2_list], clist, ["inpainting loss"], os.path.join(self.output_dir, "inpainting_loss.png"))
+                # save_plot([gradnorm_list], clist, ["grad norm"], os.path.join(self.output_dir, "gradnorm.png"))
+                
+                # update csv file and save
+                train_dict = {
+                    # "grand norms" : gradnorm_list,
+                    "running inpainting loss" : loss2_list,
+                    "running mask loss" : loss1_list,
+                    "running residual loss" : loss3_list,
+                    "running total mask loss" : tot_mask_loss_list
+                    }
+                
+                df = pd.DataFrame(train_dict)
+                print(df.tail(20).to_string())
+                fname = "data.csv"
+                df.to_csv( os.path.join(self.output_dir, fname), sep=',', encoding='utf-8', index=False, header=True)
+
+            et = time.time()
+
+            print(f"total time for epoch : {str((et-st) / 60)} min")
+            epoch_lossMN = running_tmloss / (train_dataloader.__len__() - skipped_batches)
+            epochloss_MN_list.append(epoch_lossMN.item())
+            epoch_lossIN = running_rloss / (train_dataloader.__len__() - skipped_batches)
+            epochloss_IN_list.append(epoch_lossIN.item())
+            
+            print('Epoch [{}/{}], epoch Loss Mask Network: {:.4f}, epoch Loss Inpainting Network: {:.4f}'.format(epoch+1, epochs, epoch_lossMN, epoch_lossIN))
+            save_plot([epochloss_MN_list], [i for i in range(epoch+1)], ["epoch MN loss"], os.path.join(self.output_dir, "epochloss_masknetwork.png"))
+            save_plot([epochloss_IN_list], [i for i in range(epoch+1)], ["epoch IN loss"], os.path.join(self.output_dir, "epochloss_inpaintingnetwork.png"))
+
+            print("\ncleaning torch mem and cache . End of epoch")
+            torch.cuda.empty_cache()
+
+        et_tt = time.time()
+        print(f"total time for training : {str((et_tt-st_tt) / 3600)} hr")
+
 
 
 
@@ -456,9 +642,9 @@ class ModelTrainer():
                 # df = pd.DataFrame(dict([(key, pd.Series(value)) for key, value in bicg_mat.items()]))
                 # df.to_csv( os.path.join(self.output_dir, f"bicg_wt_{i}.csv"), sep=',', encoding='utf-8', index=False, header=True)
                 
-                if (i) % save_every == 0:
+                if (i-1) % save_every == 0:
                     print("saving checkpoint")
-                    fname = f"ckp_epoch_{str(epoch+1)}_iter_{str(i)}.pt"
+                    fname = f"ckp_epoch_{str(epoch+1)}_iter_{str(i-1)}.pt"
                     self.saveCheckpoint(model, optimizer, fname)
 
                 if total_norm > skip_norm :
@@ -469,9 +655,8 @@ class ModelTrainer():
 
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = max_norm)
 
-                # optimizer.step()
+                optimizer.step()
                 if scheduler != None :
-                    pass
                     scheduler.step()
                 optimizer.zero_grad()
 
