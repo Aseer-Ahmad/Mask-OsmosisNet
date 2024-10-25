@@ -23,8 +23,8 @@ OPT            :
     wd         : 0.001
     momentum   : 0.009  
 SCHEDL         : 
-TRAIN_BATCH    : 8
-TEST_BATCH     : 8
+TRAIN_BATCH    : 1
+TEST_BATCH     : 1
 ALPHA1         : 0.01
 ALPHA2         : 0.0001
 MASK_DEN       : 0.1

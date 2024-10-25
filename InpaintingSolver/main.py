@@ -23,7 +23,6 @@ def write_tensor_to_pgm(filename, tensor):
         f.write(b'255\n')
         f.write(image.tobytes())
 
-
 def readPGMImage( pth):
     pgm = cv2.imread(pth, cv2.IMREAD_GRAYSCALE) 
     pgm_T = torch.tensor(pgm, dtype = torch.float64)

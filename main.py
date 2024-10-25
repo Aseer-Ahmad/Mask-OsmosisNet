@@ -119,6 +119,7 @@ def main(config):
         train_batch_size = config['TRAIN_BATCH'],
         test_batch_size = config['TEST_BATCH'],
     )
+    
     print(f"trainer configurations set")
 
     trainer.train(

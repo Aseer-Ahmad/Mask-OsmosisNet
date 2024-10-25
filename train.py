@@ -37,6 +37,22 @@ torch.manual_seed(SEED)
 g = torch.Generator()
 g.manual_seed(SEED)
 
+
+class ResidualLoss(nn.Module):
+    """
+    Rsidual Loss 
+    || \laplacian u - div ( d u) ||2 at mask locations
+    || u - f  ||2 MSE at non mask locations
+    """
+    def __init__(self):
+        super(ResidualLoss, self).__init__()
+
+    def forward(self, u, f, mask):
+        u_xx = None
+        u_yy = None
+        
+
+
 class InvarianceLoss(nn.Module):
     """
     Inverse variance loss 
@@ -491,7 +507,6 @@ class ModelTrainer():
                 total_loss.backward()
                 total_norm = check_gradients(model)
 
-                
                 # write forward backward stencils
                 df_stencils["grad_norm"].append(total_norm)
                 df = pd.DataFrame(dict([(key, pd.Series(value)) for key, value in df_stencils.items()]))

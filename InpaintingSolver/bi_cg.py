@@ -162,8 +162,6 @@ class OsmosisInpainting:
     def calculateWeights(self, d_verbose = False, m_verbose = False, s_verbose = False):
         self.prepareInp()
 
-        # self.analyseImage(self.V, "guidance image")
-
         self.getDriftVectors(d_verbose)
         if d_verbose:
             print(f"drift vectors calculated")
