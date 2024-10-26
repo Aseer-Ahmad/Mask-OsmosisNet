@@ -1,9 +1,9 @@
 # MODEL PARAMS
 EPOCHS : 4
-RESUME_CHECKPOINT :
+RESUME_CHECKPOINT : outputs/start_3_1000.pt
 SAVE_EVERY_ITER : 1000
 VAL_EVERY_ITER : 13000
-BATCH_PLOT_EVERY_ITER : 50
+BATCH_PLOT_EVERY_ITER : 10
 OUTPUT_DIR : outputs
 EXP_NAME : 23_10_run_6
 
@@ -17,14 +17,16 @@ INP_CHANNELS   : 1
 OUT_CHANNELS   : 1
 
 # HYPER PARAMS unet
+
 OPT            : 
     opt        : SGD-Nestrov
     lr         : 0.001
     wd         : 0.001
     momentum   : 0.009  
+
 SCHEDL         : 
-TRAIN_BATCH    : 1
-TEST_BATCH     : 1
+TRAIN_BATCH    : 8
+TEST_BATCH     : 8
 ALPHA1         : 0.01
 ALPHA2         : 0.0001
 MASK_DEN       : 0.1

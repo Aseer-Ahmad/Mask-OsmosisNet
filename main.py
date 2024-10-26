@@ -109,7 +109,7 @@ def main(config):
     print(f"model summary")
     model_sum = summary(model, input_size=(config['INP_CHANNELS'], config['IMG_SIZE'], config['IMG_SIZE']))
     model_sum = str(model_sum).encode('ascii', errors='replace')
-    print(model_sum.decode())
+    # print(model_sum.decode())
 
     # configure model trainer 
     trainer = ModelTrainer(

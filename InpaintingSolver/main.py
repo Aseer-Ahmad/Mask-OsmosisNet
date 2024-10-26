@@ -48,7 +48,7 @@ if __name__ == '__main__':
     mask = readPGMImage('kaniza-edge.pgm')
     mask = mask.to(device)
 
-    V = readPGMImage('2.JPEG')
+    V = readPGMImage('3.JPEG')
     V = V.to(device)
     mask = readPGMImage('cameraman-edge.pgm')
     mask = mask.to(device)

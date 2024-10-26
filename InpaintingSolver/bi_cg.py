@@ -42,6 +42,7 @@ class OsmosisInpainting:
 
     def __init__(self, U, V, mask1, mask2, offset, tau, hx = 1, hy = 1, device = None, apply_canny = False):
         # (b, c, h, w)
+
         self.V       = V + offset  # guidance image
         self.batch   = V.size(0) 
         self.channel = V.size(1) 
@@ -53,7 +54,7 @@ class OsmosisInpainting:
         if U is not None:
             self.U   = U + offset  # original image
         else:
-            self.U   = self.getInit_U() + offset
+            self.U   = self.getInit_U()
 
         if mask1 is None or mask2 is None:
             self.mask1 = torch.ones_like(V)
@@ -127,7 +128,7 @@ class OsmosisInpainting:
 
         for i in range(kmax):
 
-            X = self.BiCGSTAB_GS(x = U, b = X, kmax = 600, eps = 1e-6, verbose=verbose)
+            X = self.BiCGSTAB_GS(x = U, b = X, kmax = 100, eps = 1e-6, verbose=verbose)
             U = X
             loss = mse( U, self.V)
             print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)
@@ -242,7 +243,7 @@ class OsmosisInpainting:
 
     def getInit_U(self):
         m  = torch.mean(self.V, dim = (2,3))
-
+        
         # create a flat image ; avg gray val same as guidance
         u  = torch.ones_like(self.V, device = self.device) * m.view(self.batch, self.channel, 1, 1)
 
@@ -404,7 +405,6 @@ class OsmosisInpainting:
 
     def BiCGSTAB_GS(self, x, b, kmax, eps, verbose = False):
         
-        restart = torch.ones( (self.batch, self.channel), dtype=torch.bool, device = self.device)
         k       = torch.zeros((self.batch, self.channel), dtype=torch.long, device = self.device)
         r_abs   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device)
         v_abs   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device)

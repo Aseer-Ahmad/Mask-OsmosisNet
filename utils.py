@@ -126,7 +126,7 @@ def check_gradients(model):
     for p in model.parameters():
         if p.grad is not None:
             param_norm = p.grad.detach().data.norm(2).item()  # L2 norm of gradients
-            print(f"gradient norm in {p.grad.shape} layer : {param_norm}")
+            print(f"gradient norm in {p.name} layer : {param_norm}")
         else : 
             param_norm = 0.
             print(f"gradient norm in {p.name} layer : zero")

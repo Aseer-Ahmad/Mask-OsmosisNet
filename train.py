@@ -348,8 +348,6 @@ class JointModelTrainer():
         print(f"total time for training : {str((et_tt-st_tt) / 3600)} hr")
 
 
-
-
 class ModelTrainer():
 
     def __init__(self, output_dir, opt_config, scheduler, train_batch_size, test_batch_size):
@@ -384,7 +382,7 @@ class ModelTrainer():
                 loss1 = invLoss(mask)
                 loss2 = denLoss(mask)
 
-                osmosis = OsmosisInpainting(None, X, mask, mask, offset=0, tau=4096, device = self.device, apply_canny=False)
+                osmosis = OsmosisInpainting(None, X, mask, mask, offset=10, tau=4096, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)
                 save_batch = [False]
                 loss3, tts, df_stencils, bicg_mat = osmosis.solveBatchParallel(df_stencils, bicg_mat, 1, save_batch = save_batch, verbose = True)
@@ -531,7 +529,6 @@ class ModelTrainer():
                 optimizer.step()
                 if scheduler != None :
                     scheduler.step()
-
                 optimizer.zero_grad()
 
                 running_loss += total_loss.item()
