@@ -20,6 +20,7 @@ from torch.optim import Optimizer
 from InpaintingSolver.bi_cg_nn import BiCG_Net
 from InpaintingSolver.bi_cg import OsmosisInpainting
 import matplotlib.pyplot as plt
+import torch.nn.functional as F
 
 from utils import get_dfStencil, get_bicgDict, getOptimizer, getScheduler, loadCheckpoint, saveCheckpoint
 from utils import initialize_weights_he, init_weights_xavier, save_plot, check_gradients
@@ -47,9 +48,29 @@ class ResidualLoss(nn.Module):
     def __init__(self):
         super(ResidualLoss, self).__init__()
 
-    def forward(self, u, f, mask):
-        u_xx = None
-        u_yy = None
+    def forward(self, u, v, mask):
+        '''
+        u,v are not padded
+        '''
+        # laplacian kernel
+        lap_u_kernel = torch.tensor([[[[0, 1, 0],
+                                       [1,-4, 1],
+                                       [0, 1, 0]]]])
+        lap_u = F.conv2d(u, lap_u_kernel)
+
+        # row-direction filters  
+        f1 = torch.tensor([[[[-1], [1]]]])
+        f2 = torch.tensor([[[[.5], [.5]]]])
+        d1 = F.conv2d(v, f1, padding='same') / F.conv2d(v, f2, padding='same')
+        u_i_half = F.conv2d(u, f2, padding='same')
+
+        # col-direction filters
+        f3 = torch.tensor([[[[-1, 1]]]])
+        f4 = torch.tensor([[[[.5, .5]]]])
+        d2 = F.conv2d(v, f3, padding='same') / F.conv2d(v, f3, padding='same')
+        u_j_half = F.conv2d(u, f4, padding='same')
+
+        # lap_u  - ( d1 * u_i_half  - d1_shift * u_i_half_shift) - ( d2 * u_j_half  - d2_shift * u_j_half_shift) 
         
 
 
@@ -111,20 +132,21 @@ class WarmupScheduler(_LRScheduler):
 def getDataloaders(train_dataset, test_dataset, img_size, train_batch_size, test_batch_size):
 
     transform = transforms.Compose([
-                transforms.Resize((img_size, img_size), antialias = True),
+                transforms.RandomCrop((img_size, img_size)),
+                # transforms.Resize((img_size, img_size), antialias = True),
                 transforms.Grayscale(),
                 transforms.ToTensor(),   
             ])
 
     transform_norm = transforms.Compose([
-                transforms.Resize((img_size, img_size), antialias = True),
+                transforms.RandomCrop((img_size, img_size)),
                 transforms.Grayscale(),
                 transforms.ToTensor(), 
                 transforms.Normalize(mean = [0.44531356896770125], std = [0.2692461874154524])
             ])
     
     transform_scale = transforms.Compose([
-                transforms.Resize((img_size, img_size), antialias = True),
+                transforms.RandomCrop((img_size, img_size)),
                 transforms.Grayscale(),
                 MyCustomTransform2()
             ])
@@ -146,8 +168,8 @@ def getDataloaders(train_dataset, test_dataset, img_size, train_batch_size, test
     # train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=train_batch_size, collate_fn=custom_collate_fn)
     # test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=test_batch_size, collate_fn=custom_collate_fn)
 
-    train_dataloader = DataLoader(train_dataset, shuffle = False, batch_size=train_batch_size)
-    test_dataloader  = DataLoader(test_dataset, shuffle = False, batch_size=test_batch_size)
+    train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=train_batch_size)
+    test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=test_batch_size)
 
     # train_dataloader = DataLoader(train_dataset, shuffle = False, batch_size=train_batch_size, worker_init_fn=seed_worker,generator=g)
     # test_dataloader  = DataLoader(test_dataset, shuffle = False, batch_size=test_batch_size, worker_init_fn=seed_worker,generator=g)
@@ -417,7 +439,8 @@ class ModelTrainer():
         loss1_list, loss2_list, loss3_list, gradnorm_list, running_loss_list = [], [], [], [], []
         avg_den_list, epochloss_list = [], []
         val_list = []
-
+        ttl_skipped_batches = 0
+        
         train_dataloader, test_dataloader = getDataloaders(train_dataset, test_dataset, img_size,  self.train_batch_size, self.test_batch_size)
 
         optimizer = getOptimizer(model, self.opt_config)
@@ -458,7 +481,7 @@ class ModelTrainer():
         print("\nbeginning training ...")
 
         st_tt = time.time()
-
+        
         for epoch in range(epochs):
 
             running_loss = 0.0
@@ -501,7 +524,7 @@ class ModelTrainer():
                 # X_rec, tts = bicg_model(X, mask, mask)
                 # loss3 = mseLoss(X, X_rec)
 
-                total_loss = loss3 + loss1 * alpha1 
+                total_loss = loss3 + loss1 * alpha1 + loss2
                 total_loss.backward()
                 total_norm = check_gradients(model)
 
@@ -520,7 +543,8 @@ class ModelTrainer():
 
                 if total_norm > skip_norm :
                     skipped_batches += 1
-                    print(f"skipping batch due to higher gradient norm : {total_norm}, total skipped : {skipped_batches}")
+                    ttl_skipped_batches += 1
+                    print(f"skipping batch due to higher gradient norm : {total_norm}, total skipped : {ttl_skipped_batches}")
                     optimizer.zero_grad()
                     continue
 

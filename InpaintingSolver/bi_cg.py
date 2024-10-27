@@ -128,7 +128,7 @@ class OsmosisInpainting:
 
         for i in range(kmax):
 
-            X = self.BiCGSTAB_GS(x = U, b = X, kmax = 600, eps = 1e-6, verbose=verbose)
+            X = self.BiCGSTAB_GS(x = U, b = X, kmax = 600, eps = 1e-4, verbose=verbose)
             U = X
             loss = mse( U, self.V)
             print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)
@@ -138,10 +138,10 @@ class OsmosisInpainting:
         et = time.time()
         tt += (et-st)
 
-        self.analyseImage(X, f"solution")
+        # self.analyseImage(X, f"solution")
         comm = f"time for iteration : {str(et-st)} sec\n"
         comm += f"total time         : {str(tt)} sec\n"
-        comm += self.getMetrics()
+        # comm += self.getMetrics()
         print(comm)
 
         if save_batch[0]:
