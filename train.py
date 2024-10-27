@@ -6,7 +6,6 @@ from torch.optim.lr_scheduler import ExponentialLR, MultiStepLR, LambdaLR
 import torch
 import torch.nn as nn
 import time
-import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 import os
@@ -20,20 +19,69 @@ from torch.optim.lr_scheduler import _LRScheduler
 from torch.optim import Optimizer
 from InpaintingSolver.bi_cg_nn import BiCG_Net
 from InpaintingSolver.bi_cg import OsmosisInpainting
+import matplotlib.pyplot as plt
+import torch.nn.functional as F
+from torchvision.transforms import Pad
 
-from utils import get_dfStencil, get_bicgDict
+from utils import get_dfStencil, get_bicgDict, getOptimizer, getScheduler, loadCheckpoint, saveCheckpoint
+from utils import initialize_weights_he, init_weights_xavier, save_plot, check_gradients
+from utils import inspect_gradients, MyCustomTransform2, mean_density
 
 torch.backends.cuda.matmul.allow_tf32 = True
 SEED = 1
-torch.manual_seed(SEED)
+# torch.manual_seed(SEED)
 
 # def seed_worker(worker_id):
 #     worker_seed = torch.initial_seed() % 2**32
 #     numpy.random.seed(worker_seed)
 #     random.seed(worker_seed)
 
-g = torch.Generator()
-g.manual_seed(SEED)
+# g = torch.Generator()
+# g.manual_seed(SEED)
+
+
+class ResidualLoss(nn.Module):
+    """
+    Rsidual Loss 
+    (1 / nxny) || (1 - C)(\laplacian u - div ( d u)) - C (u - f) ||2 
+    """
+    def __init__(self, img_size):
+        super(ResidualLoss, self, img_size).__init__()
+        self.pad = Pad(1, padding_mode = "symmetric")
+        self.nxny = img_size * img_size
+
+    def forward(self, u, v, mask):
+        '''
+        u : evolved solution ; not padded
+        v : guidance image   ; not padded
+        '''
+        u   = self.pad(u)
+        v   = self.pad(v)
+
+        # laplacian kernel
+        lap_u_kernel = torch.tensor([[[[0., 1., 0.],
+                                    [1.,-4., 1.],
+                                    [0., 1., 0.]]]])
+        lap_u = F.conv2d(u, lap_u_kernel)
+
+        # row-direction filters  
+        f1 = torch.tensor([[[[-1.], [1.]]]])
+        f2 = torch.tensor([[[[.5], [.5]]]])
+        d1_u = (F.conv2d(v, f1, padding='same') / F.conv2d(v, f2, padding='same')) * F.conv2d(u, f2, padding='same')
+        dx_d1_u = d1_u[:, :, 1:-1, 1:-1] - d1_u[:, :, 0:-2, 1:-1]
+
+        # col-direction filters
+        f3 = torch.tensor([[[[-1., 1.]]]])
+        f4 = torch.tensor([[[[.5, .5]]]])
+        d2_u = (F.conv2d(v, f3, padding='same') / F.conv2d(v, f4, padding='same')) * F.conv2d(u, f4, padding='same')
+        dy_d2_u = d2_u[:, :, 1:-1, 1:-1] - d2_u[:, :, 1:-1, 0:-2]
+
+        #steady state 
+        ss = lap_u - dx_d1_u - dy_d2_u 
+
+        # residual loss
+        return torch.mean(torch.norm((1 - mask) * ss - mask * (u - v), p = 2, dim = (2, 3)) / self.nxny)
+        
 
 class InvarianceLoss(nn.Module):
     """
@@ -89,34 +137,55 @@ class WarmupScheduler(_LRScheduler):
             # After warmup, we keep the learning rate fixed
             return [self.final_lr for _ in self.optimizer.param_groups]
     
-class MyCustomTransform(torch.nn.Module):
-    def forward(self, img):  
-        return (img * 255).type(torch.uint8)
+
+def getDataloaders(train_dataset, test_dataset, img_size, train_batch_size, test_batch_size):
+
+    transform = transforms.Compose([
+                transforms.RandomCrop((img_size, img_size)),
+                # transforms.Resize((img_size, img_size), antialias = True),
+                transforms.Grayscale(),
+                transforms.ToTensor(),   
+            ])
+
+    transform_norm = transforms.Compose([
+                transforms.RandomCrop((img_size, img_size)),
+                transforms.Grayscale(),
+                transforms.ToTensor(), 
+                transforms.Normalize(mean = [0.44531356896770125], std = [0.2692461874154524])
+            ])
     
-class MyCustomTransform2(torch.nn.Module):
-    def forward(self, img):  
-        return  torch.from_numpy(np.array(img)).unsqueeze(0)
+    transform_scale = transforms.Compose([
+                transforms.RandomCrop((img_size, img_size)),
+                transforms.Grayscale(),
+                MyCustomTransform2()
+            ])
 
-def save_plot(loss_lists, x, legend_list, save_path):
-    """
-    Plots multiple data series from y against x and saves the plot.
+    def custom_collate_fn(batch):
+        
+        images       = []
+        images_scale = []
 
-    Parameters:
-    x (list): A list of x-values.
-    y (list of lists): A list containing lists of y-values.
-    save_path (str): Path to save the resulting plot.
-    """
-    # Create the plot
-    plt.figure(figsize=(10, 6))
-    
-    for y_series in loss_lists:
-        plt.plot(x, y_series)
+        for item in batch :
+            images.append(transform(item['image']))
+            images_scale.append(transform_scale(item['image']))
 
-    plt.xlabel('iter')
-    plt.legend(legend_list, loc="best")
-    plt.grid(True)
-    plt.savefig(save_path)
-    plt.close()
+        images       = torch.stack(images)
+        images_scale = torch.stack(images_scale)
+        
+        return images, images_scale
+
+    # train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=train_batch_size, collate_fn=custom_collate_fn)
+    # test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=test_batch_size, collate_fn=custom_collate_fn)
+
+    train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=train_batch_size)
+    test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=test_batch_size)
+
+    print(f"train and test dataloaders created")
+    print(f"total train batches  : {len(train_dataloader)}")
+    print(f"total test  batches  : {len(test_dataloader)}")
+
+    return train_dataloader, test_dataloader
+
 
 class JointModelTrainer():
 
@@ -133,7 +202,6 @@ class JointModelTrainer():
         self.test_batch_size = test_batch_size
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"device : {self.device}")
-
 
     def train(self, maskModel,
                     inpModel,
@@ -267,17 +335,6 @@ class JointModelTrainer():
                 print(f"residual loss : {loss3}, ", end='')
                 print(f"total mask loss : {maskModelLoss}, " , end = '')
 
-                if (i) % save_every == 0:
-                    # update mask distribution plot and save
-                    print("plotting mask distribution")
-                    fname = f"mdist_epoch_{str(epoch+1)}_iter_{str(i)}.png"
-                    mask_flat = mask.reshape(-1).detach().cpu().numpy()
-                    plot = sns.displot(mask_flat, kde=True)
-                    fig = plot.figure
-                    plot.set(xlabel='prob', ylabel='freq')
-                    fig.savefig(os.path.join(self.output_dir, fname) ) 
-                    plt.close(fig)
-
                 # update plot and save
                 clist = [l for l in range(1, len(loss1_list) + 1)]
                 save_plot([tot_mask_loss_list], clist, ["total mask loss"], os.path.join(self.output_dir, "tot_mask_loss.png"))
@@ -319,142 +376,17 @@ class JointModelTrainer():
         print(f"total time for training : {str((et_tt-st_tt) / 3600)} hr")
 
 
-
-
 class ModelTrainer():
 
-    def __init__(self, output_dir, optimizer, scheduler, lr, weight_decay, momentum, train_batch_size, test_batch_size):
+    def __init__(self, output_dir, opt_config, scheduler, train_batch_size, test_batch_size):
         
         self.output_dir= output_dir
-        self.optimizer= optimizer
+        self.opt_config= opt_config
         self.scheduler= scheduler
-        self.lr= lr
-        self.weight_decay= weight_decay
-        self.momentum = momentum
         self.train_batch_size = train_batch_size
         self.test_batch_size = test_batch_size
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"device : {self.device}")
-
-    def getOptimizer(self, model):
-        
-        opt = None
-        
-        if self.optimizer == "Adam":
-            opt = Adam(model.parameters(), lr=self.lr, betas=(0.9, 0.999), eps=1e-08, weight_decay = self.weight_decay)
-
-        elif self.optimizer == "SGD":
-            opt = SGD(model.parameters(), lr=self.lr, momentum = self.momentum, weight_decay = self.weight_decay)
-
-        elif self.optimizer == "SGD-Nestrov":
-            opt = SGD(model.parameters(), lr=self.lr, nesterov = True, momentum = self.momentum , weight_decay = self.weight_decay)
-
-        elif self.optimizer == "AdamW":
-            opt = AdamW(model.parameters(), lr=self.lr, weight_decay = self.weight_decay)
-
-        elif self.optimizer == "RMSprop":
-            opt = RMSprop(model.parameters(), lr=self.lr, weight_decay = self.weight_decay)
-
-        elif self.optimizer == "Adagrad":
-            opt = Adagrad(model.parameters(), lr=self.lr, momentum = self.momentum, weight_decay = self.weight_decay)
-
-        return opt
-
-    def getScheduler(self, optim):
-        
-        schdl = None
-
-        if self.scheduler == "exp":
-            schdl = ExponentialLR(optim, gamma=0.9)
-        
-        elif self.scheduler == "multiStep":
-            schdl = MultiStepLR(optim, milestones=[1,2,3], gamma=0.1)
-
-        elif self.scheduler == "lambdaLR":
-            lambda1 = lambda epoch: epoch // 30
-            lambda2 = lambda epoch: 0.95 ** epoch
-            schdl = LambdaLR(optim, lr_lambda=[lambda2])
-
-        return schdl
-    
-    def check_gpu_memory():
-        gpu_mem = torch.cuda.memory_allocated() / 1e6
-        gpu_mem_max = torch.cuda.max_memory_allocated() / 1e6
-
-        print(f"GPU Memory Allocated: {gpu_mem} MB")
-        print(f"GPU Max Memory Allocated: {gpu_mem_max} MB")
-        return gpu_mem, gpu_mem_max
-    
-    def loadCheckpoint(self, model, optimizer, path):
-        
-        checkpoint = torch.load(path)
-        model.load_state_dict(checkpoint['model_state_dict'])
-        # optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-
-        return model, optimizer
-
-    def saveCheckpoint(self, model, optimizer, fname):
-        
-        torch.save({
-            'model_state_dict': model.state_dict(),
-            # 'optimizer_state_dict': optimizer.state_dict(),
-            }, os.path.join(self.output_dir, fname))
-
-    def getDataloaders(self, train_dataset, test_dataset, img_size):
-
-        transform = transforms.Compose([
-                    transforms.Resize((img_size, img_size), antialias = True),
-                    transforms.Grayscale(),
-                    transforms.ToTensor(),   
-                ])
-
-        transform_norm = transforms.Compose([
-                    transforms.Resize((img_size, img_size), antialias = True),
-                    transforms.Grayscale(),
-                    transforms.ToTensor(), 
-                    transforms.Normalize(mean = [0.44531356896770125], std = [0.2692461874154524])
-                ])
-        
-        transform_scale = transforms.Compose([
-                    transforms.Resize((img_size, img_size), antialias = True),
-                    transforms.Grayscale(),
-                    MyCustomTransform2()
-                ])
-
-        def custom_collate_fn(batch):
-            
-            images       = []
-            images_scale = []
-
-            for item in batch :
-                images.append(transform(item['image']))
-                images_scale.append(transform_scale(item['image']))
-
-            images       = torch.stack(images)
-            images_scale = torch.stack(images_scale)
-            
-            return images, images_scale
-
-        train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=self.train_batch_size, collate_fn=custom_collate_fn)
-        test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=self.test_batch_size, collate_fn=custom_collate_fn)
-
-        # train_dataloader = DataLoader(train_dataset, shuffle = False, batch_size=self.train_batch_size)
-        # test_dataloader  = DataLoader(test_dataset, shuffle = False, batch_size=self.test_batch_size)
-
-        # train_dataloader = DataLoader(train_dataset, shuffle = False, batch_size=self.train_batch_size, worker_init_fn=seed_worker,generator=g)
-        # test_dataloader  = DataLoader(test_dataset, shuffle = False, batch_size=self.test_batch_size, worker_init_fn=seed_worker,generator=g)
-
-        print(f"train and test dataloaders created")
-        print(f"total train batches  : {len(train_dataloader)}")
-        print(f"total test  batches  : {len(test_dataloader)}")
-
-        return train_dataloader, test_dataloader
-
-    def hardRoundBinarize(self, mask):
-        return torch.floor(mask + 0.5)
-
-    def mean_density(self, mask):
-        return torch.mean(torch.norm(mask, p = 1, dim = (2, 3)) / (mask.shape[2]*mask.shape[3]))
 
     def validate(self, model, test_dataloader, density, alpha1, alpha2):
         print("validating on test dataset")
@@ -478,7 +410,7 @@ class ModelTrainer():
                 loss1 = invLoss(mask)
                 loss2 = denLoss(mask)
 
-                osmosis = OsmosisInpainting(None, X, mask, mask, offset=0, tau=4096, device = self.device, apply_canny=False)
+                osmosis = OsmosisInpainting(None, X, mask, mask, offset=10, tau=4096, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)
                 save_batch = [False]
                 loss3, tts, df_stencils, bicg_mat = osmosis.solveBatchParallel(df_stencils, bicg_mat, 1, save_batch = save_batch, verbose = True)
@@ -493,39 +425,6 @@ class ModelTrainer():
         print()
 
         return val_loss
-
-    # Function to check for exploding/vanishing gradients
-    def check_gradients(self, model):
-        total_norm = 0
-        for p in model.parameters():
-            if p.grad is not None:
-                param_norm = p.grad.detach().data.norm(2).item()  # L2 norm of gradients
-                print(f"gradient norm in {p.name} layer : {param_norm}")
-            else : 
-                param_norm = 0.
-                print(f"gradient norm in {p.name} layer : zero")
-            total_norm += param_norm ** 2
-        total_norm = total_norm ** 0.5
-        print(f"Total gradient norm: {total_norm}")
-        return total_norm
-
-    # Register a hook to inspect gradients
-    def inspect_gradients(self, module, grad_input, grad_output):
-        print(f"Layer: {module}")
-        print(f"grad_input: {grad_input}")
-        print(f"grad_output: {grad_output}\n")
-
-    def initialize_weights_he(self, m):
-        if isinstance(m, nn.Conv2d):
-            nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-            if m.bias is not None:
-                nn.init.constant_(m.bias, 0)
-
-    def init_weights_xavier(self, m):
-        if isinstance(m, nn.Conv2d):
-            nn.init.xavier_uniform_(m.weight)
-            if m.bias is not None:
-                nn.init.constant_(m.bias, 0)
 
     def train(self, model,
                     epochs,
@@ -546,18 +445,20 @@ class ModelTrainer():
         loss1_list, loss2_list, loss3_list, gradnorm_list, running_loss_list = [], [], [], [], []
         avg_den_list, epochloss_list = [], []
         val_list = []
+        ttl_skipped_batches = 0
+        
+        train_dataloader, test_dataloader = getDataloaders(train_dataset, test_dataset, img_size,  self.train_batch_size, self.test_batch_size)
 
-        train_dataloader, test_dataloader = self.getDataloaders(train_dataset, test_dataset, img_size)
+        optimizer = getOptimizer(model, self.opt_config)
+        scheduler = getScheduler(optimizer, self.scheduler)
 
-        optimizer = self.getOptimizer(model)
-        scheduler = self.getScheduler(optimizer)
         # scheduler = WarmupScheduler(optimizer, warmup_steps=5, final_lr=self.lr, base_lr=1e-5)
 
-        print(f"optimizer : {self.optimizer}, scheduler : {self.scheduler} loaded")
+        print(f"optimizer , scheduler  loaded")
 
         if resume_checkpoint_file != None:
             print(f"loading checkpoint file : {resume_checkpoint_file}")
-            model, optimizer = self.loadCheckpoint(model, optimizer, resume_checkpoint_file)
+            model, optimizer = loadCheckpoint(model, optimizer, resume_checkpoint_file)
             print(f"model, opt, schdl loaded from checkpoint")
 
         print(f"optimizer : {optimizer}")
@@ -566,16 +467,16 @@ class ModelTrainer():
         model = model.double()
         model.to(self.device)
         
-        bicg_model = BiCG_Net(offset = 0, tau = 7000., b=self.train_batch_size, c=1, nx=img_size, ny=img_size)
-        bicg_model = bicg_model.double()
-        bicg_model.to(self.device)
+        # bicg_model = BiCG_Net(offset = 0, tau = 7000., b=self.train_batch_size, c=1, nx=img_size, ny=img_size)
+        # bicg_model = bicg_model.double()
+        # bicg_model.to(self.device)
 
         print(f"initializing weights using Kaiming/He Initialization")
-        model.apply(self.initialize_weights_he)
+        model.apply(initialize_weights_he)
 
         # Attach hooks to layers
         # for layer in model.children():
-        #     layer.register_full_backward_hook(self.inspect_gradients)
+        #     layer.register_full_backward_hook(inspect_gradients)
 
         invLoss = InvarianceLoss()
         denLoss = DensityLoss(density = mask_density)
@@ -586,7 +487,7 @@ class ModelTrainer():
         print("\nbeginning training ...")
 
         st_tt = time.time()
-
+        
         for epoch in range(epochs):
 
             running_loss = 0.0
@@ -616,7 +517,7 @@ class ModelTrainer():
                 loss2 = denLoss(mask)
 
                 # osmosis solver
-                osmosis = OsmosisInpainting(X, X, mask, mask, offset=10, tau=4096, device = self.device, apply_canny=False)
+                osmosis = OsmosisInpainting(None, X, mask, mask, offset=10, tau=4096, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)
                 
                 if (i) % batch_plot_every == 0: 
@@ -629,15 +530,14 @@ class ModelTrainer():
                 # X_rec, tts = bicg_model(X, mask, mask)
                 # loss3 = mseLoss(X, X_rec)
 
-                total_loss = loss3 + loss1 * alpha1 
+                total_loss = loss3 + loss1 * alpha1 + loss2
                 total_loss.backward()
-                total_norm = self.check_gradients(model)
+                total_norm = check_gradients(model)
 
-                
                 # write forward backward stencils
-                df_stencils["grad_norm"].append(total_norm)
-                df = pd.DataFrame(dict([(key, pd.Series(value)) for key, value in df_stencils.items()]))
-                df.to_csv( os.path.join(self.output_dir, "stencils.csv"), sep=',', encoding='utf-8', index=False, header=True)
+                # df_stencils["grad_norm"].append(total_norm)
+                # df = pd.DataFrame(dict([(key, pd.Series(value)) for key, value in df_stencils.items()]))
+                # df.to_csv( os.path.join(self.output_dir, "stencils.csv"), sep=',', encoding='utf-8', index=False, header=True)
                 # bicg_mat["grad_norm"].append(total_norm)
                 # df = pd.DataFrame(dict([(key, pd.Series(value)) for key, value in bicg_mat.items()]))
                 # df.to_csv( os.path.join(self.output_dir, f"bicg_wt_{i}.csv"), sep=',', encoding='utf-8', index=False, header=True)
@@ -645,11 +545,12 @@ class ModelTrainer():
                 if (i-1) % save_every == 0:
                     print("saving checkpoint")
                     fname = f"ckp_epoch_{str(epoch+1)}_iter_{str(i-1)}.pt"
-                    self.saveCheckpoint(model, optimizer, fname)
+                    saveCheckpoint(model, optimizer, self.output_dir, fname)
 
                 if total_norm > skip_norm :
                     skipped_batches += 1
-                    print(f"skipping batch due to higher gradient norm : {total_norm}, total skipped : {skipped_batches}")
+                    ttl_skipped_batches += 1
+                    print(f"skipping batch due to higher gradient norm : {total_norm}, total skipped : {ttl_skipped_batches}")
                     optimizer.zero_grad()
                     continue
 
@@ -663,7 +564,7 @@ class ModelTrainer():
                 running_loss += total_loss.item()
                 running_mse  += loss3.item()
                 running_inv  += loss1.item()
-                avg_den = self.mean_density(mask)
+                avg_den = mean_density(mask)
 
                 avg_den_list.append(avg_den.item())
                 loss1_list.append(running_inv / (i - skipped_batches))
@@ -677,16 +578,16 @@ class ModelTrainer():
                 print(f"total loss : {total_loss}, " , end = '')
                 print(f"running loss : {running_loss / (i - skipped_batches)}" )
 
-                if (i) % save_every == 0:
-                    # update mask distribution plot and save
-                    print("plotting mask distribution")
-                    fname = f"mdist_epoch_{str(epoch+1)}_iter_{str(i)}.png"
-                    mask_flat = mask.reshape(-1).detach().cpu().numpy()
-                    plot = sns.displot(mask_flat, kde=True)
-                    fig = plot.figure
-                    plot.set(xlabel='prob', ylabel='freq')
-                    fig.savefig(os.path.join(self.output_dir, fname) ) 
-                    plt.close(fig)
+                # if (i) % save_every == 0:
+                #     # update mask distribution plot and save
+                #     print("plotting mask distribution")
+                #     fname = f"mdist_epoch_{str(epoch+1)}_iter_{str(i)}.png"
+                #     mask_flat = mask.reshape(-1).detach().cpu().numpy()
+                #     plot = sns.displot(mask_flat, kde=True)
+                #     fig = plot.figure
+                #     plot.set(xlabel='prob', ylabel='freq')
+                #     fig.savefig(os.path.join(self.output_dir, fname) ) 
+                #     plt.close(fig)
 
                 # update plot and save
                 clist = [l for l in range(1, len(loss1_list) + 1)]
@@ -711,23 +612,23 @@ class ModelTrainer():
                 df.to_csv( os.path.join(self.output_dir, fname), sep=',', encoding='utf-8', index=False, header=True)
 
                 # validate
-                if (i) % val_every == 0:
-                    val_loss = self.validate(model, test_dataloader, mask_density, alpha1, alpha2)
-                    val_list.append(val_loss)
+                # if (i) % val_every == 0:
+                #     val_loss = self.validate(model, test_dataloader, mask_density, alpha1, alpha2)
+                #     val_list.append(val_loss)
 
-                # update val csv file and save
-                val_dict = {
-                    "val loss" : val_list
-                    }
-                df = pd.DataFrame(val_dict)
-                fname = "val.csv"
-                df.to_csv( os.path.join(self.output_dir, fname), sep=',', encoding='utf-8', index=False, header=True)
+                # # update val csv file and save
+                # val_dict = {
+                #     "val loss" : val_list
+                #     }
+                # df = pd.DataFrame(val_dict)
+                # fname = "val.csv"
+                # df.to_csv( os.path.join(self.output_dir, fname), sep=',', encoding='utf-8', index=False, header=True)
 
             et = time.time()
             print(f"total time for epoch : {str((et-st) / 60)} min")
             print(f"lr rate for the epoch : {optimizer.param_groups[0]['lr']}")
             epoch_loss = running_loss / (train_dataloader.__len__() - skipped_batches)
-            epochloss_list.append(epoch_loss.item())
+            epochloss_list.append(epoch_loss)
             print('Epoch [{}/{}], epoch Loss: {:.4f}'.format(epoch+1, epochs, epoch_loss))
             save_plot([epochloss_list], [i for i in range(epoch+1)], ["epoch loss"], os.path.join(self.output_dir, "epochloss.png"))
 

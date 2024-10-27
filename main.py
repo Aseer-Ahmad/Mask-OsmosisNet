@@ -61,20 +61,20 @@ def getMaskDataset(config):
         - train_dataset: Datasets for the training dataset.
         - test_dataset: Datasets for the testing dataset.
     """
-    # train_dataset = MaskDataset(config['TRAIN_FILENAME'], 
-    #                          config['ROOT_DIR'], 
-    #                          "train", 
-    #                          config['IMG_SIZE'])
+    train_dataset = MaskDataset(config['TRAIN_FILENAME'], 
+                             config['ROOT_DIR'], 
+                             "train", 
+                             config['IMG_SIZE'])
     
-    # test_dataset = MaskDataset(config['TEST_FILENAME'], 
-    #                          config['ROOT_DIR'], 
-    #                          "test", 
-    #                          config['IMG_SIZE'])
+    test_dataset = MaskDataset(config['TEST_FILENAME'], 
+                             config['ROOT_DIR'], 
+                             "test", 
+                             config['IMG_SIZE'])
     
-    test_dataset  = load_dataset("aseeransari/ImageNet-Sampled", split="test")
-    train_dataset = load_dataset("aseeransari/ImageNet-Sampled", split="train")
-    test_dataset = test_dataset.remove_columns(['file_name'])
-    train_dataset = train_dataset.remove_columns(['file_name'])
+    # test_dataset  = load_dataset("aseeransari/ImageNet-Sampled", split="test")
+    # train_dataset = load_dataset("aseeransari/ImageNet-Sampled", split="train")
+    # test_dataset = test_dataset.remove_columns(['file_name'])
+    # train_dataset = train_dataset.remove_columns(['file_name'])
     
     return (train_dataset, test_dataset)
     
@@ -109,19 +109,17 @@ def main(config):
     print(f"model summary")
     model_sum = summary(model, input_size=(config['INP_CHANNELS'], config['IMG_SIZE'], config['IMG_SIZE']))
     model_sum = str(model_sum).encode('ascii', errors='replace')
-    print(model_sum.decode())
+    # print(model_sum.decode())
 
     # configure model trainer 
     trainer = ModelTrainer(
         output_dir = exp_path,
-        optimizer= config['OPT'],
+        opt_config= config['OPT'],
         scheduler= config['SCHEDL'],
-        lr = config['LR'],
-        weight_decay= config['WEIGHT_DECAY'], 
-        momentum = config['MOMENTUM'],
         train_batch_size = config['TRAIN_BATCH'],
         test_batch_size = config['TEST_BATCH'],
     )
+    
     print(f"trainer configurations set")
 
     trainer.train(

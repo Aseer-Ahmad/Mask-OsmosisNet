@@ -23,7 +23,6 @@ def write_tensor_to_pgm(filename, tensor):
         f.write(b'255\n')
         f.write(image.tobytes())
 
-
 def readPGMImage( pth):
     pgm = cv2.imread(pth, cv2.IMREAD_GRAYSCALE) 
     pgm_T = torch.tensor(pgm, dtype = torch.float64)
@@ -49,7 +48,7 @@ if __name__ == '__main__':
     mask = readPGMImage('kaniza-edge.pgm')
     mask = mask.to(device)
 
-    V = readPGMImage('2.JPEG')
+    V = readPGMImage('3.JPEG')
     V = V.to(device)
     mask = readPGMImage('cameraman-edge.pgm')
     mask = mask.to(device)
@@ -60,7 +59,7 @@ if __name__ == '__main__':
 
     df_stencils = get_dfStencil()
     bicg_mat = get_bicgDict()
-    osmosis = OsmosisInpainting(None, V, None, None, offset=10, tau=30000, device = device, apply_canny=True)
+    osmosis = OsmosisInpainting(None, V, None, None, offset=10, tau=4096, device = device, apply_canny=True)
     osmosis.calculateWeights(False, False, False)
     osmosis.solveBatchParallel(df_stencils, bicg_mat, 1, save_batch = [True, "solved_b.pgm"], verbose = False)
 

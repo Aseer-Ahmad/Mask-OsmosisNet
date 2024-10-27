@@ -40,7 +40,8 @@ class MaskDataset(Dataset):
         transform = transforms.Compose([
                     transforms.ToTensor(),
                     transforms.Grayscale(),
-                    transforms.Resize((self.img_size, self.img_size), antialias = True),
+                    # transforms.Resize((self.img_size, self.img_size), antialias = True),
+                    transforms.RandomCrop((self.img_size, self.img_size))
                     # transforms.Normalize(mean = [0.], std = [1.])
                     ])
         
