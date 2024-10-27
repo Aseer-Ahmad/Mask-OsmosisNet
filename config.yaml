@@ -5,7 +5,7 @@ SAVE_EVERY_ITER : 1000
 VAL_EVERY_ITER : 13000
 BATCH_PLOT_EVERY_ITER : 10
 OUTPUT_DIR : outputs
-EXP_NAME : temp_1
+EXP_NAME : temp_2
 
 # DATA PARMS
 TRAIN_FILENAME : iids_train.txt
@@ -19,16 +19,16 @@ OUT_CHANNELS   : 1
 # HYPER PARAMS unet
 
 OPT            : 
-    opt        : SGD-Nestrov
-    lr         : 0.01
+    opt        : Adam
+    lr         : 0.0001
     wd         : 0.001
     momentum   : 0.009  
 
 SCHEDL         : 
 TRAIN_BATCH    : 8
 TEST_BATCH     : 8
-ALPHA1         : 0.001
-ALPHA2         : 0.0001
+ALPHA1         : 0.01
+ALPHA2         : 1
 MASK_DEN       : 0.1
 BIN_METH       : QUANT
 MAX_NORM       : 1
@@ -50,7 +50,7 @@ OPT2 :
 SCHEDL2 : 
 
 #solver params
-OFFSET         : 8
+OFFSET         : 10
 TAU            : 4096
 ITERATIONS     : 
 NOTE           : 

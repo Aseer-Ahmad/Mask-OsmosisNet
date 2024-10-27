@@ -29,25 +29,24 @@ from utils import inspect_gradients, MyCustomTransform2, mean_density
 
 torch.backends.cuda.matmul.allow_tf32 = True
 SEED = 1
-torch.manual_seed(SEED)
+# torch.manual_seed(SEED)
 
 # def seed_worker(worker_id):
 #     worker_seed = torch.initial_seed() % 2**32
 #     numpy.random.seed(worker_seed)
 #     random.seed(worker_seed)
 
-g = torch.Generator()
-g.manual_seed(SEED)
+# g = torch.Generator()
+# g.manual_seed(SEED)
 
 
 class ResidualLoss(nn.Module):
     """
     Rsidual Loss 
-    || \laplacian u - div ( d u) ||2 at mask locations
-    || u - f  ||2 MSE at non mask locations
+    (1 / nxny) || (1 - C)(\laplacian u - div ( d u)) - C (u - f) ||2 
     """
     def __init__(self, img_size):
-        super(ResidualLoss, self).__init__()
+        super(ResidualLoss, self, img_size).__init__()
         self.pad = Pad(1, padding_mode = "symmetric")
         self.nxny = img_size * img_size
 
@@ -180,9 +179,6 @@ def getDataloaders(train_dataset, test_dataset, img_size, train_batch_size, test
 
     train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=train_batch_size)
     test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=test_batch_size)
-
-    # train_dataloader = DataLoader(train_dataset, shuffle = False, batch_size=train_batch_size, worker_init_fn=seed_worker,generator=g)
-    # test_dataloader  = DataLoader(test_dataset, shuffle = False, batch_size=test_batch_size, worker_init_fn=seed_worker,generator=g)
 
     print(f"train and test dataloaders created")
     print(f"total train batches  : {len(train_dataloader)}")
@@ -539,9 +535,9 @@ class ModelTrainer():
                 total_norm = check_gradients(model)
 
                 # write forward backward stencils
-                df_stencils["grad_norm"].append(total_norm)
-                df = pd.DataFrame(dict([(key, pd.Series(value)) for key, value in df_stencils.items()]))
-                df.to_csv( os.path.join(self.output_dir, "stencils.csv"), sep=',', encoding='utf-8', index=False, header=True)
+                # df_stencils["grad_norm"].append(total_norm)
+                # df = pd.DataFrame(dict([(key, pd.Series(value)) for key, value in df_stencils.items()]))
+                # df.to_csv( os.path.join(self.output_dir, "stencils.csv"), sep=',', encoding='utf-8', index=False, header=True)
                 # bicg_mat["grad_norm"].append(total_norm)
                 # df = pd.DataFrame(dict([(key, pd.Series(value)) for key, value in bicg_mat.items()]))
                 # df.to_csv( os.path.join(self.output_dir, f"bicg_wt_{i}.csv"), sep=',', encoding='utf-8', index=False, header=True)
