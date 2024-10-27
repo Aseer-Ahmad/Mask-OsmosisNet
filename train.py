@@ -21,6 +21,7 @@ from InpaintingSolver.bi_cg_nn import BiCG_Net
 from InpaintingSolver.bi_cg import OsmosisInpainting
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
+from torchvision.transforms import Pad
 
 from utils import get_dfStencil, get_bicgDict, getOptimizer, getScheduler, loadCheckpoint, saveCheckpoint
 from utils import initialize_weights_he, init_weights_xavier, save_plot, check_gradients
@@ -45,34 +46,43 @@ class ResidualLoss(nn.Module):
     || \laplacian u - div ( d u) ||2 at mask locations
     || u - f  ||2 MSE at non mask locations
     """
-    def __init__(self):
+    def __init__(self, img_size):
         super(ResidualLoss, self).__init__()
+        self.pad = Pad(1, padding_mode = "symmetric")
+        self.nxny = img_size * img_size
 
     def forward(self, u, v, mask):
         '''
-        u,v are not padded
+        u : evolved solution ; not padded
+        v : guidance image   ; not padded
         '''
+        u   = self.pad(u)
+        v   = self.pad(v)
+
         # laplacian kernel
-        lap_u_kernel = torch.tensor([[[[0, 1, 0],
-                                       [1,-4, 1],
-                                       [0, 1, 0]]]])
+        lap_u_kernel = torch.tensor([[[[0., 1., 0.],
+                                    [1.,-4., 1.],
+                                    [0., 1., 0.]]]])
         lap_u = F.conv2d(u, lap_u_kernel)
 
         # row-direction filters  
-        f1 = torch.tensor([[[[-1], [1]]]])
+        f1 = torch.tensor([[[[-1.], [1.]]]])
         f2 = torch.tensor([[[[.5], [.5]]]])
-        d1 = F.conv2d(v, f1, padding='same') / F.conv2d(v, f2, padding='same')
-        u_i_half = F.conv2d(u, f2, padding='same')
+        d1_u = (F.conv2d(v, f1, padding='same') / F.conv2d(v, f2, padding='same')) * F.conv2d(u, f2, padding='same')
+        dx_d1_u = d1_u[:, :, 1:-1, 1:-1] - d1_u[:, :, 0:-2, 1:-1]
 
         # col-direction filters
-        f3 = torch.tensor([[[[-1, 1]]]])
+        f3 = torch.tensor([[[[-1., 1.]]]])
         f4 = torch.tensor([[[[.5, .5]]]])
-        d2 = F.conv2d(v, f3, padding='same') / F.conv2d(v, f3, padding='same')
-        u_j_half = F.conv2d(u, f4, padding='same')
+        d2_u = (F.conv2d(v, f3, padding='same') / F.conv2d(v, f4, padding='same')) * F.conv2d(u, f4, padding='same')
+        dy_d2_u = d2_u[:, :, 1:-1, 1:-1] - d2_u[:, :, 1:-1, 0:-2]
 
-        # lap_u  - ( d1 * u_i_half  - d1_shift * u_i_half_shift) - ( d2 * u_j_half  - d2_shift * u_j_half_shift) 
+        #steady state 
+        ss = lap_u - dx_d1_u - dy_d2_u 
+
+        # residual loss
+        return torch.mean(torch.norm((1 - mask) * ss - mask * (u - v), p = 2, dim = (2, 3)) / self.nxny)
         
-
 
 class InvarianceLoss(nn.Module):
     """
