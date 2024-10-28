@@ -1,9 +1,0 @@
-drift vectors calculated
-stencils weights calculated
-
-batch item : 1 / 1
-ITERATION : 1, loss : 4661.267538179827ITERATION : 2, loss : 45270.29679632925ITERATION : 3, loss : 5421096.4524028ITERATION : 4, loss : 703015167.8158218ITERATION : 5, loss : 64418287194.54235
-total time to solution : 23.16222834587097 sec
-
-written to : solved_5.pgm
-solved with final loss : 30379.844542857605

@@ -61,20 +61,20 @@ def getMaskDataset(config):
         - train_dataset: Datasets for the training dataset.
         - test_dataset: Datasets for the testing dataset.
     """
-    train_dataset = MaskDataset(config['TRAIN_FILENAME'], 
-                             config['ROOT_DIR'], 
-                             "train", 
-                             config['IMG_SIZE'])
+    # train_dataset = MaskDataset(config['TRAIN_FILENAME'], 
+    #                          config['ROOT_DIR'], 
+    #                          "train", 
+    #                          config['IMG_SIZE'])
     
-    test_dataset = MaskDataset(config['TEST_FILENAME'], 
-                             config['ROOT_DIR'], 
-                             "test", 
-                             config['IMG_SIZE'])
+    # test_dataset = MaskDataset(config['TEST_FILENAME'], 
+    #                          config['ROOT_DIR'], 
+    #                          "test", 
+    #                          config['IMG_SIZE'])
     
-    # test_dataset  = load_dataset("aseeransari/ImageNet-Sampled", split="test")
-    # train_dataset = load_dataset("aseeransari/ImageNet-Sampled", split="train")
-    # test_dataset = test_dataset.remove_columns(['file_name'])
-    # train_dataset = train_dataset.remove_columns(['file_name'])
+    test_dataset  = load_dataset("aseeransari/ImageNet-Sampled", split="test")
+    train_dataset = load_dataset("aseeransari/ImageNet-Sampled", split="train")
+    test_dataset = test_dataset.remove_columns(['file_name'])
+    train_dataset = train_dataset.remove_columns(['file_name'])
     
     return (train_dataset, test_dataset)
     
@@ -136,7 +136,10 @@ def main(config):
         skip_norm = config['SKIP_NORM'],
         max_norm  = config['MAX_NORM'],
         train_dataset = train_dataset , 
-        test_dataset = test_dataset
+        test_dataset = test_dataset,
+        offset = config['OFFSET'], 
+        tau = config['TAU'], 
+        eps = float(config['R_ABS_EPS'])
     )
     
 if __name__ == '__main__':

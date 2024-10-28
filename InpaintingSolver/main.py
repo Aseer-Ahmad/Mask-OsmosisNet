@@ -48,9 +48,9 @@ if __name__ == '__main__':
     mask = readPGMImage('kaniza-edge.pgm')
     mask = mask.to(device)
 
-    V = readPGMImage('3.JPEG')
+    V = readPGMImage('2.JPEG')
     V = V.to(device)
-    mask = readPGMImage('cameraman-edge.pgm')
+    mask = readPGMImage('mask_128_10.jpg')
     mask = mask.to(device)
     
     # V1 = V1.repeat(16, 1, 1, 1)
@@ -59,7 +59,7 @@ if __name__ == '__main__':
 
     df_stencils = get_dfStencil()
     bicg_mat = get_bicgDict()
-    osmosis = OsmosisInpainting(None, V, None, None, offset=10, tau=4096, device = device, apply_canny=True)
+    osmosis = OsmosisInpainting(None, V, mask, mask, offset=4, tau=16000, eps = 1e-4, device = device, apply_canny=False)
     osmosis.calculateWeights(False, False, False)
     osmosis.solveBatchParallel(df_stencils, bicg_mat, 1, save_batch = [True, "solved_b.pgm"], verbose = False)
 
