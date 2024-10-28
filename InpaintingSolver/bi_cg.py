@@ -25,6 +25,49 @@ def normalize_(X, scale = 1.):
 
     return X
 
+class SteadyState(nn.Module):
+    """
+    Rsidual Loss 
+    (1 / nxny) || (1 - C)(\laplacian u - div ( d u)) - C (u - f) ||2 
+    """
+    def __init__(self, img_size, offset):
+        super(SteadyState, self).__init__()
+        self.pad = Pad(1, padding_mode = "symmetric")
+        self.nxny = img_size * img_size
+        self.offset = offset
+
+    def forward(self, u, v, mask):
+        '''
+        u : evolved solution ; not padded
+        v : guidance image   ; not padded
+        '''
+        u   = self.pad(u + self.offset)
+        v   = self.pad(v + self.offset)
+
+        # laplacian kernel
+        lap_u_kernel = torch.tensor([[[[0., 1., 0.],
+                                    [1.,-4., 1.],
+                                    [0., 1., 0.]]]], dtype = torch.float64, device = self.device)
+        lap_u = F.conv2d(u, lap_u_kernel)
+
+        # row-direction filters  
+        f1 = torch.tensor([[[[-1.], [1.]]]], dtype = torch.float64, device = self.device)
+        f2 = torch.tensor([[[[.5], [.5]]]], dtype = torch.float64, device = self.device)
+        d1_u = (F.conv2d(v, f1, padding='same') / F.conv2d(v, f2, padding='same')) * F.conv2d(u, f2, padding='same')
+        dx_d1_u = d1_u[:, :, 1:-1, 1:-1] - d1_u[:, :, 0:-2, 1:-1]
+
+        # col-direction filters
+        f3 = torch.tensor([[[[-1., 1.]]]], dtype = torch.float64, device = self.device)
+        f4 = torch.tensor([[[[.5, .5]]]], dtype = torch.float64, device = self.device)
+        d2_u = (F.conv2d(v, f3, padding='same') / F.conv2d(v, f4, padding='same')) * F.conv2d(u, f4, padding='same')
+        dy_d2_u = d2_u[:, :, 1:-1, 1:-1] - d2_u[:, :, 1:-1, 0:-2]
+
+        #steady state 
+        ss = lap_u - dx_d1_u - dy_d2_u 
+
+        # residual loss
+        return torch.mean(torch.norm(ss, p = 2, dim = (2, 3)) / self.nxny)
+
 class MSELoss(nn.Module):
     """
     Means squared loss : 
@@ -40,7 +83,7 @@ class MSELoss(nn.Module):
 
 class OsmosisInpainting:
 
-    def __init__(self, U, V, mask1, mask2, offset, tau, hx = 1, hy = 1, device = None, apply_canny = False):
+    def __init__(self, U, V, mask1, mask2, offset, tau, eps, hx = 1, hy = 1, device = None, apply_canny = False):
         # (b, c, h, w)
 
         self.V       = V + offset  # guidance image
@@ -65,6 +108,7 @@ class OsmosisInpainting:
 
         self.offset  = offset
         self.tau     = tau
+        self.eps     = eps
                 
         # pixel sizes x and y direction
         self.hx      = hx
@@ -128,21 +172,21 @@ class OsmosisInpainting:
 
         for i in range(kmax):
 
-            X = self.BiCGSTAB_GS(x = U, b = X, kmax = 600, eps = 1e-4, verbose=verbose)
+            X, max_k = self.BiCGSTAB_GS(x = U, b = X, kmax = 600, eps = self.eps, verbose=verbose)
             U = X
             loss = mse( U, self.V)
             print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)
 
-        print()
+        # print()
         
         et = time.time()
         tt += (et-st)
 
         # self.analyseImage(X, f"solution")
-        comm = f"time for iteration : {str(et-st)} sec\n"
-        comm += f"total time         : {str(tt)} sec\n"
+        # comm = f"time for iteration : {str(et-st)} sec\n"
+        # comm += f"total time         : {str(tt)} sec\n"
         # comm += self.getMetrics()
-        print(comm)
+        # print(comm)
 
         if save_batch[0]:
             fname = save_batch[1]
@@ -151,14 +195,14 @@ class OsmosisInpainting:
                             (self.mask1 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
                             # (self.canny_mask * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
                             # (init-self.offset).reshape(self.batch*(self.nx+2), self.ny+2),
-                            self.normalize(X, 255).reshape(self.batch*(self.nx+2), self.ny+2) - self.offset),
+                            self.normalize(U, 255).reshape(self.batch*(self.nx+2), self.ny+2) - self.offset),
                             dim = 1)
             self.writePGMImage(out.cpu().detach().numpy().T, fname)
 
         # normalizaed input mse loss 
-        loss = mse(X, self.V)
+        loss = mse(U, self.V)
 
-        return loss, tt, self.df_stencils, self.bicg_mat
+        return loss, tt, max_k, self.df_stencils, self.bicg_mat
 
     def calculateWeights(self, d_verbose = False, m_verbose = False, s_verbose = False):
         self.prepareInp()
@@ -422,6 +466,8 @@ class OsmosisInpainting:
         s       = torch.zeros_like(x, dtype = torch.float64) 
         t       = torch.zeros_like(x, dtype = torch.float64) 
 
+        # reslosss = SteadyState(self.nx)
+
         p   = self.zeroPadGS(b - self.applyStencilGS(x, self.boo, self.bmo, self.bom, self.bop, self.bpo))      
         r_0 = r = p
         r0_abs = torch.norm(r_0, dim = (2, 3), p = "fro")
@@ -544,6 +590,7 @@ class OsmosisInpainting:
 
             if verbose:
                 pass
+                # print(f"ss : {reslosss(x[:, :, 1:-1,1:-1], self.V[:, :, 1:-1,1:-1], None)} ")
                 print(f"k : {k}, RESIDUAL : {r_abs}")
 
             ## register backward hook
@@ -562,12 +609,12 @@ class OsmosisInpainting:
         #     s.register_hook(self.create_backward_hook2("s_backward"))
         #     t.register_hook(self.create_backward_hook2("t_backward"))
 
-        # self.boo.register_hook(self.create_backward_hook("boo_backward"))
-        # self.bpo.register_hook(self.create_backward_hook("bpo_backward"))
-        # self.bop.register_hook(self.create_backward_hook("bop_backward"))
-        # self.bom.register_hook(self.create_backward_hook("bom_backward"))
-        # self.bmo.register_hook(self.create_backward_hook("bmo_backward"))
-        # self.d1.register_hook(self.create_backward_hook("d1_backward"))
-        # self.d2.register_hook(self.create_backward_hook("d2_backward"))
+        self.boo.register_hook(self.create_backward_hook("boo_backward"))
+        self.bpo.register_hook(self.create_backward_hook("bpo_backward"))
+        self.bop.register_hook(self.create_backward_hook("bop_backward"))
+        self.bom.register_hook(self.create_backward_hook("bom_backward"))
+        self.bmo.register_hook(self.create_backward_hook("bmo_backward"))
+        self.d1.register_hook(self.create_backward_hook("d1_backward"))
+        self.d2.register_hook(self.create_backward_hook("d2_backward"))
 
-        return x
+        return x, torch.max(k)

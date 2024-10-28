@@ -29,15 +29,15 @@ from utils import inspect_gradients, MyCustomTransform2, mean_density
 
 torch.backends.cuda.matmul.allow_tf32 = True
 SEED = 1
-# torch.manual_seed(SEED)
+torch.manual_seed(SEED)
 
 # def seed_worker(worker_id):
 #     worker_seed = torch.initial_seed() % 2**32
 #     numpy.random.seed(worker_seed)
 #     random.seed(worker_seed)
 
-# g = torch.Generator()
-# g.manual_seed(SEED)
+g = torch.Generator()
+g.manual_seed(SEED)
 
 
 class ResidualLoss(nn.Module):
@@ -45,34 +45,35 @@ class ResidualLoss(nn.Module):
     Rsidual Loss 
     (1 / nxny) || (1 - C)(\laplacian u - div ( d u)) - C (u - f) ||2 
     """
-    def __init__(self, img_size):
-        super(ResidualLoss, self, img_size).__init__()
+    def __init__(self, img_size, offset):
+        super(ResidualLoss, self).__init__()
         self.pad = Pad(1, padding_mode = "symmetric")
         self.nxny = img_size * img_size
+        self.offset = offset
 
     def forward(self, u, v, mask):
         '''
         u : evolved solution ; not padded
         v : guidance image   ; not padded
         '''
-        u   = self.pad(u)
-        v   = self.pad(v)
+        u   = self.pad(u + self.offset)
+        v   = self.pad(v + self.offset)
 
         # laplacian kernel
         lap_u_kernel = torch.tensor([[[[0., 1., 0.],
                                     [1.,-4., 1.],
-                                    [0., 1., 0.]]]])
+                                    [0., 1., 0.]]]], dtype = torch.float64, device = self.device)
         lap_u = F.conv2d(u, lap_u_kernel)
 
         # row-direction filters  
-        f1 = torch.tensor([[[[-1.], [1.]]]])
-        f2 = torch.tensor([[[[.5], [.5]]]])
+        f1 = torch.tensor([[[[-1.], [1.]]]], dtype = torch.float64, device = self.device)
+        f2 = torch.tensor([[[[.5], [.5]]]], dtype = torch.float64, device = self.device)
         d1_u = (F.conv2d(v, f1, padding='same') / F.conv2d(v, f2, padding='same')) * F.conv2d(u, f2, padding='same')
         dx_d1_u = d1_u[:, :, 1:-1, 1:-1] - d1_u[:, :, 0:-2, 1:-1]
 
         # col-direction filters
-        f3 = torch.tensor([[[[-1., 1.]]]])
-        f4 = torch.tensor([[[[.5, .5]]]])
+        f3 = torch.tensor([[[[-1., 1.]]]], dtype = torch.float64, device = self.device)
+        f4 = torch.tensor([[[[.5, .5]]]], dtype = torch.float64, device = self.device)
         d2_u = (F.conv2d(v, f3, padding='same') / F.conv2d(v, f4, padding='same')) * F.conv2d(u, f4, padding='same')
         dy_d2_u = d2_u[:, :, 1:-1, 1:-1] - d2_u[:, :, 1:-1, 0:-2]
 
@@ -174,11 +175,11 @@ def getDataloaders(train_dataset, test_dataset, img_size, train_batch_size, test
         
         return images, images_scale
 
-    # train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=train_batch_size, collate_fn=custom_collate_fn)
-    # test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=test_batch_size, collate_fn=custom_collate_fn)
+    train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=train_batch_size, collate_fn=custom_collate_fn)
+    test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=test_batch_size, collate_fn=custom_collate_fn)
 
-    train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=train_batch_size)
-    test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=test_batch_size)
+    # train_dataloader = DataLoader(train_dataset, shuffle = False, batch_size=train_batch_size)
+    # test_dataloader  = DataLoader(test_dataset, shuffle = False, batch_size=test_batch_size)
 
     print(f"train and test dataloaders created")
     print(f"total train batches  : {len(train_dataloader)}")
@@ -388,14 +389,14 @@ class ModelTrainer():
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"device : {self.device}")
 
-    def validate(self, model, test_dataloader, density, alpha1, alpha2):
+    def validate(self, model, test_dataloader, density, alpha1, alpha2, offset, tau, eps):
         print("validating on test dataset")
-        running_loss = 0.0
+        avg_loss = 0.0
 
         invLoss = InvarianceLoss()
         denLoss  = DensityLoss(density)
 
-        td_len = len(test_dataloader)
+        td_len = test_dataloader.__len__()
         df_stencils = get_dfStencil()
         bicg_mat = get_bicgDict()
         
@@ -410,17 +411,18 @@ class ModelTrainer():
                 loss1 = invLoss(mask)
                 loss2 = denLoss(mask)
 
-                osmosis = OsmosisInpainting(None, X, mask, mask, offset=10, tau=4096, device = self.device, apply_canny=False)
+                osmosis = OsmosisInpainting(None, X, mask, mask, offset=offset, tau=tau, eps = eps, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)
                 save_batch = [False]
-                loss3, tts, df_stencils, bicg_mat = osmosis.solveBatchParallel(df_stencils, bicg_mat, 1, save_batch = save_batch, verbose = True)
+                loss3, tts, max_k, df_stencils, bicg_mat = osmosis.solveBatchParallel(df_stencils, bicg_mat, 1, save_batch = save_batch, verbose = False)
                 
-                total_loss = loss3 + loss1 * alpha1 
-                running_loss += total_loss.item()
+                total_loss = loss3 + loss1 * alpha1 + loss2
+
+                avg_loss += total_loss.item()
 
             et = time.time()
         
-        val_loss = running_loss / ((i+1)*td_len)
+        val_loss = avg_loss / td_len
         print(f"\nvalidation loss : {val_loss} , total running time : {(et-st)/60.} min")
         print()
 
@@ -439,7 +441,10 @@ class ModelTrainer():
                     skip_norm, 
                     max_norm, 
                     train_dataset,
-                    test_dataset):
+                    test_dataset,
+                    offset, 
+                    tau, 
+                    eps):
         
         # loss lists
         loss1_list, loss2_list, loss3_list, gradnorm_list, running_loss_list = [], [], [], [], []
@@ -517,7 +522,7 @@ class ModelTrainer():
                 loss2 = denLoss(mask)
 
                 # osmosis solver
-                osmosis = OsmosisInpainting(None, X, mask, mask, offset=10, tau=4096, device = self.device, apply_canny=False)
+                osmosis = OsmosisInpainting(None, X, mask, mask, offset=offset, tau=tau, eps = eps, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)
                 
                 if (i) % batch_plot_every == 0: 
@@ -525,7 +530,7 @@ class ModelTrainer():
                 else:
                     save_batch = [False]
                 df_stencils["iter"].append(i)
-                loss3, tts, df_stencils, bicg_mat = osmosis.solveBatchParallel(df_stencils, bicg_mat, 1, save_batch = save_batch, verbose = False)
+                loss3, tts, max_k, df_stencils, bicg_mat = osmosis.solveBatchParallel(df_stencils, bicg_mat, 1, save_batch = save_batch, verbose = False)
                 
                 # X_rec, tts = bicg_model(X, mask, mask)
                 # loss3 = mseLoss(X, X_rec)
@@ -535,9 +540,9 @@ class ModelTrainer():
                 total_norm = check_gradients(model)
 
                 # write forward backward stencils
-                # df_stencils["grad_norm"].append(total_norm)
-                # df = pd.DataFrame(dict([(key, pd.Series(value)) for key, value in df_stencils.items()]))
-                # df.to_csv( os.path.join(self.output_dir, "stencils.csv"), sep=',', encoding='utf-8', index=False, header=True)
+                df_stencils["grad_norm"].append(total_norm)
+                df = pd.DataFrame(dict([(key, pd.Series(value)) for key, value in df_stencils.items()]))
+                df.to_csv( os.path.join(self.output_dir, "stencils.csv"), sep=',', encoding='utf-8', index=False, header=True)
                 # bicg_mat["grad_norm"].append(total_norm)
                 # df = pd.DataFrame(dict([(key, pd.Series(value)) for key, value in bicg_mat.items()]))
                 # df.to_csv( os.path.join(self.output_dir, f"bicg_wt_{i}.csv"), sep=',', encoding='utf-8', index=False, header=True)
@@ -547,7 +552,15 @@ class ModelTrainer():
                     fname = f"ckp_epoch_{str(epoch+1)}_iter_{str(i-1)}.pt"
                     saveCheckpoint(model, optimizer, self.output_dir, fname)
 
-                if total_norm > skip_norm :
+                if total_norm < skip_norm :
+                    max_norm = max_norm
+                elif total_norm > skip_norm and total_norm < 2 * skip_norm :
+                    max_norm *= 2
+                elif total_norm > 2 * skip_norm and total_norm < 10 * skip_norm :
+                    max_norm *= 5
+                elif total_norm > 10 * skip_norm and total_norm < 20 * skip_norm :
+                    max_norm *= 10    
+                else :
                     skipped_batches += 1
                     ttl_skipped_batches += 1
                     print(f"skipping batch due to higher gradient norm : {total_norm}, total skipped : {ttl_skipped_batches}")
@@ -574,6 +587,7 @@ class ModelTrainer():
                 gradnorm_list.append(total_norm)
                 print(f"invariance loss : {loss1}, avg_den : {avg_den.item()}, ", end='')
                 print(f"density loss : {loss2}, solver time : {str(tts)} sec , ", end='')
+                print(f"max iteration in solver : {max_k}, ", end ='')
                 print(f"mse loss : {loss3}, ", end='')
                 print(f"total loss : {total_loss}, " , end = '')
                 print(f"running loss : {running_loss / (i - skipped_batches)}" )
@@ -612,17 +626,15 @@ class ModelTrainer():
                 df.to_csv( os.path.join(self.output_dir, fname), sep=',', encoding='utf-8', index=False, header=True)
 
                 # validate
-                # if (i) % val_every == 0:
-                #     val_loss = self.validate(model, test_dataloader, mask_density, alpha1, alpha2)
-                #     val_list.append(val_loss)
+                if (i) % val_every == 0:
+                    val_loss = self.validate(model, test_dataloader, mask_density, alpha1, alpha2, offset, tau, eps)
+                    val_list.append(val_loss)
 
-                # # update val csv file and save
-                # val_dict = {
-                #     "val loss" : val_list
-                #     }
-                # df = pd.DataFrame(val_dict)
-                # fname = "val.csv"
-                # df.to_csv( os.path.join(self.output_dir, fname), sep=',', encoding='utf-8', index=False, header=True)
+                # update val csv file and save
+                val_dict = {"val loss" : val_list}
+                df = pd.DataFrame(val_dict)
+                fname = "val.csv"
+                df.to_csv( os.path.join(self.output_dir, fname), sep=',', encoding='utf-8', index=False, header=True)
 
             et = time.time()
             print(f"total time for epoch : {str((et-st) / 60)} min")

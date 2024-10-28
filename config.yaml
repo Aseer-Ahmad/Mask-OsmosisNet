@@ -2,7 +2,7 @@
 EPOCHS : 50
 RESUME_CHECKPOINT : 
 SAVE_EVERY_ITER : 1000
-VAL_EVERY_ITER : 13000
+VAL_EVERY_ITER : 25
 BATCH_PLOT_EVERY_ITER : 10
 OUTPUT_DIR : outputs
 EXP_NAME : temp_2
@@ -17,9 +17,8 @@ INP_CHANNELS   : 1
 OUT_CHANNELS   : 1
 
 # HYPER PARAMS unet
-
 OPT            : 
-    opt        : Adam
+    opt        : SGD-Nestrov
     lr         : 0.0001
     wd         : 0.001
     momentum   : 0.009  
@@ -33,6 +32,13 @@ MASK_DEN       : 0.1
 BIN_METH       : QUANT
 MAX_NORM       : 1
 SKIP_NORM      : 50
+
+#solver params
+R_ABS_EPS      : 1e-4
+OFFSET         : 12
+TAU            : 16000
+ITERATIONS     : 
+NOTE           : 
 
 # Joint model params
 OPT1 :
@@ -49,9 +55,4 @@ OPT2 :
     momentum : 
 SCHEDL2 : 
 
-#solver params
-OFFSET         : 10
-TAU            : 4096
-ITERATIONS     : 
-NOTE           : 
 
