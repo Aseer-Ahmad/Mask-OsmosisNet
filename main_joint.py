@@ -124,7 +124,7 @@ def main(config):
         opt1= config['OPT1'],
         opt2= config['OPT2'],
         scheduler1= config['SCHEDL1'],
-        scheduler1= config['SCHEDL2'],
+        scheduler2= config['SCHEDL2'],
         train_batch_size = config['TRAIN_BATCH'],
         test_batch_size = config['TEST_BATCH'],
     )
@@ -137,6 +137,7 @@ def main(config):
         epochs = config['EPOCHS'],
         alpha1 = config['ALPHA1'],
         alpha2 = config['ALPHA2'],
+        offset = config['RES_LOSS_OFFSET'],
         mask_density = config['MASK_DEN'],
         img_size = config['IMG_SIZE'],
         model_1_ckp_file = config['RESUME_CHECKPOINT_MN'],

@@ -208,7 +208,8 @@ class JointModelTrainer():
                     inpModel,
                     epochs,
                     alpha1, 
-                    alpha2, 
+                    alpha2,
+                    offset, 
                     mask_density, 
                     img_size, 
                     model_1_ckp_file, 
@@ -227,27 +228,24 @@ class JointModelTrainer():
         epochloss_MN_list, epochloss_IN_list = [],[]
         val_list = []
 
-        train_dataloader, test_dataloader = self.getDataloaders(train_dataset, test_dataset, img_size)
+        train_dataloader, test_dataloader = getDataloaders(train_dataset, test_dataset, img_size, self.train_batch_size, self.test_batch_size)
 
-        opt1 = self.getOptimizer(maskModel, self.opt1)
-        opt2 = self.getOptimizer(inpModel , self.opt2)
+        opt1 = getOptimizer(maskModel, self.opt1)
+        opt2 = getOptimizer(inpModel , self.opt2)
         # scheduler = self.getScheduler(optimizer)
         # scheduler = WarmupScheduler(optimizer, warmup_steps=5, final_lr=self.lr, base_lr=1e-5)
 
-        print(f"optimizer : {self.optimizer}, scheduler : {self.scheduler} loaded")
+        print(f"optimizer 1: {opt1}, optimizer 2 : {opt2} loaded")
 
         if model_1_ckp_file != None:
             print(f"loading checkpoint file : {model_1_ckp_file}")
-            maskModel, opt1 = self.loadCheckpoint(maskModel, opt1, model_1_ckp_file)
+            maskModel, opt1 = loadCheckpoint(maskModel, opt1, model_1_ckp_file)
             print(f"Mask model, opt, schdl loaded from checkpoint")
 
         if model_2_ckp_file != None:
             print(f"loading checkpoint file : {model_2_ckp_file}")
-            inpModel, opt2 = self.loadCheckpoint(inpModel, opt2, model_2_ckp_file)
+            inpModel, opt2 = loadCheckpoint(inpModel, opt2, model_2_ckp_file)
             print(f"Inpainting model, opt, schdl loaded from checkpoint")
-
-        print(f"optimizer : {opt1}")
-        # print(f"scheduler : {scheduler}")
 
         maskModel = maskModel.double()
         maskModel.to(self.device)
@@ -256,13 +254,13 @@ class JointModelTrainer():
         inpModel.to(self.device)
  
         print(f"initializing weights using Kaiming/He Initialization")
-        maskModel.apply(self.initialize_weights_he)
-        inpModel.apply(self.initialize_weights_he)
+        maskModel.apply(initialize_weights_he)
+        inpModel.apply(initialize_weights_he)
 
         # losses 
         mseLoss  = MSELoss()
         maskLoss = InvarianceLoss()
-        resLoss  = ResidualLoss()
+        resLoss  = ResidualLoss(img_size=img_size, offset=offset)
 
         torch.autograd.set_detect_anomaly(True)
 

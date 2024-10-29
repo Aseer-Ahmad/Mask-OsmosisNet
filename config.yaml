@@ -64,4 +64,4 @@ OPT2 :
     momentum : 0.009
 SCHEDL2 : 
 
-RES_LOSS_OFFSET : 
+RES_LOSS_OFFSET : 1
