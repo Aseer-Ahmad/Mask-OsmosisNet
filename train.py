@@ -61,8 +61,8 @@ class ResidualLoss(nn.Module):
 
         # laplacian kernel
         lap_u_kernel = torch.tensor([[[[0., 1., 0.],
-                                    [1.,-4., 1.],
-                                    [0., 1., 0.]]]], dtype = torch.float64, device = self.device)
+                                       [1.,-4., 1.],
+                                       [0., 1., 0.]]]], dtype = torch.float64, device = self.device)
         lap_u = F.conv2d(u, lap_u_kernel)
 
         # row-direction filters  
@@ -192,15 +192,13 @@ def getDataloaders(train_dataset, test_dataset, img_size, train_batch_size, test
 
 class JointModelTrainer():
 
-    def __init__(self, output_dir, opt1, opt2, scheduler, lr, weight_decay, momentum, train_batch_size, test_batch_size):
+    def __init__(self, output_dir, opt1, opt2, scheduler1, scheduler2, train_batch_size, test_batch_size):
         
         self.output_dir= output_dir
         self.opt1 = opt1
         self.opt2 = opt2
-        self.scheduler= scheduler
-        self.lr= lr
-        self.weight_decay= weight_decay
-        self.momentum = momentum
+        self.scheduler1= scheduler1,
+        self.scheduler2= scheduler2,
         self.train_batch_size = train_batch_size
         self.test_batch_size = test_batch_size
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -240,13 +238,13 @@ class JointModelTrainer():
 
         if model_1_ckp_file != None:
             print(f"loading checkpoint file : {model_1_ckp_file}")
-            model, optimizer = self.loadCheckpoint(model, optimizer, model_1_ckp_file)
-            print(f"model, opt, schdl loaded from checkpoint")
+            maskModel, opt1 = self.loadCheckpoint(maskModel, opt1, model_1_ckp_file)
+            print(f"Mask model, opt, schdl loaded from checkpoint")
 
         if model_2_ckp_file != None:
             print(f"loading checkpoint file : {model_2_ckp_file}")
-            model, optimizer = self.loadCheckpoint(model, optimizer, model_2_ckp_file)
-            print(f"model, opt, schdl loaded from checkpoint")
+            inpModel, opt2 = self.loadCheckpoint(inpModel, opt2, model_2_ckp_file)
+            print(f"Inpainting model, opt, schdl loaded from checkpoint")
 
         print(f"optimizer : {opt1}")
         # print(f"scheduler : {scheduler}")
@@ -257,11 +255,12 @@ class JointModelTrainer():
         inpModel = inpModel.double()
         inpModel.to(self.device)
  
-        # print(f"initializing weights using Kaiming/He Initialization")
-        # model.apply(self.initialize_weights_he)
+        print(f"initializing weights using Kaiming/He Initialization")
+        maskModel.apply(self.initialize_weights_he)
+        inpModel.apply(self.initialize_weights_he)
 
         # losses 
-        inpLoss  = MSELoss()
+        mseLoss  = MSELoss()
         maskLoss = InvarianceLoss()
         resLoss  = ResidualLoss()
 
@@ -280,7 +279,8 @@ class JointModelTrainer():
 
             skipped_batches = 0
 
-            model.train()
+            maskModel.train()
+            inpModel.train()
 
             st = time.time()
 
@@ -296,10 +296,10 @@ class JointModelTrainer():
 
                 # inpainting 
                 rec_X = inpModel(X, mask)
-                loss2 = inpLoss(X, rec_X)
-                loss3 = resLoss(X, rec_X, mask)
+                loss2 = mseLoss(rec_X, X)
+                loss3 = resLoss(rec_X, X, mask)
 
-                maskModelLoss = loss1 + loss2
+                maskModelLoss = loss2 * alpha1 * loss1 
                 
                 maskModelLoss.backward()
                 opt1.step()
@@ -312,9 +312,11 @@ class JointModelTrainer():
     
                 if (i) % save_every == 0:
                     print("saving checkpoint")
-                    fname = f"ckp_epoch_{str(epoch+1)}_iter_{str(i)}.pt"
-                    self.saveCheckpoint(model, optimizer, fname)
-
+                    fname = f"maskmodel_epoch_{str(epoch+1)}_iter_{str(i)}.pt"
+                    self.saveCheckpoint(maskModel, opt1, fname)
+                    fname = f"inpmodel_epoch_{str(epoch+1)}_iter_{str(i)}.pt"
+                    self.saveCheckpoint(inpModel, opt2, fname)
+                    
                 if (i) % batch_plot_every == 0:
                     print("saving batch")
                     pass
@@ -542,9 +544,9 @@ class ModelTrainer():
                 total_norm = check_gradients(model)
 
                 # write forward backward stencils
-                df_stencils["grad_norm"].append(total_norm)
-                df = pd.DataFrame(dict([(key, pd.Series(value)) for key, value in df_stencils.items()]))
-                df.to_csv( os.path.join(self.output_dir, "stencils.csv"), sep=',', encoding='utf-8', index=False, header=True)
+                # df_stencils["grad_norm"].append(total_norm)
+                # df = pd.DataFrame(dict([(key, pd.Series(value)) for key, value in df_stencils.items()]))
+                # df.to_csv( os.path.join(self.output_dir, "stencils.csv"), sep=',', encoding='utf-8', index=False, header=True)
                 # bicg_mat["grad_norm"].append(total_norm)
                 # df = pd.DataFrame(dict([(key, pd.Series(value)) for key, value in bicg_mat.items()]))
                 # df.to_csv( os.path.join(self.output_dir, f"bicg_wt_{i}.csv"), sep=',', encoding='utf-8', index=False, header=True)
@@ -559,17 +561,25 @@ class ModelTrainer():
                 elif total_norm > skip_norm and total_norm < 2 * skip_norm :
                     max_norm *= 2
                 elif total_norm > 2 * skip_norm and total_norm < 10 * skip_norm :
-                    max_norm *= 5
+                    max_norm *= 3
                 elif total_norm > 10 * skip_norm and total_norm < 20 * skip_norm :
-                    max_norm *= 10    
+                    max_norm *= 4    
                 else :
                     skipped_batches += 1
                     ttl_skipped_batches += 1
                     print(f"skipping batch due to higher gradient norm : {total_norm}, total skipped : {ttl_skipped_batches}")
                     optimizer.zero_grad()
                     continue
-
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = max_norm)
+                
+                try : 
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = max_norm)
+                except Exception as e :
+                    skipped_batches += 1
+                    ttl_skipped_batches += 1
+                    print(f"exception caused at gradient clipping for total_norm : {total_norm} and max norm: {max_norm}")
+                    print("skipping batch")
+                    print(e)
+                    continue
 
                 optimizer.step()
                 if scheduler != None :

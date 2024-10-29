@@ -4,9 +4,9 @@ from .unet_parts import *
 import torch
 import torch.nn as nn
 
-class UNet(nn.Module):
+class InpaintingNet(nn.Module):
     def __init__(self, in_channels = 2 , out_channels = 1, bilinear=False):
-        super(UNet, self).__init__()
+        super(InpaintingNet, self).__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.bilinear = bilinear
