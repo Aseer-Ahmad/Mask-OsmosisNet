@@ -29,15 +29,15 @@ from utils import inspect_gradients, MyCustomTransform2, mean_density
 
 torch.backends.cuda.matmul.allow_tf32 = True
 SEED = 1
-torch.manual_seed(SEED)
+# torch.manual_seed(SEED)
 
 # def seed_worker(worker_id):
 #     worker_seed = torch.initial_seed() % 2**32
 #     numpy.random.seed(worker_seed)
 #     random.seed(worker_seed)
 
-g = torch.Generator()
-g.manual_seed(SEED)
+# g = torch.Generator()
+# g.manual_seed(SEED)
 
 
 class ResidualLoss(nn.Module):
@@ -142,21 +142,23 @@ class WarmupScheduler(_LRScheduler):
 def getDataloaders(train_dataset, test_dataset, img_size, train_batch_size, test_batch_size):
 
     transform = transforms.Compose([
-                transforms.RandomCrop((img_size, img_size)),
-                # transforms.Resize((img_size, img_size), antialias = True),
+                # transforms.RandomCrop((img_size, img_size)),
+                transforms.Resize((img_size, img_size), antialias = True),
                 transforms.Grayscale(),
                 transforms.ToTensor(),   
             ])
 
     transform_norm = transforms.Compose([
-                transforms.RandomCrop((img_size, img_size)),
+                # transforms.RandomCrop((img_size, img_size)),
+                transforms.Resize((img_size, img_size), antialias = True),
                 transforms.Grayscale(),
                 transforms.ToTensor(), 
                 transforms.Normalize(mean = [0.44531356896770125], std = [0.2692461874154524])
             ])
     
     transform_scale = transforms.Compose([
-                transforms.RandomCrop((img_size, img_size)),
+                # transforms.RandomCrop((img_size, img_size)),
+                transforms.Resize((img_size, img_size), antialias = True),
                 transforms.Grayscale(),
                 MyCustomTransform2()
             ])
@@ -425,7 +427,7 @@ class ModelTrainer():
         val_loss = avg_loss / td_len
         print(f"\nvalidation loss : {val_loss} , total running time : {(et-st)/60.} min")
         print()
-
+        model.train()
         return val_loss
 
     def train(self, model,
