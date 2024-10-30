@@ -62,20 +62,20 @@ def getMaskDataset(config):
         - train_dataset: Datasets for the training dataset.
         - test_dataset: Datasets for the testing dataset.
     """
-    # train_dataset = MaskDataset(config['TRAIN_FILENAME'], 
-    #                          config['ROOT_DIR'], 
-    #                          "train", 
-    #                          config['IMG_SIZE'])
+    train_dataset = MaskDataset(config['TRAIN_FILENAME'], 
+                             config['ROOT_DIR'], 
+                             "train", 
+                             config['IMG_SIZE'])
     
-    # test_dataset = MaskDataset(config['TEST_FILENAME'], 
-    #                          config['ROOT_DIR'], 
-    #                          "test", 
-    #                          config['IMG_SIZE'])
+    test_dataset = MaskDataset(config['TEST_FILENAME'], 
+                             config['ROOT_DIR'], 
+                             "test", 
+                             config['IMG_SIZE'])
     
-    test_dataset  = load_dataset("aseeransari/ImageNet-Sampled", split="test")
-    train_dataset = load_dataset("aseeransari/ImageNet-Sampled", split="train")
-    test_dataset = test_dataset.remove_columns(['file_name'])
-    train_dataset = train_dataset.remove_columns(['file_name'])
+    # test_dataset  = load_dataset("aseeransari/ImageNet-Sampled", split="test")
+    # train_dataset = load_dataset("aseeransari/ImageNet-Sampled", split="train")
+    # test_dataset = test_dataset.remove_columns(['file_name'])
+    # train_dataset = train_dataset.remove_columns(['file_name'])
     
     return (train_dataset, test_dataset)
     
@@ -103,18 +103,23 @@ def main(config):
     print(f"test  size  : {test_dataset.__len__()}")
     
     # get Mask model
-    maskNet = MaskNet(config['INP_CHANNELS'], config['OUT_CHANNELS'], tar_den = config['MASK_DEN'])
+    maskNet = MaskNet(config['MN_INP_CHANNELS'], config['MN_OUT_CHANNELS'], tar_den = config['MASK_DEN'])
     print(f"Mask model loaded")
     print(f"Mask model summary")
-    model_sum = summary(maskNet, input_size=(config['INP_CHANNELS'], config['IMG_SIZE'], config['IMG_SIZE']))
+    model_sum = summary(maskNet, 
+                        input_data =(config['MN_INP_CHANNELS'], config['IMG_SIZE'], config['IMG_SIZE']), 
+                        col_names=["kernel_size", "output_size", "num_params", "mult_adds"])
+    
     model_sum = str(model_sum).encode('ascii', errors='replace')
     # print(model_sum.decode())
 
     # get Inpainting model
-    inpNet = InpaintingNet(config['INP_CHANNELS'], config['OUT_CHANNELS'])
+    inpNet = InpaintingNet(config['IN_INP_CHANNELS'], config['IN_OUT_CHANNELS'])
     print(f"Inpainting model loaded")
     print(f"Inpainting model summary")
-    model_sum = summary(inpNet, input_size=(config['INP_CHANNELS'], config['IMG_SIZE'], config['IMG_SIZE']))
+    model_sum = summary(inpNet, 
+                        input_data=(config['IN_INP_CHANNELS'], config['IMG_SIZE'], config['IMG_SIZE']),
+                        col_names=["kernel_size", "output_size", "num_params", "mult_adds"])
     model_sum = str(model_sum).encode('ascii', errors='replace')
     # print(model_sum.decode())
 

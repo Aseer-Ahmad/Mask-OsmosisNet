@@ -5,21 +5,21 @@ SAVE_EVERY_ITER : 1000
 VAL_EVERY_ITER : 1000
 BATCH_PLOT_EVERY_ITER : 100
 OUTPUT_DIR : outputs
-EXP_NAME : 29_10_run_1
+EXP_NAME : 30_10_run_6
 
 # DATA PARMS
 TRAIN_FILENAME : iids_train.txt
 TEST_FILENAME  : iids_test.txt
 ROOT_DIR       : dataset/BSDS300/images
 
-IMG_SIZE       : 128
+IMG_SIZE       : 64
 INP_CHANNELS   : 1
 OUT_CHANNELS   : 1
 
 # HYPER PARAMS unet
 OPT            : 
     opt        : SGD-Nestrov
-    lr         : 0.001
+    lr         : 0.00001
     wd         : 0.001
     momentum   : 0.009  
 
@@ -34,9 +34,9 @@ MAX_NORM       : 1
 SKIP_NORM      : 50
 
 #solver params
-R_ABS_EPS      : 1e-4
-OFFSET         : 12
-TAU            : 14000
+R_ABS_EPS      : 1e-6
+OFFSET         : 10
+TAU            : 4096
 ITERATIONS     : 
 NOTE           : 
 
@@ -65,3 +65,15 @@ OPT2 :
 SCHEDL2 : 
 
 RES_LOSS_OFFSET : 1
+
+
+# rsync -pthrvz -e "condor_ssh_to_job" 65264:outputs/* ssh_output/
+# rsync -pthrvz -e "condor_ssh_to_job" 65265:outputs/* ssh_output/
+# rsync -pthrvz -e "condor_ssh_to_job" 65267:outputs/* ssh_output/
+# rsync -pthrvz -e "condor_ssh_to_job" 65269:outputs/* ssh_output/
+# rsync -pthrvz -e "condor_ssh_to_job" 65270:outputs/* ssh_output/
+# rsync -pthrvz -e "condor_ssh_to_job" 65272:outputs/* ssh_output/
+# rsync -pthrvz -e "condor_ssh_to_job" 65273:outputs/* ssh_output/
+# rsync -pthrvz -e "condor_ssh_to_job" 65275:outputs/* ssh_output/
+# rsync -pthrvz -e "condor_ssh_to_job" 65276:outputs/* ssh_output/
+# rsync -pthrvz -e "condor_ssh_to_job" 65277:outputs/* ssh_output/
