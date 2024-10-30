@@ -50,14 +50,15 @@ class ResidualLoss(nn.Module):
         self.pad = Pad(1, padding_mode = "symmetric")
         self.nxny = img_size * img_size
         self.offset = offset
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    def forward(self, u, v, mask):
+    def forward(self, x, f, mask):
         '''
-        u : evolved solution ; not padded
-        v : guidance image   ; not padded
+        x : evolved solution ; not padded
+        f : guidance image   ; not padded
         '''
-        u   = self.pad(u + self.offset)
-        v   = self.pad(v + self.offset)
+        u   = self.pad(x + self.offset)
+        v   = self.pad(f + self.offset)
 
         # laplacian kernel
         lap_u_kernel = torch.tensor([[[[0., 1., 0.],
@@ -81,7 +82,7 @@ class ResidualLoss(nn.Module):
         ss = lap_u - dx_d1_u - dy_d2_u 
 
         # residual loss
-        return torch.mean(torch.norm((1 - mask) * ss - mask * (u - v), p = 2, dim = (2, 3)) / self.nxny)
+        return torch.mean(torch.norm((1 - mask) * ss - mask * (x - f), p = 2, dim = (2, 3)) / self.nxny)
         
 
 class InvarianceLoss(nn.Module):
@@ -177,11 +178,11 @@ def getDataloaders(train_dataset, test_dataset, img_size, train_batch_size, test
         
         return images, images_scale
 
-    train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=train_batch_size, collate_fn=custom_collate_fn)
-    test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=test_batch_size, collate_fn=custom_collate_fn)
+    # train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=train_batch_size, collate_fn=custom_collate_fn)
+    # test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=test_batch_size, collate_fn=custom_collate_fn)
 
-    # train_dataloader = DataLoader(train_dataset, shuffle = False, batch_size=train_batch_size)
-    # test_dataloader  = DataLoader(test_dataset, shuffle = False, batch_size=test_batch_size)
+    train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=train_batch_size)
+    test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=test_batch_size)
 
     print(f"train and test dataloaders created")
     print(f"total train batches  : {len(train_dataloader)}")
@@ -293,7 +294,8 @@ class JointModelTrainer():
                 loss1 = maskLoss(mask)
 
                 # inpainting 
-                rec_X = inpModel(X, mask)
+                stack_X_mask = torch.cat((X, mask), dim=1).detach() 
+                rec_X = inpModel(stack_X_mask)
                 loss2 = mseLoss(rec_X, X)
                 loss3 = resLoss(rec_X, X, mask)
 
@@ -324,7 +326,7 @@ class JointModelTrainer():
                 running_iloss  += loss2.item()
                 running_rloss  += loss3.item()
 
-                avg_den = self.mean_density(mask)
+                avg_den = mean_density(mask)
 
                 avg_den_list.append(avg_den.item())
                 loss1_list.append(running_mloss / (i - skipped_batches))
@@ -364,9 +366,9 @@ class JointModelTrainer():
 
             print(f"total time for epoch : {str((et-st) / 60)} min")
             epoch_lossMN = running_tmloss / (train_dataloader.__len__() - skipped_batches)
-            epochloss_MN_list.append(epoch_lossMN.item())
+            epochloss_MN_list.append(epoch_lossMN)
             epoch_lossIN = running_rloss / (train_dataloader.__len__() - skipped_batches)
-            epochloss_IN_list.append(epoch_lossIN.item())
+            epochloss_IN_list.append(epoch_lossIN)
             
             print('Epoch [{}/{}], epoch Loss Mask Network: {:.4f}, epoch Loss Inpainting Network: {:.4f}'.format(epoch+1, epochs, epoch_lossMN, epoch_lossIN))
             save_plot([epochloss_MN_list], [i for i in range(epoch+1)], ["epoch MN loss"], os.path.join(self.output_dir, "epochloss_masknetwork.png"))
@@ -555,13 +557,13 @@ class ModelTrainer():
                     saveCheckpoint(model, optimizer, self.output_dir, fname)
 
                 if total_norm < skip_norm :
-                    max_norm = max_norm
+                    m_max_norm = max_norm
                 elif total_norm > skip_norm and total_norm < 2 * skip_norm :
-                    max_norm *= 2
+                    m_max_norm = max_norm * 2
                 elif total_norm > 2 * skip_norm and total_norm < 10 * skip_norm :
-                    max_norm *= 3
+                    m_max_norm = max_norm * 3
                 elif total_norm > 10 * skip_norm and total_norm < 20 * skip_norm :
-                    max_norm *= 4    
+                    m_max_norm = max_norm * 4
                 else :
                     skipped_batches += 1
                     ttl_skipped_batches += 1
@@ -570,11 +572,11 @@ class ModelTrainer():
                     continue
                 
                 try : 
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = max_norm)
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = m_max_norm)
                 except Exception as e :
                     skipped_batches += 1
                     ttl_skipped_batches += 1
-                    print(f"exception caused at gradient clipping for total_norm : {total_norm} and max norm: {max_norm}")
+                    print(f"exception caused at gradient clipping for total_norm : {total_norm} and max norm: {m_max_norm}")
                     print("skipping batch")
                     print(e)
                     continue

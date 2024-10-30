@@ -36,8 +36,8 @@ class MaskNet(nn.Module):
         x = self.up4(x, x1)
         logits = self.outc(x)
         prob = torch.special.expit(logits)
-        prob = self.scaleDensity(prob)
-        return prob
+        prob_scaled = self.scaleDensity(prob)
+        return prob_scaled
 
     def scaleDensity(self, inp):
         b, c, h, w = inp.shape
