@@ -146,6 +146,13 @@ def mean_density(mask):
 def hardRoundBinarize(mask):
     return torch.floor(mask + 0.5)
 
+def normalize(X, scale = 1.):
+    b, c, _ , _ = X.shape
+    X = X - torch.amin(X, dim=(2,3)).view(b,c,1,1)
+    X = X / (torch.amax(X, dim=(2,3)).view(b,c,1,1) + 1e-7)
+    X = X * scale
+    return X
+
 def get_bicgDict():
     bicg_mat = {
     "f_name" : [],
