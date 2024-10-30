@@ -34,7 +34,15 @@ class InpaintingNet(nn.Module):
         x = self.up3(x, x2)
         x = self.up4(x, x1)
         out = self.outc(x)
+        out_norm = self.normalize(out)
 
-        return out
+        return out_norm
 
+    def normalize(self, X, scale = 1.):
+        b, c, _ , _ = X.shape
+        X = X - torch.amin(X, dim=(2,3)).view(b,c,1,1)
+        X = X / (torch.amax(X, dim=(2,3)).view(b,c,1,1) + 1e-7)
+        X = X * scale
 
+        return X
+        

@@ -22,6 +22,7 @@ from InpaintingSolver.bi_cg import OsmosisInpainting
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from torchvision.transforms import Pad
+import cv2
 
 from utils import get_dfStencil, get_bicgDict, getOptimizer, getScheduler, loadCheckpoint, saveCheckpoint
 from utils import initialize_weights_he, init_weights_xavier, save_plot, check_gradients
@@ -178,11 +179,11 @@ def getDataloaders(train_dataset, test_dataset, img_size, train_batch_size, test
         
         return images, images_scale
 
-    # train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=train_batch_size, collate_fn=custom_collate_fn)
-    # test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=test_batch_size, collate_fn=custom_collate_fn)
+    train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=train_batch_size, collate_fn=custom_collate_fn)
+    test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=test_batch_size, collate_fn=custom_collate_fn)
 
-    train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=train_batch_size)
-    test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=test_batch_size)
+    # train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=train_batch_size)
+    # test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=test_batch_size)
 
     print(f"train and test dataloaders created")
     print(f"total train batches  : {len(train_dataloader)}")
@@ -294,14 +295,15 @@ class JointModelTrainer():
                 loss1 = maskLoss(mask)
 
                 # inpainting 
-                stack_X_mask = torch.cat((X, mask), dim=1).detach() 
+                mask = mask.detach()
+                stack_X_mask = torch.cat((X, mask), dim=1)
                 rec_X = inpModel(stack_X_mask)
                 loss2 = mseLoss(rec_X, X)
                 loss3 = resLoss(rec_X, X, mask)
 
                 maskModelLoss = loss2 * alpha1 * loss1 
                 
-                maskModelLoss.backward()
+                maskModelLoss.backward(retain_graph=True)
                 opt1.step()
 
                 loss3.backward()
@@ -319,8 +321,11 @@ class JointModelTrainer():
                     
                 if (i) % batch_plot_every == 0:
                     print("saving batch")
-                    pass
-                
+                    fname = ''
+                    fname_path = os.path.join(self.output_dir, fname)
+                    out_save = torch.cat((X, mask, rec_X), dim = 1).cpu().detach().numpy()
+                    cv2.imwrite(fname_path, out_save)
+
                 running_tmloss += maskModelLoss.item()
                 running_mloss  += loss1.item()
                 running_iloss  += loss2.item()
@@ -336,7 +341,7 @@ class JointModelTrainer():
                 # gradnorm_list.append(total_norm)
 
                 print(f"mask loss : {loss1}, avg_den : {avg_den.item()}, ", end='')
-                print(f"inpainting loss : {loss2}, ", end='')
+                print(f"mse loss : {loss2}, ", end='')
                 print(f"residual loss : {loss3}, ", end='')
                 print(f"total mask loss : {maskModelLoss}, " , end = '')
 
@@ -345,18 +350,18 @@ class JointModelTrainer():
                 save_plot([tot_mask_loss_list], clist, ["total mask loss"], os.path.join(self.output_dir, "tot_mask_loss.png"))
                 save_plot([loss1_list], clist, ["mask loss"], os.path.join(self.output_dir, "mask_loss.png"))
                 save_plot([loss3_list], clist, ["residual loss"], os.path.join(self.output_dir, "residual_loss.png"))
-                save_plot([loss2_list], clist, ["inpainting loss"], os.path.join(self.output_dir, "inpainting_loss.png"))
+                save_plot([loss2_list], clist, ["mse loss"], os.path.join(self.output_dir, "inpainting_loss.png"))
                 # save_plot([gradnorm_list], clist, ["grad norm"], os.path.join(self.output_dir, "gradnorm.png"))
                 
                 # update csv file and save
                 train_dict = {
                     # "grand norms" : gradnorm_list,
-                    "running inpainting loss" : loss2_list,
+                    "running mse loss" : loss2_list,
                     "running mask loss" : loss1_list,
+                    "running total(mse+mask) mask loss" : tot_mask_loss_list,
                     "running residual loss" : loss3_list,
-                    "running total mask loss" : tot_mask_loss_list
                     }
-                
+                print()
                 df = pd.DataFrame(train_dict)
                 print(df.tail(20).to_string())
                 fname = "data.csv"
@@ -540,7 +545,9 @@ class ModelTrainer():
                 # loss3 = mseLoss(X, X_rec)
 
                 total_loss = loss3 + loss1 * alpha1 + loss2
+                bp_st = time.time()
                 total_loss.backward()
+                bp_et = time.time()
                 total_norm = check_gradients(model)
 
                 # write forward backward stencils
@@ -600,6 +607,7 @@ class ModelTrainer():
                 print(f"invariance loss : {loss1}, avg_den : {avg_den.item()}, ", end='')
                 print(f"density loss : {loss2}, solver time : {str(tts)} sec , ", end='')
                 print(f"max iteration in solver : {max_k}, ", end ='')
+                print(f"backprop time : {str(bp_et - bp_st)} sec, ", end ='')
                 print(f"mse loss : {loss3}, ", end='')
                 print(f"total loss : {total_loss}, " , end = '')
                 print(f"running loss : {running_loss / (i - skipped_batches)}" )
