@@ -26,7 +26,7 @@ import cv2
 
 from utils import get_dfStencil, get_bicgDict, getOptimizer, getScheduler, loadCheckpoint, saveCheckpoint
 from utils import initialize_weights_he, init_weights_xavier, save_plot, check_gradients
-from utils import inspect_gradients, MyCustomTransform2, mean_density
+from utils import inspect_gradients, MyCustomTransform2, mean_density, normalize
 
 torch.backends.cuda.matmul.allow_tf32 = True
 SEED = 1
@@ -179,11 +179,11 @@ def getDataloaders(train_dataset, test_dataset, img_size, train_batch_size, test
         
         return images, images_scale
 
-    train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=train_batch_size, collate_fn=custom_collate_fn)
-    test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=test_batch_size, collate_fn=custom_collate_fn)
+    # train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=train_batch_size, collate_fn=custom_collate_fn)
+    # test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=test_batch_size, collate_fn=custom_collate_fn)
 
-    # train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=train_batch_size)
-    # test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=test_batch_size)
+    train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=train_batch_size)
+    test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=test_batch_size)
 
     print(f"train and test dataloaders created")
     print(f"total train batches  : {len(train_dataloader)}")
@@ -315,16 +315,31 @@ class JointModelTrainer():
                 if (i) % save_every == 0:
                     print("saving checkpoint")
                     fname = f"maskmodel_epoch_{str(epoch+1)}_iter_{str(i)}.pt"
-                    self.saveCheckpoint(maskModel, opt1, fname)
+                    saveCheckpoint(maskModel, opt1, self.output_dir, fname)
                     fname = f"inpmodel_epoch_{str(epoch+1)}_iter_{str(i)}.pt"
-                    self.saveCheckpoint(inpModel, opt2, fname)
+                    saveCheckpoint(inpModel, opt2, self.output_dir, fname)
                     
                 if (i) % batch_plot_every == 0:
                     print("saving batch")
-                    fname = ''
-                    fname_path = os.path.join(self.output_dir, fname)
-                    out_save = torch.cat((X, mask, rec_X), dim = 1).cpu().detach().numpy()
+                    fname = f"batch_epoch_{str(epoch)}_iter_{str(i)}.png"
+                    fname_path = os.path.join(self.output_dir, "imgs", fname)
+                    out_save = torch.cat((
+                                        normalize(X, 255).reshape(self.train_batch_size*img_size, img_size),
+                                        normalize(mask, 255).reshape(self.train_batch_size*img_size, img_size),
+                                        normalize(rec_X, 255).reshape(self.train_batch_size*img_size, img_size))
+                                        , dim = 1).cpu().detach().numpy()
                     cv2.imwrite(fname_path, out_save)
+
+                if (i) % batch_plot_every == 0:
+                    # update mask distribution plot and save
+                    print("plotting mask distribution")
+                    fname = f"mdist_epoch_{str(epoch+1)}_iter_{str(i)}.png"
+                    mask_flat = mask.reshape(-1).detach().cpu().numpy()
+                    plot = sns.displot(mask_flat, kde=True)
+                    fig = plot.figure
+                    plot.set(xlabel='prob', ylabel='freq')
+                    fig.savefig(os.path.join(self.output_dir, fname) ) 
+                    plt.close(fig)
 
                 running_tmloss += maskModelLoss.item()
                 running_mloss  += loss1.item()
