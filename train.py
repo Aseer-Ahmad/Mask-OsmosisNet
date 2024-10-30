@@ -294,7 +294,7 @@ class JointModelTrainer():
                 loss1 = maskLoss(mask)
 
                 # inpainting 
-                stack_X_mask = torch.cat((X, mask), dim=1)
+                stack_X_mask = torch.cat((X, mask), dim=1).detach() 
                 rec_X = inpModel(stack_X_mask)
                 loss2 = mseLoss(rec_X, X)
                 loss3 = resLoss(rec_X, X, mask)
@@ -326,7 +326,7 @@ class JointModelTrainer():
                 running_iloss  += loss2.item()
                 running_rloss  += loss3.item()
 
-                avg_den = self.mean_density(mask)
+                avg_den = mean_density(mask)
 
                 avg_den_list.append(avg_den.item())
                 loss1_list.append(running_mloss / (i - skipped_batches))
@@ -366,9 +366,9 @@ class JointModelTrainer():
 
             print(f"total time for epoch : {str((et-st) / 60)} min")
             epoch_lossMN = running_tmloss / (train_dataloader.__len__() - skipped_batches)
-            epochloss_MN_list.append(epoch_lossMN.item())
+            epochloss_MN_list.append(epoch_lossMN)
             epoch_lossIN = running_rloss / (train_dataloader.__len__() - skipped_batches)
-            epochloss_IN_list.append(epoch_lossIN.item())
+            epochloss_IN_list.append(epoch_lossIN)
             
             print('Epoch [{}/{}], epoch Loss Mask Network: {:.4f}, epoch Loss Inpainting Network: {:.4f}'.format(epoch+1, epochs, epoch_lossMN, epoch_lossIN))
             save_plot([epochloss_MN_list], [i for i in range(epoch+1)], ["epoch MN loss"], os.path.join(self.output_dir, "epochloss_masknetwork.png"))
