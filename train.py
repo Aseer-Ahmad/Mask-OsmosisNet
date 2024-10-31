@@ -179,11 +179,11 @@ def getDataloaders(train_dataset, test_dataset, img_size, train_batch_size, test
         
         return images, images_scale
 
-    # train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=train_batch_size, collate_fn=custom_collate_fn)
-    # test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=test_batch_size, collate_fn=custom_collate_fn)
+    train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=train_batch_size, collate_fn=custom_collate_fn)
+    test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=test_batch_size, collate_fn=custom_collate_fn)
 
-    train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=train_batch_size)
-    test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=test_batch_size)
+    # train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=train_batch_size)
+    # test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=test_batch_size)
 
     print(f"train and test dataloaders created")
     print(f"total train batches  : {len(train_dataloader)}")
@@ -312,7 +312,7 @@ class JointModelTrainer():
                 opt1.zero_grad()
                 opt2.zero_grad()
     
-                if (i) % save_every == 0:
+                if (i-1) % save_every == 0:
                     print("saving checkpoint")
                     fname = f"maskmodel_epoch_{str(epoch+1)}_iter_{str(i)}.pt"
                     saveCheckpoint(maskModel, opt1, self.output_dir, fname)
@@ -329,17 +329,6 @@ class JointModelTrainer():
                                         normalize(rec_X, 255).reshape(self.train_batch_size*img_size, img_size))
                                         , dim = 1).cpu().detach().numpy()
                     cv2.imwrite(fname_path, out_save)
-
-                if (i) % batch_plot_every == 0:
-                    # update mask distribution plot and save
-                    print("plotting mask distribution")
-                    fname = f"mdist_epoch_{str(epoch+1)}_iter_{str(i)}.png"
-                    mask_flat = mask.reshape(-1).detach().cpu().numpy()
-                    plot = sns.displot(mask_flat, kde=True)
-                    fig = plot.figure
-                    plot.set(xlabel='prob', ylabel='freq')
-                    fig.savefig(os.path.join(self.output_dir, fname) ) 
-                    plt.close(fig)
 
                 running_tmloss += maskModelLoss.item()
                 running_mloss  += loss1.item()
