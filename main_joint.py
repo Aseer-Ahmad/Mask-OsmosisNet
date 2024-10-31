@@ -5,6 +5,7 @@ from CustomDataset import MaskDataset
 import torch
 from MaskModel.MaskNet import MaskNet
 from MaskModel.InpaintingNet import InpaintingNet
+from MaskModel.unet import UNet
 from torchsummary import summary
 import os
 import shutil
