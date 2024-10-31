@@ -1,11 +1,11 @@
 # MODEL PARAMS
-EPOCHS : 50
+EPOCHS : 10
 RESUME_CHECKPOINT : 
 SAVE_EVERY_ITER : 1000
 VAL_EVERY_ITER : 1000
 BATCH_PLOT_EVERY_ITER : 100
 OUTPUT_DIR : outputs
-EXP_NAME : 30_10_run_10
+EXP_NAME : 30_10_run_JM_2
 
 # DATA PARMS
 TRAIN_FILENAME : iids_train.txt
@@ -66,10 +66,10 @@ SCHEDL2 :
 
 RES_LOSS_OFFSET : 1
 
-# rsync -pthrvz -e "condor_ssh_to_job" 65224:outputs/* ssh_output/
-# rsync -pthrvz -e "condor_ssh_to_job" 65225:outputs/* ssh_output/
-# rsync -pthrvz -e "condor_ssh_to_job" 65227:outputs/* ssh_output/
-# rsync -pthrvz -e "condor_ssh_to_job" 65229:outputs/* ssh_output/
+# rsync -pthrvz -e "condor_ssh_to_job" 65264:outputs/* ssh_output/
+# rsync -pthrvz -e "condor_ssh_to_job" 65265:outputs/* ssh_output/
+# rsync -pthrvz -e "condor_ssh_to_job" 65267:outputs/* ssh_output/
+# rsync -pthrvz -e "condor_ssh_to_job" 65269:outputs/* ssh_output/
 # rsync -pthrvz -e "condor_ssh_to_job" 65272:outputs/* ssh_output/
 # rsync -pthrvz -e "condor_ssh_to_job" 65273:outputs/* ssh_output/
 # rsync -pthrvz -e "condor_ssh_to_job" 65275:outputs/* ssh_output/
@@ -79,4 +79,3 @@ RES_LOSS_OFFSET : 1
 # rsync -pthrvz -e "condor_ssh_to_job" 65403:outputs/* ssh_output/
 # rsync -pthrvz -e "condor_ssh_to_job" 65414:outputs/* ssh_output/
 # rsync -pthrvz -e "condor_ssh_to_job" 65409:outputs/* ssh_output/
-
