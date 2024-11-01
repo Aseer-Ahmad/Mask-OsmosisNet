@@ -193,6 +193,7 @@ class OsmosisInpainting:
 
             out = torch.cat(( self.normalize(self.V, 255).reshape(self.batch*(self.nx+2), self.ny+2) - self.offset , 
                             (self.mask1 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
+                            (self.mask2 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
                             # (self.canny_mask * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
                             # (init-self.offset).reshape(self.batch*(self.nx+2), self.ny+2),
                             self.normalize(U, 255).reshape(self.batch*(self.nx+2), self.ny+2) - self.offset),
