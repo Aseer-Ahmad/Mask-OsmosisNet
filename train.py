@@ -534,8 +534,16 @@ class ModelTrainer():
                 loss1 = invLoss(mask)
                 loss2 = denLoss(mask)
 
+                # for 2 mask prediction
+                if mask.shape[1] == 2:
+                    mask1 = mask[:, 0, :, :].unsqueeze(1)
+                    mask2 = mask[:, 1, :, :].unsqueeze(1)
+                else:
+                    mask1 = mask
+                    mask2 = mask
+
                 # osmosis solver
-                osmosis = OsmosisInpainting(None, X, mask, mask, offset=offset, tau=tau, eps = eps, device = self.device, apply_canny=False)
+                osmosis = OsmosisInpainting(None, X, mask1, mask2, offset=offset, tau=tau, eps = eps, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)
                 
                 if (i) % batch_plot_every == 0: 
