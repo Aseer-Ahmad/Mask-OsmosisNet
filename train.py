@@ -424,7 +424,15 @@ class ModelTrainer():
                 loss1 = invLoss(mask)
                 loss2 = denLoss(mask)
 
-                osmosis = OsmosisInpainting(None, X, mask, mask, offset=offset, tau=tau, eps = eps, device = self.device, apply_canny=False)
+                # for 2 mask prediction
+                if mask.shape[1] == 2:
+                    mask1 = mask[:, 0, :, :].unsqueeze(1)
+                    mask2 = mask[:, 1, :, :].unsqueeze(1)
+                else:
+                    mask1 = mask
+                    mask2 = mask
+
+                osmosis = OsmosisInpainting(None, X, mask1, mask2, offset=offset, tau=tau, eps = eps, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)
                 save_batch = [False]
                 loss3, tts, max_k, df_stencils, bicg_mat = osmosis.solveBatchParallel(df_stencils, bicg_mat, 1, save_batch = save_batch, verbose = False)
