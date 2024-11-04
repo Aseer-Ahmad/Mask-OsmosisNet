@@ -203,7 +203,8 @@ class OsmosisInpainting:
         # normalizaed input mse loss 
         loss = mse(U, self.V)
 
-        return loss, tt, max_k, self.df_stencils, self.bicg_mat
+        return loss, tt, max_k, self.df_stencils, U
+        # return loss, tt, max_k, self.df_stencils, self.bicg_mat
 
     def calculateWeights(self, d_verbose = False, m_verbose = False, s_verbose = False):
         self.prepareInp()
