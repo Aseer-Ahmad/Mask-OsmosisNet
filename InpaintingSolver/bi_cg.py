@@ -306,8 +306,8 @@ class OsmosisInpainting:
 
         for image in images:
             image = image.squeeze(0) # assuming grey scale image
-            edges = cv2.Canny(image.astype(np.uint8), 100, 150)
-            print(f"mask created with densities : {np.count_nonzero(edges) / edges.size}")
+            edges = cv2.Canny(image.astype(np.uint8), 100, 150) # make sure this outputs a certain density 
+            # print(f"mask created with densities : {np.count_nonzero(edges) / edges.size}")
             edges = np.expand_dims(edges, axis=0)
             output_batch.append(edges)
 
