@@ -67,8 +67,6 @@ SCHEDL2 :
 RES_LOSS_OFFSET : 1
 
 
-# rsync -pthrvz -e "condor_ssh_to_job" 65265:outputs/* ssh_output/
-# rsync -pthrvz -e "condor_ssh_to_job" 65409:outputs/* ssh_output/
 # rsync -pthrvz -e "condor_ssh_to_job" 65472:outputs/* ssh_output/
 # rsync -pthrvz -e "condor_ssh_to_job" 65494:outputs/* ssh_output/
 # rsync -pthrvz -e "condor_ssh_to_job" 65495:outputs/* ssh_output/

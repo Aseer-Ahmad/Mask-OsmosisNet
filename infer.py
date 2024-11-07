@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 from datetime import datetime
 import torch
 from InpaintingSolver.bi_cg import OsmosisInpainting
+import pandas as pd
 
 from utils import normalize
 import cv2
@@ -16,10 +17,14 @@ import cv2
 from torchmetrics.image import PeakSignalNoiseRatio
 
 class Binarize(object):
-
     @staticmethod
     def hard_rounding(x):
         return torch.floor(x + 0.6)
+
+def calculate_metrics(input_tensor, target_tensor, max_pixel_value=255.0):
+    mse_per_batch = torch.mean((input_tensor - target_tensor) ** 2, dim=(1, 2, 3))
+    psnr_per_batch = 10 * torch.log10((max_pixel_value ** 2) / (mse_per_batch + 1e-8))
+    return mse_per_batch.tolist(), psnr_per_batch.tolist()
 
 
 def get_model_by_task(task):
@@ -31,23 +36,6 @@ def get_model_by_task(task):
         return MaskNet(1, 1, tar_den = 0.1)
 
 def infer(infer_path):
-    '''
-    - list of bin_method ; determines no. of output folders
-    - init model for eval
-    - for each test folder
-        - clear the test folders output dir
-        - prepare test data loaders
-        - iterate over data
-            - canny masks
-            - BiCG solve
-            - get non-binary masks
-            - BiCG solve
-            - for each binarization method
-                - binarize masks
-                - BiCG solve
-                - save img sep & concat (original, canny mask -> sol, non-bin mask -> sol, bin mask -> sol)
-                - save data csv
-    '''
 
     infer_config = read_config(os.path.join(infer_path, "infer.yaml"))
     print(infer_config)
@@ -64,13 +52,14 @@ def infer(infer_path):
         # init
         img_size = task["IMG_SIZE"]
         offset   = 12
-        img_names, mse_c, psnr_c, mse_nb, psnr_nb, mse_b, psnr_b  = [],[],[],[],[],[],[] 
+        img_names, mse_c_list, psnr_c_list, mse_nb_list, psnr_nb_list, mse_b_list, psnr_b_list  = [],[],[],[],[],[],[] 
 
         # create directories
         f_name = task['MODEL_CKP_PTH'].split(".")[0].split("/")[-1] \
                + "_" + task["TYPE"] + "_" + task["BIN_METHOD"] 
         
-        imgs_pth = os.path.join(infer_path, f_name, "images")
+        fld_pth  = os.path.join(infer_path, f_name)
+        imgs_pth = os.path.join(fld_pth, "images")
         
         # if path exist -> skip
         if os.path.exists(imgs_pth):
@@ -134,37 +123,62 @@ def infer(infer_path):
                 save_batch = [False]
                 loss3, tts, max_k, df_stencils, X_rec = osmosis.solveBatchParallel(None, None, 1, save_batch = save_batch, verbose = False)
 
+
+                # save results and csv
+                X_norm = normalize(X , 255)
+                mask1_c_norm = normalize(mask1_c[:, :, 1:-1, 1:-1], 255)
+                X_rec_c_norm = normalize(X_rec_c[:, :, 1:-1, 1:-1], 255)
+
+                mask1_norm = normalize(mask1, 255)
+                mask2_norm = normalize(mask2, 255)
+                X_rec_nb_norm = normalize(X_rec_nb[:, :, 1:-1, 1:-1], 255)
+
+                mask1_bin_norm = normalize(mask1_bin, 255)
+                mask2_bin_norm = normalize(mask2_bin, 255)
+                X_rec_b_norm  = normalize(X_rec[:, :, 1:-1, 1:-1] , 255)
+
+                mse_c, psnr_c = calculate_metrics(X_norm, X_rec_c_norm)
+                mse_nb, psnr_nb = calculate_metrics(X_norm, X_rec_nb_norm)
+                mse_b, psnr_b = calculate_metrics(X_norm, X_rec_b_norm)
+
                 fname = f"batch_{str(i)}.png"
                 fname_path = os.path.join(imgs_pth, fname)
                 out_save = torch.cat((
-                                    normalize(X - offset, 255).reshape(8*img_size, img_size),
-                                    normalize(mask1_c[:, :, 1:-1, 1:-1], 255).reshape(8*img_size, img_size),
-                                    normalize(X_rec_c[:, :, 1:-1, 1:-1], 255).reshape(8*img_size, img_size),
-                                    normalize(mask1, 255).reshape(8*img_size, img_size),
-                                    normalize(X_rec_nb[:, :, 1:-1, 1:-1], 255).reshape(8*img_size, img_size),
-                                    normalize(mask1_bin, 255).reshape(8*img_size, img_size),
-                                    normalize(X_rec[:, :, 1:-1, 1:-1]  - offset, 255).reshape(8*img_size, img_size) )
-                                    , dim = 1).cpu().detach().numpy()
+                                    X_norm.mT.reshape(8*img_size, img_size),
+                                    mask1_c_norm.reshape(8*img_size, img_size),
+                                    X_rec_c_norm.reshape(8*img_size, img_size),
+                                    mask1_norm.mT.reshape(8*img_size, img_size),
+                                    X_rec_nb_norm.reshape(8*img_size, img_size),
+                                    mask1_bin_norm.mT.reshape(8*img_size, img_size),
+                                    X_rec_b_norm.reshape(8*img_size, img_size) )
+                                    , dim = 1).cpu().detach().numpy().T
                 cv2.imwrite(fname_path, out_save)
-                print(f"saving batch : {i}")     
+                print(f"saving batch : {i}")   
 
-                # save data frame with (image name, canny(mse, psnr), non-binary(mse,psnr) , binary(mse,psnr))
+                # save separate  
+
+                img_names.extend(X_names)
+                mse_c_list.extend(mse_c)
+                psnr_c_list.extend(psnr_c)
+                mse_nb_list.extend(mse_nb)
+                psnr_nb_list.extend(psnr_nb)
+                mse_b_list.extend(mse_b)
+                psnr_b_list.extend(psnr_b) 
+
                 csv_dict = {
-                    # "grand norms" : gradnorm_list,
-                    "image name" : img_names.append(X_names),
-                    "MSE canny" : ,
-                    "PSNR canny" : ,
-                    "MSE non bin" : ,
-                    "PSNR non bin" : ,
-                    "MSE bin" : ,
-                    "PSNR bin" : 
+                    "image name" : img_names,
+                    "MSE canny" : mse_c_list,
+                    "PSNR canny" : psnr_c_list,
+                    "MSE non bin" : mse_nb_list,
+                    "PSNR non bin" : psnr_nb_list,
+                    "MSE bin" : mse_b_list,
+                    "PSNR bin" : psnr_b_list 
                 }
 
-
+                df = pd.DataFrame(csv_dict)
+                df.to_csv( os.path.join(fld_pth, "data.csv"), sep=',', encoding='utf-8', index=False, header=True)
 
                 
-
-
 
 
 if __name__ == '__main__':
