@@ -10,6 +10,7 @@ from datetime import datetime
 import torch
 from InpaintingSolver.bi_cg import OsmosisInpainting
 import pandas as pd
+from torchvision.utils import save_image
 
 from utils import normalize
 import cv2
@@ -26,6 +27,14 @@ def calculate_metrics(input_tensor, target_tensor, max_pixel_value=255.0):
     psnr_per_batch = 10 * torch.log10((max_pixel_value ** 2) / (mse_per_batch + 1e-8))
     return mse_per_batch.tolist(), psnr_per_batch.tolist()
 
+def save_imgs(X, save_dir, names, suffix):
+    for i in range(X.size(0)):
+        file_path = os.path.join(save_dir, names[i].split(".")[0] + f"_{suffix}.png")
+        cv2.imwrite(file_path, X[i][0].cpu().detach().numpy())
+        # save_image(X[i], file_path)
+
+def get_mask_density(mask):
+    return (torch.norm(mask, p = 1, dim = (1, 2, 3)) / (mask.shape[2]*mask.shape[3])).tolist()
 
 def get_model_by_task(task):
     if task == 'unet_single' :
@@ -53,6 +62,7 @@ def infer(infer_path):
         img_size = task["IMG_SIZE"]
         offset   = 12
         img_names, mse_c_list, psnr_c_list, mse_nb_list, psnr_nb_list, mse_b_list, psnr_b_list  = [],[],[],[],[],[],[] 
+        canny_mask_den_list, bin_mask_den_list, batch_name_list = [], [], []
 
         # create directories
         f_name = task['MODEL_CKP_PTH'].split(".")[0].split("/")[-1] \
@@ -60,6 +70,7 @@ def infer(infer_path):
         
         fld_pth  = os.path.join(infer_path, f_name)
         imgs_pth = os.path.join(fld_pth, "images")
+        imgs_sep_pth = os.path.join(fld_pth, "images separate")
         
         # if path exist -> skip
         if os.path.exists(imgs_pth):
@@ -67,6 +78,7 @@ def infer(infer_path):
             continue
         else:
             os.makedirs(imgs_pth)
+            os.makedirs(imgs_sep_pth)
 
         # load models
         if task['MODEL_CKP_PTH'] :
@@ -107,7 +119,7 @@ def infer(infer_path):
                 osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)
                 save_batch = [False]
                 loss3, tts, max_k, df_stencils, X_rec_c = osmosis.solveBatchParallel(None, None, 1, save_batch = save_batch, verbose = False)
-                mask1_c = osmosis.mask1
+                mask1_c = osmosis.mask1.double()
                 
 
                 # solve for non-binary masks
@@ -126,15 +138,15 @@ def infer(infer_path):
 
                 # save results and csv
                 X_norm = normalize(X , 255)
-                mask1_c_norm = normalize(mask1_c[:, :, 1:-1, 1:-1], 255)
+                mask1_c_norm = mask1_c[:, :, 1:-1, 1:-1] * 255.
                 X_rec_c_norm = normalize(X_rec_c[:, :, 1:-1, 1:-1], 255)
 
-                mask1_norm = normalize(mask1, 255)
-                mask2_norm = normalize(mask2, 255)
+                mask1_norm = mask1 * 255.
+                mask2_norm = mask2 * 255.
                 X_rec_nb_norm = normalize(X_rec_nb[:, :, 1:-1, 1:-1], 255)
 
-                mask1_bin_norm = normalize(mask1_bin, 255)
-                mask2_bin_norm = normalize(mask2_bin, 255)
+                mask1_bin_norm = mask1_bin * 255.
+                mask2_bin_norm = mask2_bin * 255.
                 X_rec_b_norm  = normalize(X_rec[:, :, 1:-1, 1:-1] , 255)
 
                 mse_c, psnr_c = calculate_metrics(X_norm, X_rec_c_norm)
@@ -143,21 +155,42 @@ def infer(infer_path):
 
                 fname = f"batch_{str(i)}.png"
                 fname_path = os.path.join(imgs_pth, fname)
-                out_save = torch.cat((
-                                    X_norm.mT.reshape(8*img_size, img_size),
-                                    mask1_c_norm.reshape(8*img_size, img_size),
-                                    X_rec_c_norm.reshape(8*img_size, img_size),
-                                    mask1_norm.mT.reshape(8*img_size, img_size),
-                                    X_rec_nb_norm.reshape(8*img_size, img_size),
-                                    mask1_bin_norm.mT.reshape(8*img_size, img_size),
-                                    X_rec_b_norm.reshape(8*img_size, img_size) )
-                                    , dim = 1).cpu().detach().numpy().T
+                if mask.shape[1] == 2:
+                    out_save = torch.cat((
+                                        X_norm.mT.reshape(8*img_size, img_size),
+                                        mask1_c_norm.reshape(8*img_size, img_size),
+                                        X_rec_c_norm.reshape(8*img_size, img_size),
+                                        mask1_norm.mT.reshape(8*img_size, img_size),
+                                        mask2_norm.mT.reshape(8*img_size, img_size),
+                                        X_rec_nb_norm.reshape(8*img_size, img_size),
+                                        mask1_bin_norm.mT.reshape(8*img_size, img_size),
+                                        mask2_bin_norm.mT.reshape(8*img_size, img_size),
+                                        X_rec_b_norm.reshape(8*img_size, img_size) )
+                                        , dim = 1).cpu().detach().numpy().T
+                else:
+                    out_save = torch.cat((
+                                        X_norm.mT.reshape(8*img_size, img_size),
+                                        mask1_c_norm.reshape(8*img_size, img_size),
+                                        X_rec_c_norm.reshape(8*img_size, img_size),
+                                        mask1_norm.mT.reshape(8*img_size, img_size),
+                                        X_rec_nb_norm.reshape(8*img_size, img_size),
+                                        mask1_bin_norm.mT.reshape(8*img_size, img_size),
+                                        X_rec_b_norm.reshape(8*img_size, img_size) )
+                                        , dim = 1).cpu().detach().numpy().T
                 cv2.imwrite(fname_path, out_save)
                 print(f"saving batch : {i}")   
 
                 # save separate  
+                save_imgs(X_norm, imgs_sep_pth, X_names, "")
+                save_imgs(X_rec_b_norm.mT, imgs_sep_pth, X_names, "rec")
+                save_imgs(mask1_bin_norm, imgs_sep_pth, X_names, "mask1_bin")
+                save_imgs(mask2_bin_norm, imgs_sep_pth, X_names, "mask2_bin")
+                
 
+                batch_name_list.extend([f"batch_{str(i)}"]*8)
                 img_names.extend(X_names)
+                canny_mask_den_list.extend(get_mask_density(mask1_c))
+                bin_mask_den_list.extend(get_mask_density(mask1_bin))
                 mse_c_list.extend(mse_c)
                 psnr_c_list.extend(psnr_c)
                 mse_nb_list.extend(mse_nb)
@@ -166,7 +199,10 @@ def infer(infer_path):
                 psnr_b_list.extend(psnr_b) 
 
                 csv_dict = {
+                    "batch no." : batch_name_list,
                     "image name" : img_names,
+                    "canny mask den" : canny_mask_den_list,
+                    "bin mask den" : bin_mask_den_list,
                     "MSE canny" : mse_c_list,
                     "PSNR canny" : psnr_c_list,
                     "MSE non bin" : mse_nb_list,
