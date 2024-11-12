@@ -191,18 +191,20 @@ class OsmosisInpainting:
         if save_batch[0]:
             fname = save_batch[1]
 
-            out = torch.cat(( self.normalize(self.V, 255).reshape(self.batch*(self.nx+2), self.ny+2) - self.offset , 
-                            (self.mask1 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
-                            (self.mask2 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
-                            # (self.canny_mask * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
-                            # (init-self.offset).reshape(self.batch*(self.nx+2), self.ny+2),
-                            self.normalize(U, 255).reshape(self.batch*(self.nx+2), self.ny+2) - self.offset),
-                            dim = 1)
-            self.writePGMImage(out.cpu().detach().numpy().T, fname)
+            # out = torch.cat(( 
+            #                 # self.normalize(self.V, 255).reshape(self.batch*(self.nx+2), self.ny+2) - self.offset , 
+            #                 # (self.mask1 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
+            #                 # (self.mask2 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
+            #                 # (self.canny_mask * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
+            #                 # (init-self.offset).reshape(self.batch*(self.nx+2), self.ny+2),
+            #                 self.normalize(U, 255).reshape(self.batch*(self.nx+2), self.ny+2) - self.offset ),
+            #                 dim = 1)
+            self.writePGMImage((self.normalize(U, 255).reshape(self.batch*(self.nx+2), self.ny+2) - self.offset).cpu().detach().numpy().T, fname)
+
+        print(torch.mean((self.normalize(U, 255) - self.normalize(self.V, 255)) ** 2, dim=(2, 3)))
 
         # normalizaed input mse loss 
         loss = mse(U, self.V)
-
         return loss, tt, max_k, self.df_stencils, U
         # return loss, tt, max_k, self.df_stencils, self.bicg_mat
 
@@ -307,7 +309,7 @@ class OsmosisInpainting:
         for image in images:
             image = image.squeeze(0) # assuming grey scale image
             edges = cv2.Canny(image.astype(np.uint8), 100, 150) # make sure this outputs a certain density 
-            # print(f"mask created with densities : {np.count_nonzero(edges) / edges.size}")
+            print(f"mask created with densities : {np.count_nonzero(edges) / edges.size}")
             edges = np.expand_dims(edges, axis=0)
             output_batch.append(edges)
 
