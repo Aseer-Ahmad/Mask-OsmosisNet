@@ -66,9 +66,9 @@ def getScheduler(optim, scheduler):
 
     if scheduler == "exp":
         schdl = ExponentialLR(optim, gamma=0.9)
-    
+        
     elif scheduler == "multiStep":
-        schdl = MultiStepLR(optim, milestones=[1,2,3], gamma=0.1)
+        schdl = MultiStepLR(optim, milestones=[3, 4, 5], gamma=0.1)
 
     elif scheduler == "lambdaLR":
         lambda1 = lambda epoch: epoch // 30

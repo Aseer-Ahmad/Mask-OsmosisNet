@@ -1,11 +1,11 @@
 # MODEL PARAMS
 EPOCHS : 10
 RESUME_CHECKPOINT : 
-SAVE_EVERY_ITER : 1000
+SAVE_EVERY_ITER : 100
 VAL_EVERY_ITER : 1000
-BATCH_PLOT_EVERY_ITER : 100
+BATCH_PLOT_EVERY_ITER : 5
 OUTPUT_DIR : outputs
-EXP_NAME : 1_11_run_20
+EXP_NAME : 20_11_r1
 
 # DATA PARMS
 TRAIN_FILENAME : iids_train.txt
@@ -14,7 +14,7 @@ ROOT_DIR       : dataset/imagenet/images
 
 IMG_SIZE       : 128
 INP_CHANNELS   : 1
-OUT_CHANNELS   : 2
+OUT_CHANNELS   : 1
 
 # HYPER PARAMS unet
 OPT            : 
@@ -23,9 +23,9 @@ OPT            :
     wd         : 0.001
     momentum   : 0.009  
 
-SCHEDL         : 
-TRAIN_BATCH    : 8
-TEST_BATCH     : 8
+SCHEDL         : multiStep
+TRAIN_BATCH    : 4
+TEST_BATCH     : 4
 ALPHA1         : 0.01
 ALPHA2         : 1
 MASK_DEN       : 0.1
@@ -34,11 +34,12 @@ MAX_NORM       : 1
 SKIP_NORM      : 500
 
 #solver params
-R_ABS_EPS      : 1e-4
-OFFSET         : 12
+R_ABS_EPS      : 1e-3
+OFFSET         : 0.09
 TAU            : 14000
 ITERATIONS     : 
 NOTE           : 
+OFFSET_EVL     : constant
 
 # Joint model params
 MN_INP_CHANNELS : 1
@@ -65,13 +66,4 @@ OPT2 :
 SCHEDL2 : 
 
 RES_LOSS_OFFSET : 1
-
-
-# rsync -pthrvz -e "condor_ssh_to_job" 65472:outputs/* ssh_output/
-# rsync -pthrvz -e "condor_ssh_to_job" 65494:outputs/* ssh_output/
-# rsync -pthrvz -e "condor_ssh_to_job" 65495:outputs/* ssh_output/
-# rsync -pthrvz -e "condor_ssh_to_job" 65496:outputs/* ssh_output/
-# rsync -pthrvz -e "condor_ssh_to_job" 65499:outputs/* ssh_output/
-# rsync -pthrvz -e "condor_ssh_to_job" 65504:outputs/* ssh_output/
-
 
