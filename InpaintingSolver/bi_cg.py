@@ -191,19 +191,23 @@ class OsmosisInpainting:
         if save_batch[0]:
             fname = save_batch[1]
 
-            out = torch.cat(( self.normalize(self.V, 255).reshape(self.batch*(self.nx+2), self.ny+2) - self.offset , 
+            out = torch.cat(( 
+                            self.normalize(self.V, 255).reshape(self.batch*(self.nx+2), self.ny+2) - self.offset , 
                             (self.mask1 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
-                            (self.mask2 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
+                            # (self.mask2 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
                             # (self.canny_mask * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
                             # (init-self.offset).reshape(self.batch*(self.nx+2), self.ny+2),
-                            self.normalize(U, 255).reshape(self.batch*(self.nx+2), self.ny+2) - self.offset),
+                            self.normalize(U, 255).reshape(self.batch*(self.nx+2), self.ny+2) - self.offset ),
                             dim = 1)
-            self.writePGMImage(out.cpu().detach().numpy().T, fname)
+            # self.writePGMImage((self.normalize(U, 255).reshape(self.batch*(self.nx+2), self.ny+2) - self.offset).cpu().detach().numpy().T, fname)
+            self.writePGMImage(out.cpu().detach().numpy().T, fname) 
 
-        # normalizaed input mse loss 
+        # print(torch.mean((self.normalize(U, 255) - self.normalize(self.V, 255)) ** 2, dim=(2, 3)))
+
+        # mse loss ; inputs normalized inside
         loss = mse(U, self.V)
-
-        return loss, tt, max_k, self.df_stencils, self.bicg_mat
+        return loss, tt, max_k, self.df_stencils, U
+        # return loss, tt, max_k, self.df_stencils, self.bicg_mat
 
     def calculateWeights(self, d_verbose = False, m_verbose = False, s_verbose = False):
         self.prepareInp()
@@ -305,7 +309,7 @@ class OsmosisInpainting:
 
         for image in images:
             image = image.squeeze(0) # assuming grey scale image
-            edges = cv2.Canny(image.astype(np.uint8), 100, 150)
+            edges = cv2.Canny(image.astype(np.uint8), 100, 150) # make sure this outputs a certain density 
             print(f"mask created with densities : {np.count_nonzero(edges) / edges.size}")
             edges = np.expand_dims(edges, axis=0)
             output_batch.append(edges)
@@ -450,7 +454,7 @@ class OsmosisInpainting:
 
     def BiCGSTAB_GS(self, x, b, kmax, eps, verbose = False):
         
-        k       = torch.zeros((self.batch, self.channel), dtype=torch.long, device = self.device)
+        k       = torch.zeros((self.batch, self.channel), dtype=torch.long, device = self.device) 
         r_abs   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device)
         v_abs   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device)
         r0_abs  = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device)
@@ -480,7 +484,7 @@ class OsmosisInpainting:
         while ( (k < kmax) & (r_abs > eps * self.nx * self.ny) ).any():
             
             # self.bicg_mat["bicg_iter"].append(k.item())
-            
+
             # =======================================
             # WHILE CONVERGENCE CONDITION
             # =======================================

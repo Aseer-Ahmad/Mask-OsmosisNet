@@ -19,7 +19,7 @@ os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 os.environ["TORCH_LOGS"]="+dynamo"
 os.environ["TORCHDYNAMO_VERBOSE"]="1"
 
-CONFIG_YAML = 'config.yaml'
+CONFIG_YAML = 'config.yaml' 
 
 def read_config(file_path):
     """
@@ -78,7 +78,6 @@ def getMaskDataset(config):
     
     return (train_dataset, test_dataset)
     
-
 def main(config):
 
     # make experiment directory

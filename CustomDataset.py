@@ -46,10 +46,10 @@ class MaskDataset(Dataset):
                     ])
         
         tensor_transformed = transform(image)
-        tensor = tensor_transformed
+
         # https://stackoverflow.com/questions/65699020/calculate-standard-deviation-for-grayscale-imagenet-pixel-values-with-rotation-m
         # tensor_transformed = transforms.Normalize(mean = [0.44531356896770125], std = [0.2692461874154524])(tensor)
         # tensor_transformed = transforms.Normalize(mean = [0.], std = [1.])(tensor)     
         
-        return (tensor_transformed, tensor)
+        return (tensor_transformed, img_name)
     

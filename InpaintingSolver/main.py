@@ -39,18 +39,24 @@ def normalize(X, scale = 1.):
 
     return X
 
+def generate_random_mask(shape, density):
+    mask = torch.rand(shape)
+    binary_mask = (mask < density).int()
+    return binary_mask
+
+
 if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-    V1 = readPGMImage("kaniza.pgm")
-    V1 = V1.to(device)
-    mask = readPGMImage('kaniza-edge.pgm')
-    mask = mask.to(device)
+    # V1 = readPGMImage("kaniza.pgm")
+    # V1 = V1.to(device)
+    # mask = readPGMImage('kaniza-edge.pgm')
+    # mask = mask.to(device)
 
-    V = readPGMImage('2.JPEG')
+    V = readPGMImage('church.png')
     V = V.to(device)
-    mask = readPGMImage('mask_128_10.jpg')
+    mask = generate_random_mask(V.shape, 0.1)
     mask = mask.to(device)
     
     # V1 = V1.repeat(16, 1, 1, 1)
@@ -59,7 +65,7 @@ if __name__ == '__main__':
 
     df_stencils = get_dfStencil()
     bicg_mat = get_bicgDict()
-    osmosis = OsmosisInpainting(None, V, mask, mask, offset=4, tau=16000, eps = 1e-4, device = device, apply_canny=False)
+    osmosis = OsmosisInpainting(None, V, mask, mask, offset=4, tau=16000, eps = 1e-9, device = device, apply_canny=False)
     osmosis.calculateWeights(False, False, False)
     osmosis.solveBatchParallel(df_stencils, bicg_mat, 1, save_batch = [True, "solved_b.pgm"], verbose = False)
 

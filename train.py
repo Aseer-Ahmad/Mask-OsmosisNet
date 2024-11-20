@@ -23,19 +23,21 @@ import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from torchvision.transforms import Pad
 import cv2
+import numpy as np
+import random
 
 from utils import get_dfStencil, get_bicgDict, getOptimizer, getScheduler, loadCheckpoint, saveCheckpoint
 from utils import initialize_weights_he, init_weights_xavier, save_plot, check_gradients
 from utils import inspect_gradients, MyCustomTransform2, mean_density, normalize
 
 torch.backends.cuda.matmul.allow_tf32 = True
-SEED = 1
+SEED = 4
 # torch.manual_seed(SEED)
 
-# def seed_worker(worker_id):
-#     worker_seed = torch.initial_seed() % 2**32
-#     numpy.random.seed(worker_seed)
-#     random.seed(worker_seed)
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
 
 # g = torch.Generator()
 # g.manual_seed(SEED)
@@ -182,8 +184,8 @@ def getDataloaders(train_dataset, test_dataset, img_size, train_batch_size, test
     train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=train_batch_size, collate_fn=custom_collate_fn)
     test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=test_batch_size, collate_fn=custom_collate_fn)
 
-    # train_dataloader = DataLoader(train_dataset, shuffle = True, batch_size=train_batch_size)
-    # test_dataloader  = DataLoader(test_dataset, shuffle = True, batch_size=test_batch_size)
+    # train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=train_batch_size, worker_init_fn=seed_worker, generator=g)
+    # test_dataloader = DataLoader(test_dataset, shuffle=True, batch_size=test_batch_size, worker_init_fn=seed_worker, generator=g)
 
     print(f"train and test dataloaders created")
     print(f"total train batches  : {len(train_dataloader)}")
@@ -292,7 +294,7 @@ class JointModelTrainer():
 
                 # mask 
                 mask  = maskModel(X) # non-binary [0,1]
-                loss1 = maskLoss(mask)
+                loss1 = maskLoss(mask) 
 
                 # inpainting 
                 mask = mask.detach()
@@ -301,14 +303,15 @@ class JointModelTrainer():
                 loss2 = mseLoss(rec_X, X)
                 loss3 = resLoss(rec_X, X, mask)
 
+                
                 maskModelLoss = loss2 * alpha1 * loss1 
                 
                 maskModelLoss.backward(retain_graph=True)
                 opt1.step()
-
+                
                 loss3.backward()
                 opt2.step()
-
+                
                 opt1.zero_grad()
                 opt2.zero_grad()
     
@@ -432,7 +435,7 @@ class ModelTrainer():
                     mask1 = mask
                     mask2 = mask
 
-                osmosis = OsmosisInpainting(None, X, mask1, mask2, offset=offset, tau=tau, eps = eps, device = self.device, apply_canny=False)
+                osmosis = OsmosisInpainting(None, X, mask1, mask2, offset=offset, tau=tau, eps = 1e-9, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)
                 save_batch = [False]
                 loss3, tts, max_k, df_stencils, bicg_mat = osmosis.solveBatchParallel(df_stencils, bicg_mat, 1, save_batch = save_batch, verbose = False)
@@ -551,6 +554,7 @@ class ModelTrainer():
                     mask2 = mask
 
                 # osmosis solver
+                # offset = evolveOffset(offset, "constant") # linear
                 osmosis = OsmosisInpainting(None, X, mask1, mask2, offset=offset, tau=tau, eps = eps, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)
                 
@@ -561,9 +565,6 @@ class ModelTrainer():
                 df_stencils["iter"].append(i)
                 loss3, tts, max_k, df_stencils, bicg_mat = osmosis.solveBatchParallel(df_stencils, bicg_mat, 1, save_batch = save_batch, verbose = False)
                 
-                # X_rec, tts = bicg_model(X, mask, mask)
-                # loss3 = mseLoss(X, X_rec)
-
                 total_loss = loss3 + loss1 * alpha1 + loss2
                 bp_st = time.time()
                 total_loss.backward()
@@ -599,7 +600,7 @@ class ModelTrainer():
                     continue
                 
                 try : 
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = m_max_norm)
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = 1)
                 except Exception as e :
                     skipped_batches += 1
                     ttl_skipped_batches += 1
