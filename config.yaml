@@ -3,9 +3,9 @@ EPOCHS : 10
 RESUME_CHECKPOINT : 
 SAVE_EVERY_ITER : 100
 VAL_EVERY_ITER : 1000
-BATCH_PLOT_EVERY_ITER : 5
+BATCH_PLOT_EVERY_ITER : 100
 OUTPUT_DIR : outputs
-EXP_NAME : 20_11_r1
+EXP_NAME : 21_11_r2
 
 # DATA PARMS
 TRAIN_FILENAME : iids_train.txt
@@ -18,12 +18,12 @@ OUT_CHANNELS   : 1
 
 # HYPER PARAMS unet
 OPT            : 
-    opt        : SGD-Nestrov
-    lr         : 0.001
+    opt        : Adam
+    lr         : 0.00001
     wd         : 0.001
     momentum   : 0.009  
 
-SCHEDL         : multiStep
+SCHEDL         : 
 TRAIN_BATCH    : 4
 TEST_BATCH     : 4
 ALPHA1         : 0.01

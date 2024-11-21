@@ -31,13 +31,13 @@ from utils import initialize_weights_he, init_weights_xavier, save_plot, check_g
 from utils import inspect_gradients, MyCustomTransform2, mean_density, normalize
 
 torch.backends.cuda.matmul.allow_tf32 = True
-SEED = 4
+SEED = 5 # 4
 # torch.manual_seed(SEED)
 
-def seed_worker(worker_id):
-    worker_seed = torch.initial_seed() % 2**32
-    np.random.seed(worker_seed)
-    random.seed(worker_seed)
+# def seed_worker(worker_id):
+#     worker_seed = torch.initial_seed() % 2**32
+#     np.random.seed(worker_seed)
+#     random.seed(worker_seed)
 
 # g = torch.Generator()
 # g.manual_seed(SEED)
@@ -422,7 +422,7 @@ class ModelTrainer():
             st = time.time()
             for i, (X, X_scale) in enumerate(test_dataloader):
 
-                X = X.to(self.device, dtype=torch.float64)
+                X = X.to(self.device, dtype=torch.float64) + offset
                 mask  = model(X) # non-binary [0,1]
                 loss1 = invLoss(mask)
                 loss2 = denLoss(mask)
@@ -435,7 +435,7 @@ class ModelTrainer():
                     mask1 = mask
                     mask2 = mask
 
-                osmosis = OsmosisInpainting(None, X, mask1, mask2, offset=offset, tau=tau, eps = 1e-9, device = self.device, apply_canny=False)
+                osmosis = OsmosisInpainting(None, X, mask1, mask2, offset=0, tau=tau, eps = 1e-9, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)
                 save_batch = [False]
                 loss3, tts, max_k, df_stencils, bicg_mat = osmosis.solveBatchParallel(df_stencils, bicg_mat, 1, save_batch = save_batch, verbose = False)
@@ -536,7 +536,7 @@ class ModelTrainer():
                 # df_stencils["f_name"].append(name)
 
                 # data prep
-                X = X.to(self.device, dtype=torch.float64) 
+                X = X.to(self.device, dtype=torch.float64) + offset
 
                 # mask model
                 mask  = model(X) # non-binary [0,1]
@@ -555,7 +555,7 @@ class ModelTrainer():
 
                 # osmosis solver
                 # offset = evolveOffset(offset, "constant") # linear
-                osmosis = OsmosisInpainting(None, X, mask1, mask2, offset=offset, tau=tau, eps = eps, device = self.device, apply_canny=False)
+                osmosis = OsmosisInpainting(None, X, mask1, mask2, offset=0, tau=tau, eps = eps, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)
                 
                 if (i) % batch_plot_every == 0: 

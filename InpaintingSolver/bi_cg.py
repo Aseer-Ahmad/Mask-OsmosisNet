@@ -353,7 +353,7 @@ class OsmosisInpainting:
         f4 = torch.tensor([[[[.5, .5]]]], dtype = torch.float64, device = self.device)
 
         self.d1 = F.conv2d(self.V, f1, padding='same') / F.conv2d(self.V, f2, padding='same')
-        self.d2 = F.conv2d(self.V, f3, padding='same') / F.conv2d(self.V, f4, padding='same') 
+        self.d2 = F.conv2d(self.V, f3, padding='same') / F.conv2d(self.V, f4, padding='same')
 
         if verbose:
             self.analyseImage(self.d1, "d1")
