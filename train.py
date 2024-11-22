@@ -28,7 +28,7 @@ import random
 
 from utils import get_dfStencil, get_bicgDict, getOptimizer, getScheduler, loadCheckpoint, saveCheckpoint
 from utils import initialize_weights_he, init_weights_xavier, save_plot, check_gradients
-from utils import inspect_gradients, MyCustomTransform2, mean_density, normalize
+from utils import inspect_gradients, MyCustomTransform2, mean_density, normalize, OffsetEvolve
 
 torch.backends.cuda.matmul.allow_tf32 = True
 SEED = 5 # 4
@@ -475,12 +475,13 @@ class ModelTrainer():
         avg_den_list, epochloss_list = [], []
         val_list = []
         ttl_skipped_batches = 0
+        iter = 0
         
         train_dataloader, test_dataloader = getDataloaders(train_dataset, test_dataset, img_size,  self.train_batch_size, self.test_batch_size)
 
         optimizer = getOptimizer(model, self.opt_config)
         scheduler = getScheduler(optimizer, self.scheduler)
-
+        offsetEvol = OffsetEvolve(init_offset=1, final_offset=offset, max_iter = 40000)
         # scheduler = WarmupScheduler(optimizer, warmup_steps=5, final_lr=self.lr, base_lr=1e-5)
 
         print(f"optimizer , scheduler  loaded")
@@ -536,6 +537,7 @@ class ModelTrainer():
                 # df_stencils["f_name"].append(name)
 
                 # data prep
+                offset = offsetEvol(iter)
                 X = X.to(self.device, dtype=torch.float64) + offset
 
                 # mask model
@@ -554,7 +556,6 @@ class ModelTrainer():
                     mask2 = mask
 
                 # osmosis solver
-                # offset = evolveOffset(offset, "constant") # linear
                 osmosis = OsmosisInpainting(None, X, mask1, mask2, offset=0, tau=tau, eps = eps, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)
                 
@@ -613,6 +614,8 @@ class ModelTrainer():
                 if scheduler != None :
                     scheduler.step()
                 optimizer.zero_grad()
+
+                iter += 1
 
                 running_loss += total_loss.item()
                 running_mse  += loss3.item()

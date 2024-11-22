@@ -5,7 +5,7 @@ SAVE_EVERY_ITER : 100
 VAL_EVERY_ITER : 1000
 BATCH_PLOT_EVERY_ITER : 100
 OUTPUT_DIR : outputs
-EXP_NAME : 21_11_r2
+EXP_NAME : 22_11_r1
 
 # DATA PARMS
 TRAIN_FILENAME : iids_train.txt
@@ -23,7 +23,7 @@ OPT            :
     wd         : 0.001
     momentum   : 0.009  
 
-SCHEDL         : 
+SCHEDL         : multiStep
 TRAIN_BATCH    : 4
 TEST_BATCH     : 4
 ALPHA1         : 0.01
@@ -66,4 +66,10 @@ OPT2 :
 SCHEDL2 : 
 
 RES_LOSS_OFFSET : 1
+
+# rsync -pthrvz -e "condor_ssh_to_job" 67835:outputs/* ssh_output/
+# rsync -pthrvz -e "condor_ssh_to_job" 67855:outputs/* ssh_output/
+# rsync -pthrvz -e "condor_ssh_to_job" 67857:outputs/* ssh_output/
+# rsync -pthrvz -e "condor_ssh_to_job" 67911:outputs/* ssh_output/
+# rsync -pthrvz -e "condor_ssh_to_job" 67913:outputs/* ssh_output/
 

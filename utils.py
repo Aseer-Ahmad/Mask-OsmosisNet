@@ -9,6 +9,20 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch.nn as nn
 
+class OffsetEvolve():
+    def __init__(self, init_offset, final_offset, max_iter):
+        self.init_offset = init_offset
+        self.final_offset = final_offset
+        self.max_iter = max_iter
+
+    def __call__(self, iter):
+        if iter < self.max_iter:
+            offset = self.init_offset + (self.final_offset - self.init_offset) * iter / self.max_iter
+            return offset
+        else:
+            return self.final_offset
+            
+
 def save_plot(loss_lists, x, legend_list, save_path):
     """
     Plots multiple data series from y against x and saves the plot.
@@ -68,7 +82,7 @@ def getScheduler(optim, scheduler):
         schdl = ExponentialLR(optim, gamma=0.9)
         
     elif scheduler == "multiStep":
-        schdl = MultiStepLR(optim, milestones=[3, 4, 5], gamma=0.1)
+        schdl = MultiStepLR(optim, milestones=[3, 4, 5, 6, 7], gamma=0.6)
 
     elif scheduler == "lambdaLR":
         lambda1 = lambda epoch: epoch // 30
