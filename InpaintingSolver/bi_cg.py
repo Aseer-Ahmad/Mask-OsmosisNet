@@ -77,8 +77,8 @@ class MSELoss(nn.Module):
 
     def forward(self, U, V):
         nxny = U.shape[2] * U.shape[3]
-        U = normalize_(U)
-        V = normalize_(V)
+        # U = normalize_(U)
+        # V = normalize_(V)
         return torch.mean(torch.norm(U-V, p = 2, dim = (2,3))**2 / nxny)
 
 class OsmosisInpainting:

@@ -631,6 +631,7 @@ class ModelTrainer():
                 print(f"invariance loss : {loss1}, avg_den : {avg_den.item()}, ", end='')
                 print(f"density loss : {loss2}, solver time : {str(tts)} sec , ", end='')
                 print(f"max iteration in solver : {max_k}, ", end ='')
+                print(f'offset : {offset}, ', end = '')
                 print(f"backprop time : {str(bp_et - bp_st)} sec, ", end ='')
                 print(f"mse loss : {loss3}, ", end='')
                 print(f"total loss : {total_loss}, " , end = '')
