@@ -12,6 +12,6 @@ request_memory = 50G
 requirements = UidDomain == "cs.uni-saarland.de"
 +WantGPUHomeMounted = true
 transfer_output_files   = outputs
-transfer_input_files    = config.yaml, outputs, InpaintingSolver, MaskModel, CustomDataset.py, imagenet_process.py, main.py, train.py, utils.py
+transfer_input_files    = config.yaml, outputs, InpaintingSolver, MaskModel, CustomDataset.py, main.py, train.py, utils.py
 getenv = HOME
 queue 1

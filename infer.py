@@ -12,7 +12,6 @@ from InpaintingSolver.bi_cg import OsmosisInpainting
 import pandas as pd
 from torchvision.utils import save_image
 
-from utils import normalize
 import cv2
 
 from torchmetrics.image import PeakSignalNoiseRatio
@@ -32,6 +31,13 @@ def save_imgs(X, save_dir, names, suffix):
         file_path = os.path.join(save_dir, names[i].split(".")[0] + f"_{suffix}.png")
         cv2.imwrite(file_path, X[i][0].cpu().detach().numpy())
         # save_image(X[i], file_path)
+
+# def normalize(X, min_val = 0, max_val = 1):
+#     b, c, _ , _ = X.shape
+#     X = X - torch.amin(X, dim=(2,3)).view(b,c,1,1)
+#     X = X / (torch.amax(X, dim=(2,3)).view(b,c,1,1) + 1e-7)
+#     X = X * scale
+#     return X
 
 def get_mask_density(mask):
     return (torch.norm(mask, p = 1, dim = (1, 2, 3)) / (mask.shape[2]*mask.shape[3])).tolist()
@@ -60,7 +66,7 @@ def infer(infer_path):
 
         # init
         img_size = task["IMG_SIZE"]
-        offset   = 12
+        offset   = 1
         img_names, mse_c_list, psnr_c_list, mse_nb_list, psnr_nb_list, mse_b_list, psnr_b_list  = [],[],[],[],[],[],[] 
         canny_mask_den_list, bin_mask_den_list, batch_name_list = [], [], []
 
@@ -98,9 +104,9 @@ def infer(infer_path):
         print(f"data loaded : {len(test_dataset)}")
 
         with torch.no_grad():
-            for i, (X, X_names) in enumerate(test_dataloader):
+            for i, (X, X_names) in enumerate(test_dataloader): 
 
-                X = X.to(device, dtype=torch.float64)
+                X = X.to(device, dtype=torch.float64) # [0,1]
                 mask  = model(X)
                 
                 if mask.shape[1] == 2:
@@ -137,17 +143,17 @@ def infer(infer_path):
 
 
                 # save results and csv
-                X_norm = normalize(X , 255)
+                X_norm = X * 255 # normalize(X , 255)
                 mask1_c_norm = mask1_c[:, :, 1:-1, 1:-1] * 255.
-                X_rec_c_norm = normalize(X_rec_c[:, :, 1:-1, 1:-1], 255)
+                X_rec_c_norm = (X_rec_c[:, :, 1:-1, 1:-1]-offset) * 255 # normalize(X_rec_c[:, :, 1:-1, 1:-1]-offset, 255)
 
                 mask1_norm = mask1 * 255.
                 mask2_norm = mask2 * 255.
-                X_rec_nb_norm = normalize(X_rec_nb[:, :, 1:-1, 1:-1], 255)
+                X_rec_nb_norm = (X_rec_nb[:, :, 1:-1, 1:-1]-offset) * 255
 
                 mask1_bin_norm = mask1_bin * 255.
                 mask2_bin_norm = mask2_bin * 255.
-                X_rec_b_norm  = normalize(X_rec[:, :, 1:-1, 1:-1] , 255)
+                X_rec_b_norm  = (X_rec[:, :, 1:-1, 1:-1]-offset)*  255
 
                 mse_c, psnr_c = calculate_metrics(X_norm, X_rec_c_norm)
                 mse_nb, psnr_nb = calculate_metrics(X_norm, X_rec_nb_norm)

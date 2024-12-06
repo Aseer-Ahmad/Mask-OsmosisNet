@@ -28,16 +28,16 @@ import random
 
 from utils import get_dfStencil, get_bicgDict, getOptimizer, getScheduler, loadCheckpoint, saveCheckpoint
 from utils import initialize_weights_he, init_weights_xavier, save_plot, check_gradients
-from utils import inspect_gradients, MyCustomTransform2, mean_density, normalize
+from utils import inspect_gradients, MyCustomTransform2, mean_density, normalize, OffsetEvolve
 
 torch.backends.cuda.matmul.allow_tf32 = True
-SEED = 4
+SEED = 5 # 4
 # torch.manual_seed(SEED)
 
-def seed_worker(worker_id):
-    worker_seed = torch.initial_seed() % 2**32
-    np.random.seed(worker_seed)
-    random.seed(worker_seed)
+# def seed_worker(worker_id):
+#     worker_seed = torch.initial_seed() % 2**32
+#     np.random.seed(worker_seed)
+#     random.seed(worker_seed)
 
 # g = torch.Generator()
 # g.manual_seed(SEED)
@@ -327,9 +327,9 @@ class JointModelTrainer():
                     fname = f"batch_epoch_{str(epoch)}_iter_{str(i)}.png"
                     fname_path = os.path.join(self.output_dir, "imgs", fname)
                     out_save = torch.cat((
-                                        normalize(X, 255).reshape(self.train_batch_size*img_size, img_size),
-                                        normalize(mask, 255).reshape(self.train_batch_size*img_size, img_size),
-                                        normalize(rec_X, 255).reshape(self.train_batch_size*img_size, img_size))
+                                        (X * 255).reshape(self.train_batch_size*img_size, img_size),
+                                        (mask * 255).reshape(self.train_batch_size*img_size, img_size),
+                                        (rec_X * 255).reshape(self.train_batch_size*img_size, img_size))
                                         , dim = 1).cpu().detach().numpy()
                     cv2.imwrite(fname_path, out_save)
 
@@ -422,7 +422,7 @@ class ModelTrainer():
             st = time.time()
             for i, (X, X_scale) in enumerate(test_dataloader):
 
-                X = X.to(self.device, dtype=torch.float64)
+                X = X.to(self.device, dtype=torch.float64) + offset
                 mask  = model(X) # non-binary [0,1]
                 loss1 = invLoss(mask)
                 loss2 = denLoss(mask)
@@ -435,7 +435,7 @@ class ModelTrainer():
                     mask1 = mask
                     mask2 = mask
 
-                osmosis = OsmosisInpainting(None, X, mask1, mask2, offset=offset, tau=tau, eps = 1e-9, device = self.device, apply_canny=False)
+                osmosis = OsmosisInpainting(None, X, mask1, mask2, offset=0, tau=tau, eps = 1e-9, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)
                 save_batch = [False]
                 loss3, tts, max_k, df_stencils, bicg_mat = osmosis.solveBatchParallel(df_stencils, bicg_mat, 1, save_batch = save_batch, verbose = False)
@@ -475,12 +475,13 @@ class ModelTrainer():
         avg_den_list, epochloss_list = [], []
         val_list = []
         ttl_skipped_batches = 0
+        iter = 0
         
         train_dataloader, test_dataloader = getDataloaders(train_dataset, test_dataset, img_size,  self.train_batch_size, self.test_batch_size)
 
         optimizer = getOptimizer(model, self.opt_config)
         scheduler = getScheduler(optimizer, self.scheduler)
-
+        offsetEvol = OffsetEvolve(init_offset=0.01, final_offset=offset, max_iter = 10000)
         # scheduler = WarmupScheduler(optimizer, warmup_steps=5, final_lr=self.lr, base_lr=1e-5)
 
         print(f"optimizer , scheduler  loaded")
@@ -535,8 +536,10 @@ class ModelTrainer():
                 print(f'Epoch {epoch}/{epochs} , batch {i}/{len(train_dataloader)} ')
                 # df_stencils["f_name"].append(name)
 
-                # data prep
-                X = X.to(self.device, dtype=torch.float64) 
+                # offset annealing
+                offset = offsetEvol(iter)
+                iter += 1
+                X = X.to(self.device, dtype=torch.float64) + offset
 
                 # mask model
                 mask  = model(X) # non-binary [0,1]
@@ -554,7 +557,6 @@ class ModelTrainer():
                     mask2 = mask
 
                 # osmosis solver
-                # offset = evolveOffset(offset, "constant") # linear
                 osmosis = OsmosisInpainting(None, X, mask1, mask2, offset=offset, tau=tau, eps = eps, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)
                 
@@ -563,7 +565,7 @@ class ModelTrainer():
                 else:
                     save_batch = [False]
                 df_stencils["iter"].append(i)
-                loss3, tts, max_k, df_stencils, bicg_mat = osmosis.solveBatchParallel(df_stencils, bicg_mat, 1, save_batch = save_batch, verbose = False)
+                loss3, tts, max_k, df_stencils, bicg_mat = osmosis.solveBatchParallel(df_stencils, bicg_mat, kmax = 1, save_batch = save_batch, verbose = False)
                 
                 total_loss = loss3 + loss1 * alpha1 + loss2
                 bp_st = time.time()
@@ -614,6 +616,7 @@ class ModelTrainer():
                     scheduler.step()
                 optimizer.zero_grad()
 
+
                 running_loss += total_loss.item()
                 running_mse  += loss3.item()
                 running_inv  += loss1.item()
@@ -628,6 +631,7 @@ class ModelTrainer():
                 print(f"invariance loss : {loss1}, avg_den : {avg_den.item()}, ", end='')
                 print(f"density loss : {loss2}, solver time : {str(tts)} sec , ", end='')
                 print(f"max iteration in solver : {max_k}, ", end ='')
+                print(f'offset : {offset}, ', end = '')
                 print(f"backprop time : {str(bp_et - bp_st)} sec, ", end ='')
                 print(f"mse loss : {loss3}, ", end='')
                 print(f"total loss : {total_loss}, " , end = '')
