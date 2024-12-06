@@ -86,7 +86,7 @@ class OsmosisInpainting:
     def __init__(self, U, V, mask1, mask2, offset, tau, eps, hx = 1, hy = 1, device = None, apply_canny = False):
         # (b, c, h, w)
 
-        self.V       = V + offset  # guidance image
+        self.V       = V   # guidance image
         self.batch   = V.size(0) 
         self.channel = V.size(1) 
         self.nx      = V.size(2) 
@@ -95,7 +95,7 @@ class OsmosisInpainting:
         self.device = device
 
         if U is not None:
-            self.U   = U + offset  # original image
+            self.U   = U   # original image
         else:
             self.U   = self.getInit_U()
 
@@ -182,7 +182,8 @@ class OsmosisInpainting:
         et = time.time()
         tt += (et-st)
 
-        # self.analyseImage(X, f"solution")
+        self.analyseImage(self.V, f"guidance")
+        self.analyseImage(U, f"solution")
         # comm = f"time for iteration : {str(et-st)} sec\n"
         # comm += f"total time         : {str(tt)} sec\n"
         # comm += self.getMetrics()
@@ -192,20 +193,21 @@ class OsmosisInpainting:
             fname = save_batch[1]
 
             out = torch.cat(( 
-                            self.normalize(self.V, 255).reshape(self.batch*(self.nx+2), self.ny+2) - self.offset , 
+                            ((self.V - self.offset) * 255.).reshape(self.batch*(self.nx+2), self.ny+2) , 
                             (self.mask1 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
                             # (self.mask2 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
                             # (self.canny_mask * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
                             # (init-self.offset).reshape(self.batch*(self.nx+2), self.ny+2),
-                            self.normalize(U, 255).reshape(self.batch*(self.nx+2), self.ny+2) - self.offset ),
+                            ((U - self.offset) * 255.).reshape(self.batch*(self.nx+2), self.ny+2)
+                            ),
                             dim = 1)
             # self.writePGMImage((self.normalize(U, 255).reshape(self.batch*(self.nx+2), self.ny+2) - self.offset).cpu().detach().numpy().T, fname)
             self.writePGMImage(out.cpu().detach().numpy().T, fname) 
 
         # print(torch.mean((self.normalize(U, 255) - self.normalize(self.V, 255)) ** 2, dim=(2, 3)))
 
-        # mse loss ; inputs normalized inside
-        loss = mse(U, self.V)
+        # mse loss 
+        loss = mse(U , self.V)
         return loss, tt, max_k, self.df_stencils, U
         # return loss, tt, max_k, self.df_stencils, self.bicg_mat
 

@@ -18,9 +18,9 @@ api = HfApi()
 
 print("starting test folder")
 
-pth = os.path.join("dataset", "imagenet", "images", "test")
+pth = os.path.join("dataset", "BSDS300", "images", "test")
 files_list = os.listdir(pth)
-files_list = files_list[:50]
+# files_list = files_list[:50]
 l = len(files_list)
 t = 0
 step_ = 1000
@@ -46,7 +46,9 @@ features = Features({
 })
 
 dataset = Dataset.from_dict(data, features=features)
-dataset.push_to_hub("aseeransari/ImageNet-Sampled", split="temp")
+dataset.push_to_hub("aseeransari/BSDS", split="test")
+
+
 
 
 # print("starting trainfolder")

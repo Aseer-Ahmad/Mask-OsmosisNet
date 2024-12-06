@@ -27,7 +27,8 @@ def readPGMImage( pth):
     pgm = cv2.imread(pth, cv2.IMREAD_GRAYSCALE) 
     pgm_T = torch.tensor(pgm, dtype = torch.float64)
     nx, ny = pgm_T.size()
-    pgm_T = F.resize(pgm_T.reshape(1, 1, nx, ny) / 255., (128, 128))
+    pgm_T = pgm_T.reshape(1, 1, nx, ny) / 255.
+    # pgm_T = F.resize(pgm_T.reshape(1, 1, nx, ny) / 255., (128, 128))
     return pgm_T
 
 
@@ -47,15 +48,15 @@ def generate_random_mask(shape, density):
 
 if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    offset = 0.001
 
-
-    # V1 = readPGMImage("kaniza.pgm")
-    # V1 = V1.to(device)
-    # mask = readPGMImage('kaniza-edge.pgm')
+    # V1 = readPGMImage("cameraman.pgm")
+    # V1 = V1.to(device) + offset
+    # mask = readPGMImage('cameraman-dmask.pgm')
     # mask = mask.to(device)
 
     V = readPGMImage('church.png')
-    V = V.to(device)
+    V = V.to(device) + offset
     mask = generate_random_mask(V.shape, 0.1)
     mask = mask.to(device)
     
@@ -65,7 +66,7 @@ if __name__ == '__main__':
 
     df_stencils = get_dfStencil()
     bicg_mat = get_bicgDict()
-    osmosis = OsmosisInpainting(None, V, mask, mask, offset=4, tau=16000, eps = 1e-9, device = device, apply_canny=False)
+    osmosis = OsmosisInpainting(None, V, mask, mask, offset=offset, tau=16000, eps = 1e-9, device = device, apply_canny=True)
     osmosis.calculateWeights(False, False, False)
     osmosis.solveBatchParallel(df_stencils, bicg_mat, 1, save_batch = [True, "solved_b.pgm"], verbose = False)
 

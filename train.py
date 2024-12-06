@@ -327,9 +327,9 @@ class JointModelTrainer():
                     fname = f"batch_epoch_{str(epoch)}_iter_{str(i)}.png"
                     fname_path = os.path.join(self.output_dir, "imgs", fname)
                     out_save = torch.cat((
-                                        normalize(X, 255).reshape(self.train_batch_size*img_size, img_size),
-                                        normalize(mask, 255).reshape(self.train_batch_size*img_size, img_size),
-                                        normalize(rec_X, 255).reshape(self.train_batch_size*img_size, img_size))
+                                        (X * 255).reshape(self.train_batch_size*img_size, img_size),
+                                        (mask * 255).reshape(self.train_batch_size*img_size, img_size),
+                                        (rec_X * 255).reshape(self.train_batch_size*img_size, img_size))
                                         , dim = 1).cpu().detach().numpy()
                     cv2.imwrite(fname_path, out_save)
 
@@ -481,7 +481,7 @@ class ModelTrainer():
 
         optimizer = getOptimizer(model, self.opt_config)
         scheduler = getScheduler(optimizer, self.scheduler)
-        offsetEvol = OffsetEvolve(init_offset=1, final_offset=offset, max_iter = 40000)
+        offsetEvol = OffsetEvolve(init_offset=0.01, final_offset=offset, max_iter = 10000)
         # scheduler = WarmupScheduler(optimizer, warmup_steps=5, final_lr=self.lr, base_lr=1e-5)
 
         print(f"optimizer , scheduler  loaded")
@@ -536,8 +536,9 @@ class ModelTrainer():
                 print(f'Epoch {epoch}/{epochs} , batch {i}/{len(train_dataloader)} ')
                 # df_stencils["f_name"].append(name)
 
-                # data prep
+                # offset annealing
                 offset = offsetEvol(iter)
+                iter += 1
                 X = X.to(self.device, dtype=torch.float64) + offset
 
                 # mask model
@@ -556,7 +557,7 @@ class ModelTrainer():
                     mask2 = mask
 
                 # osmosis solver
-                osmosis = OsmosisInpainting(None, X, mask1, mask2, offset=0, tau=tau, eps = eps, device = self.device, apply_canny=False)
+                osmosis = OsmosisInpainting(None, X, mask1, mask2, offset=offset, tau=tau, eps = eps, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)
                 
                 if (i) % batch_plot_every == 0: 
@@ -564,7 +565,7 @@ class ModelTrainer():
                 else:
                     save_batch = [False]
                 df_stencils["iter"].append(i)
-                loss3, tts, max_k, df_stencils, bicg_mat = osmosis.solveBatchParallel(df_stencils, bicg_mat, 1, save_batch = save_batch, verbose = False)
+                loss3, tts, max_k, df_stencils, bicg_mat = osmosis.solveBatchParallel(df_stencils, bicg_mat, kmax = 1, save_batch = save_batch, verbose = False)
                 
                 total_loss = loss3 + loss1 * alpha1 + loss2
                 bp_st = time.time()
@@ -615,7 +616,6 @@ class ModelTrainer():
                     scheduler.step()
                 optimizer.zero_grad()
 
-                iter += 1
 
                 running_loss += total_loss.item()
                 running_mse  += loss3.item()
