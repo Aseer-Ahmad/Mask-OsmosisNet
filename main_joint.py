@@ -149,6 +149,7 @@ def main(config):
         alpha1 = config['ALPHA1'],
         alpha2 = config['ALPHA2'],
         offset = config['RES_LOSS_OFFSET'],
+        tau = config['TAU'], 
         mask_density = config['MASK_DEN'],
         img_size = config['IMG_SIZE'],
         model_1_ckp_file = config['RESUME_CHECKPOINT_MN'],

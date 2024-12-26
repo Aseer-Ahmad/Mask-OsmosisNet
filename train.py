@@ -42,6 +42,10 @@ SEED = 5 # 4
 # g = torch.Generator()
 # g.manual_seed(SEED)
 
+pd.set_option('display.max_columns', 10)
+pd.set_option('display.width', 10000)
+# pd.set_option('display.max_colwidth', None)  
+
 
 class ResidualLoss(nn.Module):
     """
@@ -146,18 +150,15 @@ class WarmupScheduler(_LRScheduler):
 def getDataloaders(train_dataset, test_dataset, img_size, train_batch_size, test_batch_size):
 
     transform = transforms.Compose([
-                # transforms.RandomCrop((img_size, img_size)),
                 transforms.Resize((img_size, img_size), antialias = True),
                 transforms.Grayscale(),
                 transforms.ToTensor(),   
             ])
 
-    transform_norm = transforms.Compose([
-                # transforms.RandomCrop((img_size, img_size)),
-                transforms.Resize((img_size, img_size), antialias = True),
+    transform_random = transforms.Compose([
+                transforms.RandomCrop((img_size, img_size)),
                 transforms.Grayscale(),
-                transforms.ToTensor(), 
-                transforms.Normalize(mean = [0.44531356896770125], std = [0.2692461874154524])
+                transforms.ToTensor(),   
             ])
     
     transform_scale = transforms.Compose([
@@ -174,7 +175,7 @@ def getDataloaders(train_dataset, test_dataset, img_size, train_batch_size, test
 
         for item in batch :
             images.append(transform(item['image']))
-            images_scale.append(transform_scale(item['image']))
+            images_scale.append(transform_random(item['image']))
 
         images       = torch.stack(images)
         images_scale = torch.stack(images_scale)
@@ -213,7 +214,8 @@ class JointModelTrainer():
                     epochs,
                     alpha1, 
                     alpha2,
-                    offset, 
+                    offset,
+                    tau, 
                     mask_density, 
                     img_size, 
                     model_1_ckp_file, 
@@ -286,11 +288,11 @@ class JointModelTrainer():
 
             st = time.time()
 
-            for i, (X, X_scale) in enumerate(train_dataloader, start = 1): 
+            for i, (X, X_crop) in enumerate(train_dataloader, start = 1): 
                                 
                 print(f'Epoch {epoch}/{epochs} , batch {i}/{len(train_dataloader)} ')
                 
-                X = X.to(self.device, dtype=torch.float64) 
+                X = X_crop.to(self.device, dtype=torch.float64) 
 
                 # mask 
                 mask  = maskModel(X) # non-binary [0,1]
@@ -302,9 +304,8 @@ class JointModelTrainer():
                 rec_X = inpModel(stack_X_mask)
                 loss2 = mseLoss(rec_X, X)
                 loss3 = resLoss(rec_X, X, mask)
-
                 
-                maskModelLoss = loss2 * alpha1 * loss1 
+                maskModelLoss = loss2 + alpha1 * loss1 
                 
                 maskModelLoss.backward(retain_graph=True)
                 opt1.step()
@@ -314,7 +315,13 @@ class JointModelTrainer():
                 
                 opt1.zero_grad()
                 opt2.zero_grad()
-    
+
+                # solve using solver
+                osmosis = OsmosisInpainting(None, X, mask, mask, offset = offset, tau=tau, eps = 1e-9, device = self.device, apply_canny=False)
+                osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)                
+                loss3, tts, max_k, df_stencils, U = osmosis.solveBatchParallel(None, None, kmax = 1, save_batch = [False], verbose = False)
+                U = torch.transpose(U[:, :, 1:-1, 1:-1], 2, 3)
+
                 if (i-1) % save_every == 0:
                     print("saving checkpoint")
                     fname = f"maskmodel_epoch_{str(epoch+1)}_iter_{str(i)}.pt"
@@ -329,7 +336,7 @@ class JointModelTrainer():
                     out_save = torch.cat((
                                         (X * 255).reshape(self.train_batch_size*img_size, img_size),
                                         (mask * 255).reshape(self.train_batch_size*img_size, img_size),
-                                        (rec_X * 255).reshape(self.train_batch_size*img_size, img_size))
+                                        (U * 255).reshape(self.train_batch_size*img_size, img_size))
                                         , dim = 1).cpu().detach().numpy()
                     cv2.imwrite(fname_path, out_save)
 
@@ -420,9 +427,9 @@ class ModelTrainer():
 
         with torch.no_grad():
             st = time.time()
-            for i, (X, X_scale) in enumerate(test_dataloader):
+            for i, (X, X_crop) in enumerate(test_dataloader):
 
-                X = X.to(self.device, dtype=torch.float64) + offset
+                X = X_crop.to(self.device, dtype=torch.float64) + offset
                 mask  = model(X) # non-binary [0,1]
                 loss1 = invLoss(mask)
                 loss2 = denLoss(mask)
@@ -467,12 +474,13 @@ class ModelTrainer():
                     train_dataset,
                     test_dataset,
                     offset, 
+                    offset_evl_steps,
                     tau, 
                     eps):
         
         # loss lists
         loss1_list, loss2_list, loss3_list, gradnorm_list, running_loss_list = [], [], [], [], []
-        avg_den_list, epochloss_list = [], []
+        avg_den_list, epochloss_list, offset_list, lr_list = [], [], [], []
         val_list = []
         ttl_skipped_batches = 0
         iter = 0
@@ -481,7 +489,7 @@ class ModelTrainer():
 
         optimizer = getOptimizer(model, self.opt_config)
         scheduler = getScheduler(optimizer, self.scheduler)
-        offsetEvol = OffsetEvolve(init_offset=0.01, final_offset=offset, max_iter = 10000)
+        offsetEvol = OffsetEvolve(init_offset=1, final_offset=offset, max_iter = offset_evl_steps)
         # scheduler = WarmupScheduler(optimizer, warmup_steps=5, final_lr=self.lr, base_lr=1e-5)
 
         print(f"optimizer , scheduler  loaded")
@@ -529,7 +537,7 @@ class ModelTrainer():
 
             df_stencils = get_dfStencil()
 
-            for i, (X, X_scale) in enumerate(train_dataloader, start = 1): 
+            for i, (X, X_crop) in enumerate(train_dataloader, start = 1): 
                 
                 bicg_mat = get_bicgDict()
                 
@@ -539,7 +547,7 @@ class ModelTrainer():
                 # offset annealing
                 offset = offsetEvol(iter)
                 iter += 1
-                X = X.to(self.device, dtype=torch.float64) + offset
+                X = X_crop.to(self.device, dtype=torch.float64) + offset
 
                 # mask model
                 mask  = model(X) # non-binary [0,1]
@@ -590,10 +598,11 @@ class ModelTrainer():
                     m_max_norm = max_norm
                 elif total_norm > skip_norm and total_norm < 2 * skip_norm :
                     m_max_norm = max_norm * 2
-                elif total_norm > 2 * skip_norm and total_norm < 10 * skip_norm :
-                    m_max_norm = max_norm * 3
-                elif total_norm > 10 * skip_norm and total_norm < 20 * skip_norm :
-                    m_max_norm = max_norm * 4
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = m_max_norm)
+                # elif total_norm > 2 * skip_norm and total_norm < 10 * skip_norm :
+                #     m_max_norm = max_norm * 3
+                # elif total_norm > 10 * skip_norm and total_norm < 20 * skip_norm :
+                #     m_max_norm = max_norm * 4
                 else :
                     skipped_batches += 1
                     ttl_skipped_batches += 1
@@ -601,16 +610,18 @@ class ModelTrainer():
                     optimizer.zero_grad()
                     continue
                 
-                try : 
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = 1)
-                except Exception as e :
-                    skipped_batches += 1
-                    ttl_skipped_batches += 1
-                    print(f"exception caused at gradient clipping for total_norm : {total_norm} and max norm: {m_max_norm}")
-                    print("skipping batch")
-                    print(e)
-                    continue
+                # try : 
+                #     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = max_norm)
+                # except Exception as e :
+                #     skipped_batches += 1
+                #     ttl_skipped_batches += 1
+                #     print(f"exception caused at gradient clipping for total_norm : {total_norm} and max norm: {m_max_norm}")
+                #     print("skipping batch")
+                #     print(e)
+                #     continue
 
+                offset_list.append(offset)
+                lr_list.append(optimizer.param_groups[0]['lr'])
                 optimizer.step()
                 if scheduler != None :
                     scheduler.step()
@@ -661,9 +672,11 @@ class ModelTrainer():
                 train_dict = {
                     "grand norms" : gradnorm_list,
                     "density loss" : loss2_list,
-                    "running invariance loss" : loss1_list,
+                    "running inv loss" : loss1_list,
                     "running mse loss" : loss3_list,
-                    "running loss" : running_loss_list
+                    "running loss" : running_loss_list,
+                    "offset" : offset_list,
+                    "learning rate" : lr_list
                     }
                 df = pd.DataFrame(train_dict)
                 print(df.tail(20))

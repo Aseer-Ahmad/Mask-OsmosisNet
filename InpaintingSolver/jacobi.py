@@ -134,37 +134,6 @@ class OsmosisInpainting:
 
         mse = MSELoss()
 
-        # write forward drift stencil stats to df
-        # comm, min_, max_, mean_, std_ = self.analyseImage(self.d1, f"d1")
-        # df_stencils["d1_forward_max"].append(max_)
-        # df_stencils["d1_forward_min"].append(min_)
-        # df_stencils["d1_forward_mean"].append(mean_)
-        # comm, min_, max_, mean_, std_ = self.analyseImage(self.d2, f"d2")
-        # df_stencils["d2_forward_max"].append(max_)
-        # df_stencils["d2_forward_min"].append(min_)
-        # df_stencils["d2_forward_mean"].append(mean_)
-        # comm, min_, max_, mean_, std_ = self.analyseImage(self.boo, f"boo")
-        # df_stencils["boo_forward_max"].append(max_)
-        # df_stencils["boo_forward_min"].append(min_)
-        # df_stencils["boo_forward_mean"].append(mean_)
-        # comm, min_, max_, mean_, std_ = self.analyseImage(self.bom, f"bom")
-        # df_stencils["bom_forward_max"].append(max_)
-        # df_stencils["bom_forward_min"].append(min_)
-        # df_stencils["bom_forward_mean"].append(mean_)
-        # comm, min_, max_, mean_, std_ = self.analyseImage(self.bmo, f"bmo")
-        # df_stencils["bmo_forward_max"].append(max_)
-        # df_stencils["bmo_forward_min"].append(min_)
-        # df_stencils["bmo_forward_mean"].append(mean_)
-        # comm, min_, max_, mean_, std_ = self.analyseImage(self.bpo, f"bpo")
-        # df_stencils["bpo_forward_max"].append(max_)
-        # df_stencils["bpo_forward_min"].append(min_)
-        # df_stencils["bpo_forward_mean"].append(mean_)
-        # comm, min_, max_, mean_, std_ = self.analyseImage(self.bop, f"bop")
-        # df_stencils["bop_forward_max"].append(max_)
-        # df_stencils["bop_forward_min"].append(min_)
-        # df_stencils["bop_forward_mean"].append(mean_)
-
-
         # self.analyseImage(X, f"inital input")
         # self.analyseImage(self.mask1, f"input mask")
 
@@ -172,7 +141,7 @@ class OsmosisInpainting:
 
         for i in range(kmax):
 
-            X, max_k = self.BiCGSTAB_GS(x = U, b = X, kmax = 600, eps = self.eps, verbose=verbose)
+            X, max_k = self.Jacobi(x = U, b = X, kmax = 600, eps = self.eps, verbose=verbose)
             U = X
             loss = mse( U, self.V)
             print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)
@@ -394,7 +363,31 @@ class OsmosisInpainting:
         self.bop = -ryy + ry * self.d2[:, :, 1:self.nx+1, 1:self.ny+1] # i+1, j
         self.bmo = -rxx - rx * self.d1[:, :,  :self.nx,   1:self.ny+1] # i-1, j
         self.bom = -ryy - ry * self.d2[:, :, 1:self.nx+1,  :self.ny  ] # i, j-1
- 
+
+        # create inverse central stencil for Jacobi
+        self.inv_boo = 1 / self.boo
+
+        # # create matrices for Jacobi
+        # # x <= 1/D [b - (L + U) x]
+        # # x <=  [-(L + U) / D] x  +   [1 / D] b  [Convenient form for Jacobi]
+        # # x <=  T x  +   C b
+        # diag_mat = torch.diag(torch.ones(self.V.shape[-1]))[None, None, :, :]
+        # lu_diag_mat = torch.ones(self.V.shape[-1])[None, None, :, :] - diag_mat
+
+        # # C = 1 / D ; [avoid infinities]
+        # self.c_boo = 1 / (self.boo * diag_mat)
+        # self.c_bpo = 1 / (self.bpo * diag_mat)
+        # self.c_bop = 1 / (self.bop * diag_mat)
+        # self.c_bmo = 1 / (self.bmo * diag_mat)
+        # self.c_bom = 1 / (self.bom * diag_mat)
+
+        # # T <= [-(L + U) / D]
+        # self.t_boo = - (lu_diag_mat * self.boo) * self.c_boo
+        # self.t_bpo = - (lu_diag_mat * self.bpo) * self.c_bpo
+        # self.t_bop = - (lu_diag_mat * self.bop) * self.c_bop
+        # self.t_bmo = - (lu_diag_mat * self.bmo) * self.c_bmo
+        # self.t_bom = - (lu_diag_mat * self.bom) * self.c_bom
+        
         if verbose :
             print(self.boo.shape)
             self.analyseImage(self.boo, "boo")
@@ -406,30 +399,6 @@ class OsmosisInpainting:
             self.analyseImage(self.bmo, "bmo")
             print(self.bom.shape)
             self.analyseImage(self.bom, "bom")
-
-    def write_bicg_weights(self, x, name):
-        comm, min_, max_, mean_, std_ = self.analyseImage(x, name)
-        self.bicg_mat[name + "_max"].append(max_)
-        self.bicg_mat[name + "_min"].append(min_)
-        self.bicg_mat[name + "_mean"].append(mean_)
-
-    def create_backward_hook(self, var_name):
-        def hook(grad):
-            comm, min_, max_, mean_, std_ = self.analyseImage(grad, var_name)
-            self.df_stencils[var_name + "_max"].append(max_)
-            self.df_stencils[var_name + "_min"].append(min_)
-            self.df_stencils[var_name + "_mean"].append(mean_)
-            # print(f"Gradient of {var_name}\n grad norm : {grad.norm()}\n grad stats:\n{comm}")
-        return hook
-
-    def create_backward_hook2(self, var_name):
-        def hook(grad):
-            comm, min_, max_, mean_, std_ = self.analyseImage(grad, var_name)
-            self.bicg_mat[var_name + "_max"].append(max_)
-            self.bicg_mat[var_name + "_min"].append(min_)
-            self.bicg_mat[var_name + "_mean"].append(mean_)
-            # print(f"Gradient of {var_name}\n grad norm : {grad.norm()}\n grad stats:\n{comm}")
-        return hook
 
     def applyStencilGS(self, inp, boo, bmo, bom, bop, bpo, verbose = False):
         """
@@ -451,8 +420,65 @@ class OsmosisInpainting:
 
         return self.zero_pad(res)
 
+    def applyStencil_LU(self, inp, bmo, bom, bop, bpo, verbose = False):
+        """
+        (L + U) inp
+        inp : (batch, channel, nx, ny)
+        """
+        inp     = self.pad(inp[:, :, 1:self.nx+1, 1:self.ny+1])
+
+        # from top to bottom -> left, down, up, right
+        # res     = boo * inp[:, :, 1:self.nx+1, 1:self.ny+1] \
+        res     = bmo * inp[:, :,  :self.nx,   1:self.ny+1] \
+                + bom * inp[:, :, 1:self.nx+1,  :self.ny  ] \
+                + bop * inp[:, :, 1:self.nx+1, 2:self.ny+2] \
+                + bpo * inp[:, :, 2:self.nx+2, 1:self.ny+1]
+        
+        if verbose :
+            self.analyseImage(res, "X")
+
+        return self.zero_pad(res)
+    
+    def applyStencil_D(self, inp, inv_boo, verbose = False):
+        """
+        (L + U) inp
+        inp : (batch, channel, nx, ny)
+        """
+        inp     = self.pad(inp[:, :, 1:self.nx+1, 1:self.ny+1])
+
+        res     = inv_boo * inp[:, :, 1:self.nx+1, 1:self.ny+1]
+        
+        if verbose :
+            self.analyseImage(res, "X")
+
+        return self.zero_pad(res)
+
     def zeroPadGS(self, x):
         return self.zero_pad(x[ :, :, 1:self.nx+1, 1 :self.ny+1])
+
+    def Jacobi(self, x, b, kmax, eps, verbose = False):
+        k       = torch.zeros((self.batch, self.channel), dtype=torch.long, device = self.device) 
+        r_abs   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device) 
+
+        '''
+        r_0 = self.zeroPadGS(b - self.applyStencilGS(x, self.boo, self.bmo, self.bom, self.bop, self.bpo))      
+        r_abs = torch.norm(r_0, dim = (2, 3), p = "fro")
+
+        while ( (k < kmax) & (r_abs > eps * self.nx * self.ny) ).any():
+        
+            CONV_COND = ( (k < kmax) & (r_abs > eps * self.nx * self.ny) )
+
+            x_int = b - applyStencil_LU(x, bmo, bom, bop, bpo)  :  zeroPadGS
+            x = applyStencil_D(x_int, inv_boo) : zeroPadGS
+
+            r_0 = self.zeroPadGS(b - self.applyStencilGS(x, self.boo, self.bmo, self.bom, self.bop, self.bpo))      
+            r_abs = torch.norm(r_0, dim = (2, 3), p = "fro")
+
+            k  = torch.where(NOT_RES_COND, k+1, k) 
+
+        return x, torch.max(k)
+        '''
+
 
     def BiCGSTAB_GS(self, x, b, kmax, eps, verbose = False):
         
