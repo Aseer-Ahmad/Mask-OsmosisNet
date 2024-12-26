@@ -25,48 +25,6 @@ def normalize_(X, scale = 1.):
 
     return X
 
-class SteadyState(nn.Module):
-    """
-    Rsidual Loss 
-    (1 / nxny) || (1 - C)(\laplacian u - div ( d u)) - C (u - f) ||2 
-    """
-    def __init__(self, img_size, offset):
-        super(SteadyState, self).__init__()
-        self.pad = Pad(1, padding_mode = "symmetric")
-        self.nxny = img_size * img_size
-        self.offset = offset
-
-    def forward(self, u, v, mask):
-        '''
-        u : evolved solution ; not padded
-        v : guidance image   ; not padded
-        '''
-        u   = self.pad(u + self.offset)
-        v   = self.pad(v + self.offset)
-
-        # laplacian kernel
-        lap_u_kernel = torch.tensor([[[[0., 1., 0.],
-                                    [1.,-4., 1.],
-                                    [0., 1., 0.]]]], dtype = torch.float64, device = self.device)
-        lap_u = F.conv2d(u, lap_u_kernel)
-
-        # row-direction filters  
-        f1 = torch.tensor([[[[-1.], [1.]]]], dtype = torch.float64, device = self.device)
-        f2 = torch.tensor([[[[.5], [.5]]]], dtype = torch.float64, device = self.device)
-        d1_u = (F.conv2d(v, f1, padding='same') / F.conv2d(v, f2, padding='same')) * F.conv2d(u, f2, padding='same')
-        dx_d1_u = d1_u[:, :, 1:-1, 1:-1] - d1_u[:, :, 0:-2, 1:-1]
-
-        # col-direction filters
-        f3 = torch.tensor([[[[-1., 1.]]]], dtype = torch.float64, device = self.device)
-        f4 = torch.tensor([[[[.5, .5]]]], dtype = torch.float64, device = self.device)
-        d2_u = (F.conv2d(v, f3, padding='same') / F.conv2d(v, f4, padding='same')) * F.conv2d(u, f4, padding='same')
-        dy_d2_u = d2_u[:, :, 1:-1, 1:-1] - d2_u[:, :, 1:-1, 0:-2]
-
-        #steady state 
-        ss = lap_u - dx_d1_u - dy_d2_u 
-
-        # residual loss
-        return torch.mean(torch.norm(ss, p = 2, dim = (2, 3)) / self.nxny)
 
 class MSELoss(nn.Module):
     """
@@ -460,194 +418,26 @@ class OsmosisInpainting:
         k       = torch.zeros((self.batch, self.channel), dtype=torch.long, device = self.device) 
         r_abs   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device) 
 
-        '''
+        x_int       = torch.zeros_like(x, dtype = torch.float64) 
+
         r_0 = self.zeroPadGS(b - self.applyStencilGS(x, self.boo, self.bmo, self.bom, self.bop, self.bpo))      
         r_abs = torch.norm(r_0, dim = (2, 3), p = "fro")
 
         while ( (k < kmax) & (r_abs > eps * self.nx * self.ny) ).any():
-        
-            CONV_COND = ( (k < kmax) & (r_abs > eps * self.nx * self.ny) )
-
-            x_int = b - applyStencil_LU(x, bmo, bom, bop, bpo)  :  zeroPadGS
-            x = applyStencil_D(x_int, inv_boo) : zeroPadGS
-
-            r_0 = self.zeroPadGS(b - self.applyStencilGS(x, self.boo, self.bmo, self.bom, self.bop, self.bpo))      
-            r_abs = torch.norm(r_0, dim = (2, 3), p = "fro")
-
-            k  = torch.where(NOT_RES_COND, k+1, k) 
-
-        return x, torch.max(k)
-        '''
-
-
-    def BiCGSTAB_GS(self, x, b, kmax, eps, verbose = False):
-        
-        k       = torch.zeros((self.batch, self.channel), dtype=torch.long, device = self.device) 
-        r_abs   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device) 
-        v_abs   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device) 
-        r0_abs  = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device) 
-        sigma   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device) 
-        alpha   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device) 
-        omega   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device) 
-        beta    = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device) 
-
-        r_0     = torch.zeros_like(x, dtype = torch.float64)
-        r       = torch.zeros_like(x, dtype = torch.float64) 
-        r_old   = torch.zeros_like(x, dtype = torch.float64) 
-        p       = torch.zeros_like(x, dtype = torch.float64) 
-        v       = torch.zeros_like(x, dtype = torch.float64) 
-        s       = torch.zeros_like(x, dtype = torch.float64) 
-        t       = torch.zeros_like(x, dtype = torch.float64) 
-
-        # reslosss = SteadyState(self.nx)
-
-        p   = self.zeroPadGS(b - self.applyStencilGS(x, self.boo, self.bmo, self.bom, self.bop, self.bpo))      
-        r_0 = r = p
-        r0_abs = torch.norm(r_0, dim = (2, 3), p = "fro")
-        r_abs  = r0_abs
-
-        if verbose:
-            print(f"r_abs : {r_abs}, shape : {r_abs.shape}")
-    
-        while ( (k < kmax) & (r_abs > eps * self.nx * self.ny) ).any():
             
-            # self.bicg_mat["bicg_iter"].append(k.item())
-
             # =======================================
             # WHILE CONVERGENCE CONDITION
             # =======================================
-            
-            CONV_COND = (k < kmax) & (r_abs > eps * self.nx * self.ny) 
-            
-            v = torch.where(CONV_COND[:, :, None, None], self.applyStencilGS(p, self.boo, self.bmo, self.bom, self.bop, self.bpo), v)
-            sigma = torch.where(CONV_COND, torch.sum(torch.mul(v, r_0), dim = (2, 3)), sigma)
-            v_abs = torch.where(CONV_COND, torch.norm(v, dim = (2, 3),  p = "fro"), v_abs)
-                    
-            if verbose:
-                # print(f"WHILE CONVERGENCE CONDITION :\n {CONV_COND} and shape : {CONV_COND.shape}")
-                # print(f"k : {k}, sigma : {sigma}, vabs : {v_abs}")
-                self.write_bicg_weights(v, "v_forward")
-                self.write_bicg_weights(sigma[:, :, None, None], "sigma_forward")
-            
-            # =======================================
-            # SET RESTART CONDITION
-            # =======================================
+            CONV_COND = (k < kmax) & (r_abs > eps * self.nx * self.ny)
 
-            RES_COND = (sigma <= 1e-10 * v_abs * r0_abs)
-            RES1_COND = CONV_COND & RES_COND 
-            RES1_COND_EXP = RES1_COND[:, :, None, None]
+            # JACKOBI ITERATION
+            x_int = torch.where(CONV_COND[:, :, None, None], self.zeroPadGS(b - self.applyStencil_LU(x, self.bmo, self.bom, self.bop, self.bpo)), x_int)
+            x     = torch.where(CONV_COND[:, :, None, None], self.zeroPadGS(self.applyStencil_D(x_int, self.inv_boo)), x)
 
-            p       = torch.where(RES1_COND_EXP, self.zeroPadGS(b - self.applyStencilGS(x, self.boo, self.bmo, self.bom, self.bop, self.bpo)), p)
-            r       = torch.where(RES1_COND_EXP, p, r)
-            r_0     = torch.where(RES1_COND_EXP, p, r_0)
-            r0_abs  = torch.where(RES1_COND, torch.norm(r_0, dim = (2, 3), p = "fro"), r0_abs)
-            r_abs   = torch.where(RES1_COND, r0_abs, r_abs)
-            k       = torch.where(RES1_COND, k+1, k)
+            # residual calculation
+            r_0   = torch.where(CONV_COND[:, :, None, None], self.zeroPadGS(b - self.applyStencilGS(x, self.boo, self.bmo, self.bom, self.bop, self.bpo)), r_0)      
+            r_abs = torch.where(CONV_COND[:, :, None, None], torch.norm(r_0, dim = (2, 3), p = "fro"), r_abs)
 
-
-            if verbose:
-                # print(f"RESTART REQUIRED :\n {RES1_COND}, shape : {RES1_COND.shape}")
-                # print(f"r_abs when restarted: {r_abs}")
-                # print(self.analyseImage(r_abs[:, :, None, None], "r_abs"))
-                self.bicg_mat["restart"].append(RES1_COND_EXP.item())
-                self.write_bicg_weights(r_0, "r_0_forward")
-                self.write_bicg_weights(p, "p_forward")
-
-            # =======================================
-            # INVERSE RESTART CONDITION : systems that dont require restart
-            # =======================================
-            NOT_RES_COND = CONV_COND & (~RES_COND)
-
-            alpha = torch.where(NOT_RES_COND, torch.sum( torch.mul(r, r_0), dim = (2, 3)) / sigma , alpha)
-            
-            s = torch.where(NOT_RES_COND[:, :, None, None], r - (alpha[:, :, None, None] * v), s)
-            
-            if verbose :
-                # print(f"RESTART NOT REQUIRED :\n {NOT_RES_COND}")
-                # print(f"k : {k}, alpha : {alpha}")
-                # self.bicg_mat["no_restart"].append(NOT_RES_COND.item())
-                self.write_bicg_weights(alpha[:, :, None, None], "alpha_forward")
-                self.write_bicg_weights(s, "s_forward")
-            # =======================================
-            # No RESTART and CONVERGENCE CONDITION 
-            # =======================================
-
-            CONV2_COND = torch.norm(s, dim = (2, 3), p = 'fro') <= eps * self.nx * self.ny
-            CONV3_COND = NOT_RES_COND & CONV2_COND
-            CONV3_COND_EXP = CONV3_COND[:, :, None, None]
-
-            x = torch.where(CONV3_COND_EXP, x + alpha[:, :, None, None] * p, x )
-            r = torch.where(CONV3_COND_EXP, s, r)
-            
-            if verbose:
-                # print(f"RESTART NOT REQUIRED and CONV :\n {CONV3_COND}")
-                # self.bicg_mat["no_restart_1f"].append(CONV3_COND_EXP.item())
-                self.write_bicg_weights(r, "r_forward")
-            
-            # =======================================
-            # No RESTART and INVERSE CONVERGENCE CONDITION 
-            # =======================================
-            CONV4_COND = NOT_RES_COND & (~CONV2_COND)
-            CONV4_COND_EXP = CONV4_COND[:, :, None, None]  # this is to match the dimention when matching using torch.where
-
-            t = torch.where(CONV4_COND_EXP, self.applyStencilGS(s, self.boo, self.bmo, self.bom, self.bop, self.bpo), t)
-            omega  = torch.where(CONV4_COND, torch.sum( torch.mul(t, s), dim = (2, 3)) / torch.sum(t**2, dim = (2, 3)), omega )            
-            x = torch.where(CONV4_COND_EXP, x + (alpha[:, :, None, None] * p) + (omega[:, :, None, None] * s), x)
-            # print(self.analyseImage(x, "x"))
-            r_old = torch.where(CONV4_COND_EXP, r, r_old)
-            r = torch.where(CONV4_COND_EXP, s - omega[:, :, None, None] * t, r)
-            # print(self.analyseImage(r, "r"))
-            beta = torch.where(CONV4_COND
-                            , (alpha / omega) * (torch.sum(torch.mul(r, r_0), dim = (2, 3)) / torch.sum(torch.mul(r_old, r_0), dim = (2, 3)))
-                            , beta)
-
-
-            if verbose:
-                # print(f"RESTART NOT REQUIRED and ELSE CONV :\n {CONV4_COND}")
-                # print(f"k : {k} , omega : {omega}, beta : {beta}")
-                # self.bicg_mat["no_restart_2f"].append(CONV4_COND.item())
-                self.write_bicg_weights(t, "t_forward")
-                self.write_bicg_weights(r_old, "r_old_forward")
-                self.write_bicg_weights(omega[:, :, None, None], "omega_forward")
-                self.write_bicg_weights(beta[:, :, None, None], "beta_forward")
-
-            p = torch.where(CONV4_COND_EXP, r + beta[:, :, None, None] * ( p - omega[:, :, None, None] * v), p)
-            # print(self.analyseImage(p, "2nd p"))
-
-            # =======================================
-            # NOT REQUIRING RESTART SYSTEMS ; UPDATE
-            # =======================================
-
-            k  = torch.where(NOT_RES_COND, k+1, k) 
-            r_abs = torch.where(NOT_RES_COND, torch.norm(r, dim = (2, 3), p = 'fro'), r_abs)
-
-            if verbose:
-                pass
-                # print(f"ss : {reslosss(x[:, :, 1:-1,1:-1], self.V[:, :, 1:-1,1:-1], None)} ")
-                print(f"k : {k}, RESIDUAL : {r_abs}")
-
-            ## register backward hook
-        #     v_abs.register_hook(self.create_backward_hook2("v_abs"))
-        #     r0_abs.register_hook(self.create_backward_hook2("r0_abs"))
-        #     sigma.register_hook(self.create_backward_hook2("sigma_backward"))
-        #     alpha.register_hook(self.create_backward_hook2("alpha_backward"))
-        #     omega.register_hook(self.create_backward_hook2("omega_backward"))
-        #     beta.register_hook(self.create_backward_hook2("beta_backward"))
-
-        #     r_0.register_hook(self.create_backward_hook2("r_0_backward"))
-        #     r.register_hook(self.create_backward_hook2("r_backward"))
-        #     r_old.register_hook(self.create_backward_hook2("r_old_backward"))
-        #     p.register_hook(self.create_backward_hook2("p_backward"))
-        #     v.register_hook(self.create_backward_hook2("v_backward"))
-        #     s.register_hook(self.create_backward_hook2("s_backward"))
-        #     t.register_hook(self.create_backward_hook2("t_backward"))
-
-        # self.boo.register_hook(self.create_backward_hook("boo_backward"))
-        # self.bpo.register_hook(self.create_backward_hook("bpo_backward"))
-        # self.bop.register_hook(self.create_backward_hook("bop_backward"))
-        # self.bom.register_hook(self.create_backward_hook("bom_backward"))
-        # self.bmo.register_hook(self.create_backward_hook("bmo_backward"))
-        # self.d1.register_hook(self.create_backward_hook("d1_backward"))
-        # self.d2.register_hook(self.create_backward_hook("d2_backward"))
+            k     = torch.where(CONV_COND, k+1, k) 
 
         return x, torch.max(k)
