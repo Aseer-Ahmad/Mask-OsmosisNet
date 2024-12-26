@@ -99,7 +99,7 @@ class OsmosisInpainting:
 
         for i in range(kmax):
 
-            X, max_k = self.Jacobi(x = U, b = X, kmax = 600, eps = self.eps, verbose=verbose)
+            X, max_k = self.Jacobi(x = U, b = X, kmax = 100000, eps = self.eps, verbose=verbose)
             U = X
             loss = mse( U, self.V)
             print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)
@@ -386,7 +386,6 @@ class OsmosisInpainting:
         inp     = self.pad(inp[:, :, 1:self.nx+1, 1:self.ny+1])
 
         # from top to bottom -> left, down, up, right
-        # res     = boo * inp[:, :, 1:self.nx+1, 1:self.ny+1] \
         res     = bmo * inp[:, :,  :self.nx,   1:self.ny+1] \
                 + bom * inp[:, :, 1:self.nx+1,  :self.ny  ] \
                 + bop * inp[:, :, 1:self.nx+1, 2:self.ny+2] \
@@ -408,7 +407,7 @@ class OsmosisInpainting:
         
         if verbose :
             self.analyseImage(res, "X")
-
+        
         return self.zero_pad(res)
 
     def zeroPadGS(self, x):
@@ -429,15 +428,17 @@ class OsmosisInpainting:
             # WHILE CONVERGENCE CONDITION
             # =======================================
             CONV_COND = (k < kmax) & (r_abs > eps * self.nx * self.ny)
+            CONV_COND_EXP = CONV_COND[:, :, None, None]
 
             # JACKOBI ITERATION
-            x_int = torch.where(CONV_COND[:, :, None, None], self.zeroPadGS(b - self.applyStencil_LU(x, self.bmo, self.bom, self.bop, self.bpo)), x_int)
-            x     = torch.where(CONV_COND[:, :, None, None], self.zeroPadGS(self.applyStencil_D(x_int, self.inv_boo)), x)
+            # x_int = torch.where(CONV_COND_EXP, self.zeroPadGS(b - self.applyStencil_LU(x, self.bmo, self.bom, self.bop, self.bpo)), x_int)
+            x     = torch.where(CONV_COND_EXP, self.zeroPadGS(self.applyStencil_D(b - self.applyStencil_LU(x, self.bmo, self.bom, self.bop, self.bpo), self.inv_boo)), x)
 
             # residual calculation
-            r_0   = torch.where(CONV_COND[:, :, None, None], self.zeroPadGS(b - self.applyStencilGS(x, self.boo, self.bmo, self.bom, self.bop, self.bpo)), r_0)      
-            r_abs = torch.where(CONV_COND[:, :, None, None], torch.norm(r_0, dim = (2, 3), p = "fro"), r_abs)
+            r_0   = torch.where(CONV_COND_EXP, self.zeroPadGS(b - self.applyStencilGS(x, self.boo, self.bmo, self.bom, self.bop, self.bpo)), r_0)      
+            r_abs = torch.where(CONV_COND, torch.norm(r_0, dim = (2, 3), p = "fro"), r_abs)
 
             k     = torch.where(CONV_COND, k+1, k) 
+            # print(k, r_abs)
 
         return x, torch.max(k)

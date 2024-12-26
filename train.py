@@ -18,7 +18,8 @@ torch._dynamo.reset()
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.optim import Optimizer
 from InpaintingSolver.bi_cg_nn import BiCG_Net
-from InpaintingSolver.bi_cg import OsmosisInpainting
+# from InpaintingSolver.bi_cg import OsmosisInpainting
+from InpaintingSolver.jacobi import OsmosisInpainting
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from torchvision.transforms import Pad
@@ -489,7 +490,7 @@ class ModelTrainer():
 
         optimizer = getOptimizer(model, self.opt_config)
         scheduler = getScheduler(optimizer, self.scheduler)
-        offsetEvol = OffsetEvolve(init_offset=1, final_offset=offset, max_iter = offset_evl_steps)
+        offsetEvol = OffsetEvolve(init_offset=0.004, final_offset=offset, max_iter = offset_evl_steps)
         # scheduler = WarmupScheduler(optimizer, warmup_steps=5, final_lr=self.lr, base_lr=1e-5)
 
         print(f"optimizer , scheduler  loaded")
@@ -565,7 +566,7 @@ class ModelTrainer():
                     mask2 = mask
 
                 # osmosis solver
-                osmosis = OsmosisInpainting(None, X, mask1, mask2, offset=offset, tau=tau, eps = eps, device = self.device, apply_canny=False)
+                osmosis = OsmosisInpainting(X, X, mask1, mask2, offset=offset, tau=tau, eps = eps, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)
                 
                 if (i) % batch_plot_every == 0: 
@@ -594,21 +595,21 @@ class ModelTrainer():
                     fname = f"ckp_epoch_{str(epoch+1)}_iter_{str(i-1)}.pt"
                     saveCheckpoint(model, optimizer, self.output_dir, fname)
 
-                if total_norm < skip_norm :
-                    m_max_norm = max_norm
-                elif total_norm > skip_norm and total_norm < 2 * skip_norm :
-                    m_max_norm = max_norm * 2
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = m_max_norm)
-                # elif total_norm > 2 * skip_norm and total_norm < 10 * skip_norm :
-                #     m_max_norm = max_norm * 3
-                # elif total_norm > 10 * skip_norm and total_norm < 20 * skip_norm :
-                #     m_max_norm = max_norm * 4
-                else :
-                    skipped_batches += 1
-                    ttl_skipped_batches += 1
-                    print(f"skipping batch due to higher gradient norm : {total_norm}, total skipped : {ttl_skipped_batches}")
-                    optimizer.zero_grad()
-                    continue
+                # if total_norm < skip_norm :
+                #     m_max_norm = max_norm
+                # elif total_norm > skip_norm and total_norm < 2 * skip_norm :
+                #     m_max_norm = max_norm * 2
+                #     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = m_max_norm)
+                # # elif total_norm > 2 * skip_norm and total_norm < 10 * skip_norm :
+                # #     m_max_norm = max_norm * 3
+                # # elif total_norm > 10 * skip_norm and total_norm < 20 * skip_norm :
+                # #     m_max_norm = max_norm * 4
+                # else :
+                #     skipped_batches += 1
+                #     ttl_skipped_batches += 1
+                #     print(f"skipping batch due to higher gradient norm : {total_norm}, total skipped : {ttl_skipped_batches}")
+                #     optimizer.zero_grad()
+                #     continue
                 
                 # try : 
                 #     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = max_norm)

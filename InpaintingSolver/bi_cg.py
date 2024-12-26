@@ -598,7 +598,7 @@ class OsmosisInpainting:
             if verbose:
                 pass
                 # print(f"ss : {reslosss(x[:, :, 1:-1,1:-1], self.V[:, :, 1:-1,1:-1], None)} ")
-                print(f"k : {k}, RESIDUAL : {r_abs}")
+            print(f"k : {k}, RESIDUAL : {r_abs}")
 
             ## register backward hook
         #     v_abs.register_hook(self.create_backward_hook2("v_abs"))

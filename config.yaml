@@ -1,6 +1,6 @@
 # MODEL PARAMS
 EPOCHS : 100
-MODEL_TYPE : unet_attn
+MODEL_TYPE : unet_standard
 RESUME_CHECKPOINT : 
 SAVE_EVERY_ITER : 50
 VAL_EVERY_ITER : 25
@@ -25,8 +25,8 @@ OPT            :
     momentum   : 0.009  
 
 SCHEDL         : 
-TRAIN_BATCH    : 4
-TEST_BATCH     : 4
+TRAIN_BATCH    : 2
+TEST_BATCH     : 2
 ALPHA1         : 0.1
 ALPHA2         : 1
 MASK_DEN       : 0.1
@@ -37,7 +37,7 @@ SKIP_NORM      : 500
 #solver params
 R_ABS_EPS      : 1e-3
 OFFSET         : 0.004
-TAU            : 16000
+TAU            : 8000
 ITERATIONS     : 
 NOTE           : 
 OFFSET_EVL     : constant
