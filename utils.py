@@ -73,13 +73,12 @@ def getOptimizer(model, opt_config):
 
     return opt
 
-
 def getScheduler(optim, scheduler):
     
     schdl = None
 
     if scheduler == "exp":
-        schdl = ExponentialLR(optim, gamma=0.9)
+        schdl = ExponentialLR(optim, gamma=0.9999)
         
     elif scheduler == "multiStep":
         schdl = MultiStepLR(optim, milestones=[3, 4, 5, 6, 7], gamma=0.6)

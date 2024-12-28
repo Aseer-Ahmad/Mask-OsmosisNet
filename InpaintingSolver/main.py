@@ -1,4 +1,5 @@
-from bi_cg import OsmosisInpainting
+from InpaintingSolver.Solvers import OsmosisInpainting
+# from jacobi import OsmosisInpainting
 import torch
 import numpy as np
 import cv2
@@ -48,7 +49,7 @@ def generate_random_mask(shape, density):
 
 if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    offset = 0.001
+    offset = 0.0001
 
     # V1 = readPGMImage("cameraman.pgm")
     # V1 = V1.to(device) + offset
@@ -57,16 +58,14 @@ if __name__ == '__main__':
 
     V = readPGMImage('church.png')
     V = V.to(device) + offset
+    
+    V = V.repeat(16, 1, 1, 1)
     mask = generate_random_mask(V.shape, 0.1)
     mask = mask.to(device)
-    
-    # V1 = V1.repeat(16, 1, 1, 1)
-    # mask = mask.repeat(16, 1, 1, 1)
-    # V = V.to(device)
 
     df_stencils = get_dfStencil()
     bicg_mat = get_bicgDict()
-    osmosis = OsmosisInpainting(None, V, mask, mask, offset=offset, tau=16000, eps = 1e-9, device = device, apply_canny=True)
+    osmosis = OsmosisInpainting(None, V, mask, mask, offset=offset, tau=8000, eps = 1e-3, device = device, apply_canny=False)
     osmosis.calculateWeights(False, False, False)
     osmosis.solveBatchParallel(df_stencils, bicg_mat, 1, save_batch = [True, "solved_b.pgm"], verbose = False)
 

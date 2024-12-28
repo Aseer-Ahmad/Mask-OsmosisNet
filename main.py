@@ -4,6 +4,8 @@ from train import ModelTrainer
 from CustomDataset import MaskDataset
 import torch
 from MaskModel.unet_model import UNet
+from MaskModel.DanielVasata_Unet import UNet_ContextAgg
+from MaskModel.Unet_Attn import AttU_Net
 from torchsummary import summary
 import os
 import shutil
@@ -105,9 +107,16 @@ def main(config):
     print(f"train size : {train_dataset.__len__()}")
     print(f"test  size  : {test_dataset.__len__()}")
     
-    # get model based on inp and out channels
-    model = UNet(config['INP_CHANNELS'], config['OUT_CHANNELS'], tar_den = config['MASK_DEN'])
-    print(f"model loaded")
+    # get model based on type, inp and out channels, target density
+    if config['MODEL_TYPE'] == 'unet_standard':
+        model = UNet(config['INP_CHANNELS'], config['OUT_CHANNELS'], tar_den = config['MASK_DEN'])
+        print(f"Standard Unet loaded")
+    elif config['MODEL_TYPE'] == 'unet_context_agg':
+        model = UNet_ContextAgg(config['INP_CHANNELS'], config['OUT_CHANNELS'], tar_den = config['MASK_DEN'])
+        print(f"Unet with Context Aggregation loaded")
+    elif config['MODEL_TYPE'] == 'unet_attn':
+        model = AttU_Net(config['INP_CHANNELS'], config['OUT_CHANNELS'], tar_den = config['MASK_DEN'])
+        print(f"Unet with Attention loaded")
     
     #print model summary
     print(f"model summary")
@@ -142,6 +151,7 @@ def main(config):
         train_dataset = train_dataset , 
         test_dataset = test_dataset,
         offset = config['OFFSET'], 
+        offset_evl_steps = config['OFFSET_EVL_STEPS'],
         tau = config['TAU'], 
         eps = float(config['R_ABS_EPS'])
     )

@@ -1,11 +1,12 @@
 # MODEL PARAMS
 EPOCHS : 100
+MODEL_TYPE : unet_standard
 RESUME_CHECKPOINT : 
 SAVE_EVERY_ITER : 50
 VAL_EVERY_ITER : 25
-BATCH_PLOT_EVERY_ITER : 2
+BATCH_PLOT_EVERY_ITER : 25
 OUTPUT_DIR : outputs
-EXP_NAME : 22_11_r2
+EXP_NAME : 8_12_run_6
 
 # DATA PARMS
 TRAIN_FILENAME : iids_train.txt
@@ -18,15 +19,15 @@ OUT_CHANNELS   : 1
 
 # HYPER PARAMS unet
 OPT            : 
-    opt        : Adam
-    lr         : 0.00001
+    opt        : SGD-Nestrov
+    lr         : 0.001
     wd         : 0.001
     momentum   : 0.009  
 
 SCHEDL         : 
-TRAIN_BATCH    : 4
-TEST_BATCH     : 4
-ALPHA1         : 0.01
+TRAIN_BATCH    : 2
+TEST_BATCH     : 2
+ALPHA1         : 0.1
 ALPHA2         : 1
 MASK_DEN       : 0.1
 BIN_METH       : QUANT
@@ -34,12 +35,15 @@ MAX_NORM       : 1
 SKIP_NORM      : 500
 
 #solver params
+SOLVER_TYPE    : Stab_BiCGSTAB_GS
 R_ABS_EPS      : 1e-3
 OFFSET         : 0.004
-TAU            : 14000
+TAU            : 8000
 ITERATIONS     : 
-NOTE           : 
 OFFSET_EVL     : constant
+OFFSET_EVL_STEPS : 5000
+NOTE           : 
+
 
 # Joint model params
 MN_INP_CHANNELS : 1
@@ -66,15 +70,4 @@ OPT2 :
 SCHEDL2 : 
 
 RES_LOSS_OFFSET : 0.004
-
-# rsync -pthrvz -e "condor_ssh_to_job" 67835:outputs/* ssh_output/
-# rsync -pthrvz -e "condor_ssh_to_job" 67855:outputs/* ssh_output/
-# rsync -pthrvz -e "condor_ssh_to_job" 67857:outputs/* ssh_output/
-# rsync -pthrvz -e "condor_ssh_to_job" 67911:outputs/* ssh_output/
-# rsync -pthrvz -e "condor_ssh_to_job" 67913:outputs/* ssh_output/
-
-# rsync -pthrvz -e "condor_ssh_to_job" 67933:outputs/* ssh_output/
-# rsync -pthrvz -e "condor_ssh_to_job" 67935:outputs/* ssh_output/
-# rsync -pthrvz -e "condor_ssh_to_job" 67936:outputs/* ssh_output/
-# rsync -pthrvz -e "condor_ssh_to_job" 67937:outputs/* ssh_output/
 

@@ -8,7 +8,7 @@ from CustomDataset import MaskDataset
 from torch.utils.data import DataLoader
 from datetime import datetime
 import torch
-from InpaintingSolver.bi_cg import OsmosisInpainting
+from InpaintingSolver.Solvers import OsmosisInpainting
 import pandas as pd
 from torchvision.utils import save_image
 
