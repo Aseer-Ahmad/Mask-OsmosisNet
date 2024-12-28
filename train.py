@@ -18,8 +18,8 @@ torch._dynamo.reset()
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.optim import Optimizer
 from InpaintingSolver.bi_cg_nn import BiCG_Net
-# from InpaintingSolver.Solvers import OsmosisInpainting
-from InpaintingSolver.jacobi import OsmosisInpainting
+from InpaintingSolver.Solvers import OsmosisInpainting
+# from InpaintingSolver.jacobi import OsmosisInpainting
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from torchvision.transforms import Pad
@@ -33,7 +33,7 @@ from utils import inspect_gradients, MyCustomTransform2, mean_density, normalize
 
 torch.backends.cuda.matmul.allow_tf32 = True
 SEED = 5 # 4
-# torch.manual_seed(SEED)
+torch.manual_seed(SEED)
 
 # def seed_worker(worker_id):
 #     worker_seed = torch.initial_seed() % 2**32
@@ -92,7 +92,6 @@ class ResidualLoss(nn.Module):
         # residual loss
         return torch.mean(torch.norm((1 - mask) * ss - mask * (x - f), p = 2, dim = (2, 3)) / self.nxny)
         
-
 class InvarianceLoss(nn.Module):
     """
     Inverse variance loss 
@@ -147,7 +146,6 @@ class WarmupScheduler(_LRScheduler):
             # After warmup, we keep the learning rate fixed
             return [self.final_lr for _ in self.optimizer.param_groups]
     
-
 def getDataloaders(train_dataset, test_dataset, img_size, train_batch_size, test_batch_size):
 
     transform = transforms.Compose([
@@ -474,6 +472,7 @@ class ModelTrainer():
                     max_norm, 
                     train_dataset,
                     test_dataset,
+                    solver,
                     offset, 
                     offset_evl_steps,
                     tau, 
@@ -566,7 +565,7 @@ class ModelTrainer():
                     mask2 = mask
 
                 # osmosis solver
-                osmosis = OsmosisInpainting(X, X, mask1, mask2, offset=offset, tau=tau, eps = eps, device = self.device, apply_canny=False)
+                osmosis = OsmosisInpainting(None, X, mask1, mask2, offset=offset, tau=tau, eps = eps, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)
                 
                 if (i) % batch_plot_every == 0: 
@@ -574,7 +573,7 @@ class ModelTrainer():
                 else:
                     save_batch = [False]
                 df_stencils["iter"].append(i)
-                loss3, tts, max_k, df_stencils, bicg_mat = osmosis.solveBatchParallel(df_stencils, bicg_mat, kmax = 1, save_batch = save_batch, verbose = False)
+                loss3, tts, max_k, df_stencils, bicg_mat = osmosis.solveBatchParallel(df_stencils, bicg_mat, solver, kmax = 1, save_batch = save_batch, verbose = False)
                 
                 total_loss = loss3 + loss1 * alpha1 + loss2
                 bp_st = time.time()

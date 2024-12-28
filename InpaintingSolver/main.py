@@ -1,4 +1,4 @@
-from InpaintingSolver.Solvers import OsmosisInpainting
+from Solvers import OsmosisInpainting
 # from jacobi import OsmosisInpainting
 import torch
 import numpy as np
@@ -56,18 +56,18 @@ if __name__ == '__main__':
     # mask = readPGMImage('cameraman-dmask.pgm')
     # mask = mask.to(device)
 
-    V = readPGMImage('church.png')
+    V = readPGMImage('starfish.png')
     V = V.to(device) + offset
     
-    V = V.repeat(16, 1, 1, 1)
+    V = V.repeat(2, 1, 1, 1)
     mask = generate_random_mask(V.shape, 0.1)
     mask = mask.to(device)
 
     df_stencils = get_dfStencil()
     bicg_mat = get_bicgDict()
-    osmosis = OsmosisInpainting(None, V, mask, mask, offset=offset, tau=8000, eps = 1e-3, device = device, apply_canny=False)
+    osmosis = OsmosisInpainting(None, V, mask, mask, offset=offset, tau=8000, eps = 1e-9, device = device, apply_canny=True)
     osmosis.calculateWeights(False, False, False)
-    osmosis.solveBatchParallel(df_stencils, bicg_mat, 1, save_batch = [True, "solved_b.pgm"], verbose = False)
+    osmosis.solveBatchParallel(df_stencils, bicg_mat, "BiCGSTAB", 1, save_batch = [True, "solved_b.pgm"], verbose = False)
 
 
     # osmosis = OsmosisInpainting(None, V, mask, mask, offset=1, tau=300, apply_canny=False)
