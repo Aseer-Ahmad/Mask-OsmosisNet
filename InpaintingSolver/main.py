@@ -1,4 +1,4 @@
-from bi_cg import OsmosisInpainting
+from InpaintingSolver.Solvers import OsmosisInpainting
 # from jacobi import OsmosisInpainting
 import torch
 import numpy as np

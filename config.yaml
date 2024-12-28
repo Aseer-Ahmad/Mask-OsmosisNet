@@ -35,13 +35,14 @@ MAX_NORM       : 1
 SKIP_NORM      : 500
 
 #solver params
+SOLVER_TYPE    : Stab_BiCGSTAB_GS
 R_ABS_EPS      : 1e-3
 OFFSET         : 0.004
 TAU            : 8000
 ITERATIONS     : 
-NOTE           : 
 OFFSET_EVL     : constant
 OFFSET_EVL_STEPS : 5000
+NOTE           : 
 
 
 # Joint model params

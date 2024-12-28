@@ -358,7 +358,7 @@ class OsmosisInpainting:
             print(self.bom.shape)
             self.analyseImage(self.bom, "bom")
 
-    def applyStencilGS(self, inp, boo, bmo, bom, bop, bpo, verbose = False):
+    def applyStencil(self, inp, boo, bmo, bom, bop, bpo, verbose = False):
         """
         inp : (batch, channel, nx, ny)
         """
@@ -410,7 +410,7 @@ class OsmosisInpainting:
         
         return self.zero_pad(res)
 
-    def zeroPadGS(self, x):
+    def zeroPad(self, x):
         return self.zero_pad(x[ :, :, 1:self.nx+1, 1 :self.ny+1])
 
     def Jacobi(self, x, b, kmax, eps, verbose = False):
@@ -419,7 +419,7 @@ class OsmosisInpainting:
 
         x_int       = torch.zeros_like(x, dtype = torch.float64) 
 
-        r_0 = self.zeroPadGS(b - self.applyStencilGS(x, self.boo, self.bmo, self.bom, self.bop, self.bpo))      
+        r_0 = self.zeroPad(b - self.applyStencil(x, self.boo, self.bmo, self.bom, self.bop, self.bpo))      
         r_abs = torch.norm(r_0, dim = (2, 3), p = "fro")
 
         while ( (k < kmax) & (r_abs > eps * self.nx * self.ny) ).any():
@@ -432,10 +432,10 @@ class OsmosisInpainting:
 
             # JACKOBI ITERATION
             # x_int = torch.where(CONV_COND_EXP, self.zeroPadGS(b - self.applyStencil_LU(x, self.bmo, self.bom, self.bop, self.bpo)), x_int)
-            x     = torch.where(CONV_COND_EXP, self.zeroPadGS(self.applyStencil_D(b - self.applyStencil_LU(x, self.bmo, self.bom, self.bop, self.bpo), self.inv_boo)), x)
+            x     = torch.where(CONV_COND_EXP, self.zeroPad(self.applyStencil_D(b - self.applyStencil_LU(x, self.bmo, self.bom, self.bop, self.bpo), self.inv_boo)), x)
 
             # residual calculation
-            r_0   = torch.where(CONV_COND_EXP, self.zeroPadGS(b - self.applyStencilGS(x, self.boo, self.bmo, self.bom, self.bop, self.bpo)), r_0)      
+            r_0   = torch.where(CONV_COND_EXP, self.zeroPad(b - self.applyStencil(x, self.boo, self.bmo, self.bom, self.bop, self.bpo)), r_0)      
             r_abs = torch.where(CONV_COND, torch.norm(r_0, dim = (2, 3), p = "fro"), r_abs)
 
             k     = torch.where(CONV_COND, k+1, k) 

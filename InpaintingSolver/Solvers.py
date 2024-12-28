@@ -172,7 +172,7 @@ class OsmosisInpainting:
 
         for i in range(kmax):
 
-            X, max_k = self.BiCGSTAB_GS(x = U, b = X, kmax = 600, eps = self.eps, verbose=verbose)
+            X, max_k = self.Stab_BiCGSTAB(x = U, b = X, kmax = 600, eps = self.eps, verbose=verbose)
             U = X
             loss = mse( U, self.V)
             print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)
@@ -395,6 +395,9 @@ class OsmosisInpainting:
         self.bmo = -rxx - rx * self.d1[:, :,  :self.nx,   1:self.ny+1] # i-1, j
         self.bom = -ryy - ry * self.d2[:, :, 1:self.nx+1,  :self.ny  ] # i, j-1
  
+         # create inverse central stencil for Jacobi
+        self.inv_boo = 1 / self.boo
+
         if verbose :
             print(self.boo.shape)
             self.analyseImage(self.boo, "boo")
@@ -431,7 +434,7 @@ class OsmosisInpainting:
             # print(f"Gradient of {var_name}\n grad norm : {grad.norm()}\n grad stats:\n{comm}")
         return hook
 
-    def applyStencilGS(self, inp, boo, bmo, bom, bop, bpo, verbose = False):
+    def applyStencil(self, inp, boo, bmo, bom, bop, bpo, verbose = False):
         """
         inp : (batch, channel, nx, ny)
         """
@@ -451,10 +454,10 @@ class OsmosisInpainting:
 
         return self.zero_pad(res)
 
-    def zeroPadGS(self, x):
+    def zeroPad(self, x):
         return self.zero_pad(x[ :, :, 1:self.nx+1, 1 :self.ny+1])
 
-    def BiCGSTAB_GS(self, x, b, kmax, eps, verbose = False):
+    def Stab_BiCGSTAB(self, x, b, kmax, eps, verbose = False):
         
         k       = torch.zeros((self.batch, self.channel), dtype=torch.long, device = self.device) 
         r_abs   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device) 
@@ -475,7 +478,7 @@ class OsmosisInpainting:
 
         # reslosss = SteadyState(self.nx)
 
-        p   = self.zeroPadGS(b - self.applyStencilGS(x, self.boo, self.bmo, self.bom, self.bop, self.bpo))      
+        p   = self.zeroPad(b - self.applyStencil(x, self.boo, self.bmo, self.bom, self.bop, self.bpo))      
         r_0 = r = p
         r0_abs = torch.norm(r_0, dim = (2, 3), p = "fro")
         r_abs  = r0_abs
@@ -493,7 +496,7 @@ class OsmosisInpainting:
             
             CONV_COND = (k < kmax) & (r_abs > eps * self.nx * self.ny) 
             
-            v = torch.where(CONV_COND[:, :, None, None], self.applyStencilGS(p, self.boo, self.bmo, self.bom, self.bop, self.bpo), v)
+            v = torch.where(CONV_COND[:, :, None, None], self.applyStencil(p, self.boo, self.bmo, self.bom, self.bop, self.bpo), v)
             sigma = torch.where(CONV_COND, torch.sum(torch.mul(v, r_0), dim = (2, 3)), sigma)
             v_abs = torch.where(CONV_COND, torch.norm(v, dim = (2, 3),  p = "fro"), v_abs)
                     
@@ -511,7 +514,7 @@ class OsmosisInpainting:
             RES1_COND = CONV_COND & RES_COND 
             RES1_COND_EXP = RES1_COND[:, :, None, None]
 
-            p       = torch.where(RES1_COND_EXP, self.zeroPadGS(b - self.applyStencilGS(x, self.boo, self.bmo, self.bom, self.bop, self.bpo)), p)
+            p       = torch.where(RES1_COND_EXP, self.zeroPad(b - self.applyStencil(x, self.boo, self.bmo, self.bom, self.bop, self.bpo)), p)
             r       = torch.where(RES1_COND_EXP, p, r)
             r_0     = torch.where(RES1_COND_EXP, p, r_0)
             r0_abs  = torch.where(RES1_COND, torch.norm(r_0, dim = (2, 3), p = "fro"), r0_abs)
@@ -564,7 +567,7 @@ class OsmosisInpainting:
             CONV4_COND = NOT_RES_COND & (~CONV2_COND)
             CONV4_COND_EXP = CONV4_COND[:, :, None, None]  # this is to match the dimention when matching using torch.where
 
-            t = torch.where(CONV4_COND_EXP, self.applyStencilGS(s, self.boo, self.bmo, self.bom, self.bop, self.bpo), t)
+            t = torch.where(CONV4_COND_EXP, self.applyStencil(s, self.boo, self.bmo, self.bom, self.bop, self.bpo), t)
             omega  = torch.where(CONV4_COND, torch.sum( torch.mul(t, s), dim = (2, 3)) / torch.sum(t**2, dim = (2, 3)), omega )            
             x = torch.where(CONV4_COND_EXP, x + (alpha[:, :, None, None] * p) + (omega[:, :, None, None] * s), x)
             # print(self.analyseImage(x, "x"))
@@ -598,7 +601,7 @@ class OsmosisInpainting:
             if verbose:
                 pass
                 # print(f"ss : {reslosss(x[:, :, 1:-1,1:-1], self.V[:, :, 1:-1,1:-1], None)} ")
-            print(f"k : {k}, RESIDUAL : {r_abs}")
+                print(f"k : {k}, RESIDUAL : {r_abs}")
 
             ## register backward hook
         #     v_abs.register_hook(self.create_backward_hook2("v_abs"))
@@ -623,5 +626,123 @@ class OsmosisInpainting:
         # self.bmo.register_hook(self.create_backward_hook("bmo_backward"))
         # self.d1.register_hook(self.create_backward_hook("d1_backward"))
         # self.d2.register_hook(self.create_backward_hook("d2_backward"))
+
+        return x, torch.max(k)
+
+    def BiCGSTAB():
+        '''
+        Andreas meister : Numerik linearer Gleichungssysteme Page 208
+        '''
+        pass
+
+    def BiCG(self, x, b, kmax, eps, verbose = False):
+        '''
+        Andreas meister : Numerik linearer Gleichungssysteme Page 198
+        '''
+        k       = torch.zeros((self.batch, self.channel), dtype=torch.long, device = self.device) 
+        r_abs   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device) 
+        r0_abs  = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device) 
+        alpha   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device) 
+        beta    = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device) 
+
+        r_0     = torch.zeros_like(x, dtype = torch.float64)
+        r_0_old = torch.zeros_like(x, dtype = torch.float64)
+        r       = torch.zeros_like(x, dtype = torch.float64) 
+        r_old   = torch.zeros_like(x, dtype = torch.float64) 
+        p       = torch.zeros_like(x, dtype = torch.float64) 
+        v       = torch.zeros_like(x, dtype = torch.float64) 
+
+        r = r_0 = p = p_0 = self.zeroPad(b - self.applyStencil(x, self.boo, self.bmo, self.bom, self.bop, self.bpo)) 
+        r0_abs = torch.norm(r_0, dim = (2, 3), p = "fro")
+        r_abs  = r0_abs
+
+        while ( (k < kmax) & (r_abs > eps * self.nx * self.ny) ).any():
+            
+            # =======================================
+            # WHILE CONVERGENCE CONDITION
+            # =======================================
+            CONV_COND = (k < kmax) & (r_abs > eps * self.nx * self.ny)
+            CONV_COND_EXP = CONV_COND[:, :, None, None]
+
+            v       = torch.where(CONV_COND_EXP, self.applyStencil(p, self.boo, self.bmo, self.bom, self.bop, self.bpo), v)
+            # CORRECTION : transpose stencils
+            v_0     = torch.where(CONV_COND_EXP, self.applyStencil(p_0, self.boo, self.bmo, self.bom, self.bop, self.bpo), v_0)
+            alpha   = torch.where(CONV_COND, torch.sum( torch.mul(r, r_0), dim = (2, 3)) / torch.sum( torch.mul(v, p_0), dim = (2, 3)) , alpha)
+            x       = torch.where(CONV_COND_EXP, x + alpha[:, :, None, None] * p, x)
+            r_old   = torch.where(CONV_COND_EXP, r, r_old)
+            r       = torch.where(CONV_COND_EXP, r - alpha[:, :, None, None] * v, r)
+            r_0_old = torch.where(CONV_COND_EXP, r_0, r_0_old)
+            r_0     = torch.where(CONV_COND_EXP, r_0 - alpha[:, :, None, None] * v_0, r_0) 
+            beta    = torch.where(CONV_COND, torch.sum( torch.mul(r, r_0), dim = (2, 3)) / torch.sum( torch.mul(r_old, r_0_old), dim = (2, 3)), beta)
+            p       = torch.where(CONV_COND_EXP, r + beta[:, :, None, None] * p, p)
+            p_0     = torch.where(CONV_COND_EXP, r_0 + beta[:, :, None, None] * p_0, p_0)
+
+            # residual calculation
+            r_abs = torch.where(CONV_COND, torch.norm(r, dim = (2, 3), p = "fro"), r_abs)
+            k     = torch.where(CONV_COND, k+1, k) 
+
+        return x, torch.max(k)
+
+
+
+    def applyStencil_LU(self, inp, bmo, bom, bop, bpo, verbose = False):
+        """
+        (L + U) inp
+        inp : (batch, channel, nx, ny)
+        """
+        inp     = self.pad(inp[:, :, 1:self.nx+1, 1:self.ny+1])
+
+        # from top to bottom -> left, down, up, right
+        res     = bmo * inp[:, :,  :self.nx,   1:self.ny+1] \
+                + bom * inp[:, :, 1:self.nx+1,  :self.ny  ] \
+                + bop * inp[:, :, 1:self.nx+1, 2:self.ny+2] \
+                + bpo * inp[:, :, 2:self.nx+2, 1:self.ny+1]
+        
+        if verbose :
+            self.analyseImage(res, "X")
+
+        return self.zero_pad(res)
+    
+    def applyStencil_D(self, inp, inv_boo, verbose = False):
+        """
+        (L + U) inp
+        inp : (batch, channel, nx, ny)
+        """
+        inp     = self.pad(inp[:, :, 1:self.nx+1, 1:self.ny+1])
+
+        res     = inv_boo * inp[:, :, 1:self.nx+1, 1:self.ny+1]
+        
+        if verbose :
+            self.analyseImage(res, "X")
+        
+        return self.zero_pad(res)
+
+    def Jacobi(self, x, b, kmax, eps, verbose = False):
+        k       = torch.zeros((self.batch, self.channel), dtype=torch.long, device = self.device) 
+        r_abs   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device) 
+
+        x_int       = torch.zeros_like(x, dtype = torch.float64) 
+
+        r_0 = self.zeroPad(b - self.applyStencil(x, self.boo, self.bmo, self.bom, self.bop, self.bpo))      
+        r_abs = torch.norm(r_0, dim = (2, 3), p = "fro")
+
+        while ( (k < kmax) & (r_abs > eps * self.nx * self.ny) ).any():
+            
+            # =======================================
+            # WHILE CONVERGENCE CONDITION
+            # =======================================
+            CONV_COND = (k < kmax) & (r_abs > eps * self.nx * self.ny)
+            CONV_COND_EXP = CONV_COND[:, :, None, None]
+
+            # JACKOBI ITERATION
+            # x_int = torch.where(CONV_COND_EXP, self.zeroPadGS(b - self.applyStencil_LU(x, self.bmo, self.bom, self.bop, self.bpo)), x_int)
+            x     = torch.where(CONV_COND_EXP, self.zeroPad(self.applyStencil_D(b - self.applyStencil_LU(x, self.bmo, self.bom, self.bop, self.bpo), self.inv_boo)), x)
+
+            # residual calculation
+            r_0   = torch.where(CONV_COND_EXP, self.zeroPad(b - self.applyStencil(x, self.boo, self.bmo, self.bom, self.bop, self.bpo)), r_0)      
+            r_abs = torch.where(CONV_COND, torch.norm(r_0, dim = (2, 3), p = "fro"), r_abs)
+
+            k     = torch.where(CONV_COND, k+1, k) 
+            # print(k, r_abs)
 
         return x, torch.max(k)

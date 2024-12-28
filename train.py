@@ -18,7 +18,7 @@ torch._dynamo.reset()
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.optim import Optimizer
 from InpaintingSolver.bi_cg_nn import BiCG_Net
-# from InpaintingSolver.bi_cg import OsmosisInpainting
+# from InpaintingSolver.Solvers import OsmosisInpainting
 from InpaintingSolver.jacobi import OsmosisInpainting
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
