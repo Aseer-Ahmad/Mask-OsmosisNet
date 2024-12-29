@@ -65,7 +65,7 @@ if __name__ == '__main__':
 
     df_stencils = get_dfStencil()
     bicg_mat = get_bicgDict()
-    osmosis = OsmosisInpainting(None, V, mask, mask, offset=offset, tau=8000, eps = 1e-9, device = device, apply_canny=True)
+    osmosis = OsmosisInpainting(V, V, mask, mask, offset=offset, tau=16000, eps = 1e-9, device = device, apply_canny=False)
     osmosis.calculateWeights(False, False, False)
     osmosis.solveBatchParallel(df_stencils, bicg_mat, "BiCGSTAB", 1, save_batch = [True, "solved_b.pgm"], verbose = False)
 

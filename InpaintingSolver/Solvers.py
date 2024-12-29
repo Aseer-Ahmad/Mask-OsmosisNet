@@ -658,7 +658,7 @@ class OsmosisInpainting:
 
         r_0 = p = self.zeroPad(b - self.applyStencil(x, self.boo, self.bmo, self.bom, self.bop, self.bpo)) 
         r_abs = rho = rho_old =  torch.norm(r_0, dim = (2, 3), p = "fro")
-        
+
         while ( (k < kmax) & (r_abs > eps * self.nx * self.ny) ).any():
             
             # =======================================
@@ -667,7 +667,7 @@ class OsmosisInpainting:
             CONV_COND = (k < kmax) & (r_abs > eps * self.nx * self.ny)
             CONV_COND_EXP = CONV_COND[:, :, None, None]
             
-            v       = torch.where(CONV_COND_EXP, self.zeroPad(b - self.applyStencil(p, self.boo, self.bmo, self.bom, self.bop, self.bpo)), v)
+            v       = torch.where(CONV_COND_EXP, self.applyStencil(p, self.boo, self.bmo, self.bom, self.bop, self.bpo), v)
             alpha   = torch.where(CONV_COND, rho_old / torch.sum( torch.mul(v, r_0), dim = (2, 3)), alpha)
             s       = torch.where(CONV_COND_EXP, r - alpha[:, :, None, None] * v, s)
             t       = torch.where(CONV_COND_EXP, self.applyStencil(s, self.boo, self.bmo, self.bom, self.bop, self.bpo), t)
@@ -679,7 +679,7 @@ class OsmosisInpainting:
             rho_old = torch.where(CONV_COND, rho, rho_old)
             p       = torch.where(CONV_COND_EXP, r + beta[:, :, None, None] * (p - omega[:, :, None, None] * v), p)
             
-            # residual calculation
+            # residual and increment
             r_abs = torch.where(CONV_COND, torch.norm(r, dim = (2, 3), p = "fro"), r_abs)
             k     = torch.where(CONV_COND, k + 1, k) 
             print(f"k : {k}, RESIDUAL : {r_abs}")
@@ -733,8 +733,6 @@ class OsmosisInpainting:
             k     = torch.where(CONV_COND, k + 1, k) 
             print(r_abs)
         return x, torch.max(k)
-
-
 
     def applyStencil_LU(self, inp, bmo, bom, bop, bpo, verbose = False):
         """
