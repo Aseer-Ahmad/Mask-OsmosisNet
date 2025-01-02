@@ -25,49 +25,6 @@ def normalize_(X, scale = 1.):
 
     return X
 
-class SteadyState(nn.Module):
-    """
-    Rsidual Loss 
-    (1 / nxny) || (1 - C)(\laplacian u - div ( d u)) - C (u - f) ||2 
-    """
-    def __init__(self, img_size, offset):
-        super(SteadyState, self).__init__()
-        self.pad = Pad(1, padding_mode = "symmetric")
-        self.nxny = img_size * img_size
-        self.offset = offset
-
-    def forward(self, u, v, mask):
-        '''
-        u : evolved solution ; not padded
-        v : guidance image   ; not padded
-        '''
-        u   = self.pad(u + self.offset)
-        v   = self.pad(v + self.offset)
-
-        # laplacian kernel
-        lap_u_kernel = torch.tensor([[[[0., 1., 0.],
-                                    [1.,-4., 1.],
-                                    [0., 1., 0.]]]], dtype = torch.float64, device = self.device)
-        lap_u = F.conv2d(u, lap_u_kernel)
-
-        # row-direction filters  
-        f1 = torch.tensor([[[[-1.], [1.]]]], dtype = torch.float64, device = self.device)
-        f2 = torch.tensor([[[[.5], [.5]]]], dtype = torch.float64, device = self.device)
-        d1_u = (F.conv2d(v, f1, padding='same') / F.conv2d(v, f2, padding='same')) * F.conv2d(u, f2, padding='same')
-        dx_d1_u = d1_u[:, :, 1:-1, 1:-1] - d1_u[:, :, 0:-2, 1:-1]
-
-        # col-direction filters
-        f3 = torch.tensor([[[[-1., 1.]]]], dtype = torch.float64, device = self.device)
-        f4 = torch.tensor([[[[.5, .5]]]], dtype = torch.float64, device = self.device)
-        d2_u = (F.conv2d(v, f3, padding='same') / F.conv2d(v, f4, padding='same')) * F.conv2d(u, f4, padding='same')
-        dy_d2_u = d2_u[:, :, 1:-1, 1:-1] - d2_u[:, :, 1:-1, 0:-2]
-
-        #steady state 
-        ss = lap_u - dx_d1_u - dy_d2_u 
-
-        # residual loss
-        return torch.mean(torch.norm(ss, p = 2, dim = (2, 3)) / self.nxny)
-
 class MSELoss(nn.Module):
     """
     Means squared loss : 
@@ -80,6 +37,53 @@ class MSELoss(nn.Module):
         # U = normalize_(U)
         # V = normalize_(V)
         return torch.mean(torch.norm(U-V, p = 2, dim = (2,3))**2 / nxny)
+
+class ResidualLoss(nn.Module):
+
+    def __init__(self, img_size, offset):
+        super(ResidualLoss, self).__init__()
+        self.pad = Pad(1, padding_mode = "symmetric")
+        self.nxny = img_size * img_size
+        self.offset = offset
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    def forward(self, x, f, mask):
+        '''
+        Rsidual Loss 
+        (1 / nxny) || (1 - C)(\laplacian u - div ( d u)) - C (u - f) ||2 
+        x : evolved solution ; not padded
+        f : guidance image   ; not padded
+        '''
+        u   = self.pad(x + self.offset)
+        v   = self.pad(f + self.offset)
+
+        # laplacian kernel
+        lap_u_kernel = torch.tensor([[[[0., 1., 0.],
+                                       [1.,-4., 1.],
+                                       [0., 1., 0.]]]], dtype = torch.float64, device = self.device)
+        lap_u = F.conv2d(u, lap_u_kernel)
+
+        # row-direction filters  
+        f1 = torch.tensor([[[[-1.], [1.]]]], dtype = torch.float64, device = self.device)
+        f2 = torch.tensor([[[[.5], [.5]]]], dtype = torch.float64, device = self.device)
+        d1_u = (F.conv2d(v, f1, padding='same') / F.conv2d(v, f2, padding='same')) * F.conv2d(u, f2, padding='same')
+        d1_u = mask * d1_u
+        dx_d1_u = d1_u[:, :, 1:-1, 1:-1] - d1_u[:, :, 0:-2, 1:-1]
+
+        # col-direction filters
+        f3 = torch.tensor([[[[-1., 1.]]]], dtype = torch.float64, device = self.device)
+        f4 = torch.tensor([[[[.5, .5]]]], dtype = torch.float64, device = self.device)
+        d2_u = (F.conv2d(v, f3, padding='same') / F.conv2d(v, f4, padding='same')) * F.conv2d(u, f4, padding='same')
+        d2_u = mask * d2_u
+        dy_d2_u = d2_u[:, :, 1:-1, 1:-1] - d2_u[:, :, 1:-1, 0:-2]
+
+        # steady state 
+        ss = lap_u - dx_d1_u - dy_d2_u 
+
+        # residual loss
+        return torch.mean(torch.norm(ss, p = 2, dim = (2, 3)))  # / self.nxny
+        # return torch.mean(torch.norm((1 - mask) * ss - mask * (x - f), p = 2, dim = (2, 3)) / self.nxny)
+        
 
 class OsmosisInpainting:
 
@@ -486,7 +490,7 @@ class OsmosisInpainting:
         s       = torch.zeros_like(x, dtype = torch.float64) 
         t       = torch.zeros_like(x, dtype = torch.float64) 
 
-        # reslosss = SteadyState(self.nx)
+        reslosss = ResidualLoss(self.nx, self.offset)
 
         p   = self.zeroPad(b - self.applyStencil(x, self.boo, self.bmo, self.bom, self.bop, self.bpo))      
         r_0 = r = p
@@ -610,8 +614,8 @@ class OsmosisInpainting:
 
             if verbose:
                 pass
-                # print(f"ss : {reslosss(x[:, :, 1:-1,1:-1], self.V[:, :, 1:-1,1:-1], None)} ")
-                print(f"k : {k}, RESIDUAL : {r_abs}")
+                print(f"ss : {reslosss(x[:, :, 1:-1,1:-1], self.V[:, :, 1:-1,1:-1], self.mask1)} ")
+                # print(f"k : {k}, RESIDUAL : {r_abs}")
 
             ## register backward hook
         #     v_abs.register_hook(self.create_backward_hook2("v_abs"))

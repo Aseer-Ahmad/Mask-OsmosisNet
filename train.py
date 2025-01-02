@@ -49,10 +49,7 @@ pd.set_option('display.width', 10000)
 
 
 class ResidualLoss(nn.Module):
-    """
-    Rsidual Loss 
-    (1 / nxny) || (1 - C)(\laplacian u - div ( d u)) - C (u - f) ||2 
-    """
+
     def __init__(self, img_size, offset):
         super(ResidualLoss, self).__init__()
         self.pad = Pad(1, padding_mode = "symmetric")
@@ -62,6 +59,8 @@ class ResidualLoss(nn.Module):
 
     def forward(self, x, f, mask):
         '''
+        Rsidual Loss 
+        (1 / nxny) || (1 - C)(\laplacian u - div ( d u)) - C (u - f) ||2 
         x : evolved solution ; not padded
         f : guidance image   ; not padded
         '''
@@ -78,19 +77,22 @@ class ResidualLoss(nn.Module):
         f1 = torch.tensor([[[[-1.], [1.]]]], dtype = torch.float64, device = self.device)
         f2 = torch.tensor([[[[.5], [.5]]]], dtype = torch.float64, device = self.device)
         d1_u = (F.conv2d(v, f1, padding='same') / F.conv2d(v, f2, padding='same')) * F.conv2d(u, f2, padding='same')
+        d1_u = mask * d1_u
         dx_d1_u = d1_u[:, :, 1:-1, 1:-1] - d1_u[:, :, 0:-2, 1:-1]
 
         # col-direction filters
         f3 = torch.tensor([[[[-1., 1.]]]], dtype = torch.float64, device = self.device)
         f4 = torch.tensor([[[[.5, .5]]]], dtype = torch.float64, device = self.device)
         d2_u = (F.conv2d(v, f3, padding='same') / F.conv2d(v, f4, padding='same')) * F.conv2d(u, f4, padding='same')
+        d2_u = mask * d2_u
         dy_d2_u = d2_u[:, :, 1:-1, 1:-1] - d2_u[:, :, 1:-1, 0:-2]
 
-        #steady state 
+        # steady state 
         ss = lap_u - dx_d1_u - dy_d2_u 
 
         # residual loss
-        return torch.mean(torch.norm((1 - mask) * ss - mask * (x - f), p = 2, dim = (2, 3)) / self.nxny)
+        return torch.mean(torch.norm(ss, p = 2, dim = (2, 3)) / self.nxny)
+        # return torch.mean(torch.norm((1 - mask) * ss - mask * (x - f), p = 2, dim = (2, 3)) / self.nxny)
         
 class InvarianceLoss(nn.Module):
     """
