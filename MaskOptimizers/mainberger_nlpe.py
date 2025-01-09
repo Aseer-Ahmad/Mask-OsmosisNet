@@ -46,11 +46,9 @@ def reconstruct(f, mask, SAVE, iter):
     print(f"\n{max_k} iterations in {tt} seconds")
     return U[0,0,1:-1,1:-1]
 
-
 def MSE(U, V, nxny):
     return torch.mean(torch.norm(U-V, p = 2)**2 / nxny)
 
-# method can be trapped in local minima
 def PS(f, p, q, density):
     '''
     f  : (nx, ny)
@@ -127,7 +125,7 @@ def NLPE(f, m, n, K_indices):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     C = torch.ones((nx, ny))
     C_flat = C.view(-1)
-    C_flat[K_indices] = 0
+    C_flat[K_indices] = 1
     C_new_flat  = C_flat.clone()
     iter = 0
     J_removed_indices = torch.empty((0), dtype = torch.int)
@@ -170,7 +168,8 @@ def NLPE(f, m, n, K_indices):
             SAVE = True
         else:
             SAVE = False
-        U_new = reconstruct(f, C_new_flat.view(nx, ny), SAVE, iter)
+
+        U_new = reconstruct(f, C_new_flat.view(nx, ny), True, 1)
         MSE_U_new = MSE(U_new, f, nxny)
         MSE_U     = MSE(U, f, nxny)
 

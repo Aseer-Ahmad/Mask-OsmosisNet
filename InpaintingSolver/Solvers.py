@@ -799,3 +799,5 @@ class OsmosisInpainting:
             # print(k, r_abs)
 
         return x, torch.max(k)
+
+
