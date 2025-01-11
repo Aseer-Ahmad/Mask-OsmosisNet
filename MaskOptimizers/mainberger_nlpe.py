@@ -11,7 +11,7 @@ warnings.filterwarnings("ignore")
 import sys
 import os
 sys.path.append(os.path.abspath(".."))
-from InpaintingSolver.Solvers import OsmosisInpainting
+from InpaintingSolver.Osmosis import OsmosisInpainting
 
 def read_config(file_path):
     with open(file_path, 'r') as file:

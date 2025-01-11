@@ -77,7 +77,7 @@ class ResidualLoss(nn.Module):
         
 class DiffusionInpainting:
 
-    def __init__(self, U, mask, offset, tau, eps, hx = 1, hy = 1, device = None, apply_canny = False):
+    def __init__(self, U, mask, tau, eps, hx = 1, hy = 1, device = None, apply_canny = False):
         # (b, c, h, w)
 
         self.U       = U   # guidance image
@@ -93,7 +93,6 @@ class DiffusionInpainting:
         else :
             self.mask   = mask
 
-        self.offset  = offset
         self.tau     = tau
         self.eps     = eps
                 
@@ -115,30 +114,25 @@ class DiffusionInpainting:
         # init = self.U
         self.df_stencils = df_stencils
         self.bicg_mat = bicg_mat
-        X = self.U
+        init = self.U.clone()
+        X = self.U # torch.randn(self.U.shape).to(self.device)
         U = self.U
         tt = 0
 
         mse = MSELoss()
 
         # select solver
-        if solver == "Stab_BiCGSTAB":
-            solver = self.Stab_BiCGSTAB
-        elif solver == "BiCGSTAB":
-            solver = self.BiCGSTAB
-        elif solver == "Jacobi":
-            solver = self.Jacobi
-        elif solver == "BiCG":
-            solver = self.BiCG
+        if solver == "CG":
+            solver = self.CG
 
         st = time.time()
 
         for i in range(kmax):
 
-            X, max_k = solver(x = U, b = X, kmax = 600, eps = self.eps, verbose=verbose)
+            X, max_k = solver(x = U, b = X, kmax = 100, eps = self.eps, verbose=verbose)
             U = X
-            loss = mse( U, self.V)
-            print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)
+            # loss = mse( U, self.V)
+            # print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)
 
         # print()
         
@@ -147,23 +141,26 @@ class DiffusionInpainting:
 
         if save_batch[0]:
             fname = save_batch[1]
-
+            
+            init = torch.transpose(init, 2, 3)
+            self.mask = torch.transpose(self.mask, 2, 3)
+            U = torch.transpose(U, 2, 3)
+            
             out = torch.cat(( 
-                            ((self.V - self.offset) * 255.).reshape(self.batch*(self.nx+2), self.ny+2) , 
-                            (self.mask1 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
                             # (self.mask2 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
                             # (self.canny_mask * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
-                            # (init-self.offset).reshape(self.batch*(self.nx+2), self.ny+2),
-                            ((U - self.offset) * 255.).reshape(self.batch*(self.nx+2), self.ny+2)
+                            (init * 255).reshape(self.batch*(self.nx+2), self.ny+2),
+                            (self.mask * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
+                            (U * 255.).reshape(self.batch*(self.nx+2), self.ny+2)
                             ),
                             dim = 1)
             # self.writePGMImage((self.normalize(U, 255).reshape(self.batch*(self.nx+2), self.ny+2) - self.offset).cpu().detach().numpy().T, fname)
-            self.writePGMImage(out.cpu().detach().numpy().T, fname) 
+            self.writePGMImage(out.cpu().detach().numpy(), fname) 
 
         # print(torch.mean((self.normalize(U, 255) - self.normalize(self.V, 255)) ** 2, dim=(2, 3)))
 
         # mse loss 
-        loss = mse(U , self.V)
+        loss = None#mse(U , self.V)
         return loss, tt, max_k, self.df_stencils, U
         # return loss, tt, max_k, self.df_stencils, self.bicg_mat
 
@@ -185,6 +182,9 @@ class DiffusionInpainting:
 
         # since we transposed 
         self.nx, self.ny = self.ny, self.nx
+
+        # apply mask
+        # self.applyMask()
 
     def analyseImage(self, x, name):
         comm = ""
@@ -228,7 +228,10 @@ class DiffusionInpainting:
         if self.apply_canny : 
             self.canny_mask = self.createMaskfromCanny()
             self.mask = self.canny_mask
-            
+
+        # apply mask
+        self.U = torch.mul(self.mask, self.U)
+
         if verbose:
             self.analyseImage(self.mask1, "mask1")
             self.analyseImage(self.mask2, "mask2")
@@ -269,13 +272,14 @@ class DiffusionInpainting:
 
         # pad input
         inp     = self.pad(inp[:, :, 1:self.nx+1, 1:self.ny+1])
+        inp     = torch.mul(inp, self.mask)
 
         # from top to bottom -> center, left, down, up, right
         res     = (1 + 2 * rxx + 2 * ryy) * inp[:, :, 1:self.nx+1, 1:self.ny+1] \
-                - rxx * inp[:, :,  :self.nx,   1:self.ny+1] \
-                - ryy * inp[:, :, 1:self.nx+1,  :self.ny  ] \
-                - ryy * inp[:, :, 1:self.nx+1, 2:self.ny+2] \
-                - rxx * inp[:, :, 2:self.nx+2, 1:self.ny+1]
+                                    - rxx * inp[:, :,  :self.nx,   1:self.ny+1] \
+                                    - ryy * inp[:, :, 1:self.nx+1,  :self.ny  ] \
+                                    - ryy * inp[:, :, 1:self.nx+1, 2:self.ny+2] \
+                                    - rxx * inp[:, :, 2:self.nx+2, 1:self.ny+1]
                 
         if verbose :
             self.analyseImage(res, "X")
@@ -286,16 +290,18 @@ class DiffusionInpainting:
         return self.zero_pad(x[ :, :, 1:self.nx+1, 1 :self.ny+1])
 
     def CG(self, x, b, kmax, eps, verbose = False):
+
         k       = torch.zeros((self.batch, self.channel), dtype=torch.long, device = self.device) 
         alpha   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device) 
         beta    = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device) 
 
-        r_0     = torch.zeros_like(x, dtype = torch.float64)
         r       = torch.zeros_like(x, dtype = torch.float64) 
         p       = torch.zeros_like(x, dtype = torch.float64) 
+        q       = torch.zeros_like(x, dtype = torch.float64) 
 
-        r = p = self.zeroPad(b - self.applyStencil(x)) 
-        rho_0 = rho = rho_old = torch.norm(r_0, dim = (2, 3), p = "fro")
+        # b = torch.mul(b, self.mask)
+        p = r = self.zeroPad(b - self.applyStencil(x))
+        rho_0 = rho = rho_old = torch.sum( torch.mul(r, r), dim = (2, 3))
 
         while ( (k < kmax) & (rho > eps * self.nx * self.ny) ).any():
             
@@ -306,17 +312,22 @@ class DiffusionInpainting:
             CONV_COND_EXP = CONV_COND[:, :, None, None]
             
             # update solution
-            q       = torch.where(CONV_COND_EXP, self.applyStencil(p, self.boo, self.bmo, self.bom, self.bop, self.bpo), q)
+            q       = torch.where(CONV_COND_EXP, self.applyStencil(p), q)
             alpha   = torch.where(CONV_COND, rho / torch.sum( torch.mul(p, q), dim = (2, 3)), alpha)
             x       = torch.where(CONV_COND_EXP, x + alpha[:, :, None, None] * p, x)
 
             # update residual and its norm
             rho_old = torch.where(CONV_COND, rho, rho_old)
             r       = torch.where(CONV_COND_EXP, r - alpha[:, :, None, None] * q, r)
-            rho     = torch.where(CONV_COND, torch.norm(r_0, dim = (2, 3), p = "fro"), rho)
+            rho     = torch.where(CONV_COND, torch.sum( torch.mul(r, r), dim = (2, 3)), rho)
 
             # update search direction
             beta    = torch.where(CONV_COND, rho / rho_old, beta)
             p       = torch.where(CONV_COND_EXP, r + beta[:, :, None, None] * p, p)
+            k       = torch.where(CONV_COND, k + 1, k) 
+            print(f"k : {k}, RESIDUAL : {rho}")
 
-        return x 
+        return x, torch.max(k)
+
+    def explicitStep(self, x):
+        pass

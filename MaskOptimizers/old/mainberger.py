@@ -9,7 +9,7 @@ warnings.filterwarnings("ignore")
 import sys
 import os
 sys.path.append(os.path.abspath(".."))
-from InpaintingSolver.Solvers import OsmosisInpainting
+from InpaintingSolver.Osmosis import OsmosisInpainting
 
 # make exp directory and write 
 exp_path = os.path.join("mainberger_exp", "EXP_4")
