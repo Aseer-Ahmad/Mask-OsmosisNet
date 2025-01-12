@@ -12,6 +12,7 @@ import sys
 import os
 sys.path.append(os.path.abspath(".."))
 from InpaintingSolver.Osmosis import OsmosisInpainting
+from InpaintingSolver.Diffusion import DiffusionInpainting
 
 def read_config(file_path):
     with open(file_path, 'r') as file:
@@ -32,7 +33,18 @@ def readPGMImage( pth):
     pgm_T = F.resize(pgm_T.reshape(1, 1, nx, ny) / 255., (128, 128))
     return pgm_T[0][0]
 
-def reconstruct(f, mask, SAVE, iter):
+def DiffusionReconstruct(f, mask, SAVE, iter) :
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    f = f.unsqueeze(0).unsqueeze(0).to(device) 
+    mask = mask.unsqueeze(0).unsqueeze(0).to(device)
+
+    diffusion = DiffusionInpainting(f, mask , tau=16000, eps = float(config["EPS"]), device = device, apply_canny=False)
+    diffusion.prepareInp()
+    loss, tt, max_k, df_stencils, U = diffusion.solveBatchParallel(None, None, "CG", 1,  save_batch = [SAVE, os.path.join(exp_path, f"img_{iter}.pgm")], verbose = False)
+    print(f"\n{max_k} iterations in {tt} seconds")
+    return U[0,0,1:-1,1:-1]
+
+def OsmosisReconstruct(f, mask, SAVE, iter):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     f = f.unsqueeze(0).unsqueeze(0).to(device) 
     mask = mask.unsqueeze(0).unsqueeze(0).to(device)
@@ -94,7 +106,7 @@ def PS(f, p, q, density):
         else:
             SAVE = False
         # reconstruct using only new selected candidated or in combination with final selected candidates ?? 
-        U = reconstruct(f, K_flat.view(nx,ny), SAVE, iter)
+        U = DiffusionReconstruct(f, K_flat.view(nx,ny), SAVE, iter)
         
         # compute local error u - f
         local_error = torch.abs(U - f)
@@ -137,7 +149,7 @@ def NLPE(f, m, n, K_indices):
     C_new_flat = C_new_flat.to(device)
 
     # reconstruct
-    U = reconstruct(f, C, False, 0)
+    U = OsmosisReconstruct(f, C, False, 0)
 
     # all mask indices J \ K
     all_indices = torch.nonzero(C_flat, as_tuple=False).squeeze()
@@ -169,7 +181,7 @@ def NLPE(f, m, n, K_indices):
         else:
             SAVE = False
 
-        U_new = reconstruct(f, C_new_flat.view(nx, ny), True, 1)
+        U_new = OsmosisReconstruct(f, C_new_flat.view(nx, ny), True, 1)
         MSE_U_new = MSE(U_new, f, nxny)
         MSE_U     = MSE(U, f, nxny)
 

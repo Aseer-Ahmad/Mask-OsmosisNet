@@ -448,6 +448,9 @@ class OsmosisInpainting:
             # print(f"Gradient of {var_name}\n grad norm : {grad.norm()}\n grad stats:\n{comm}")
         return hook
 
+    def zeroPad(self, x):
+        return self.zero_pad(x[ :, :, 1:self.nx+1, 1 :self.ny+1])
+
     def applyStencil(self, inp, boo, bmo, bom, bop, bpo, verbose = False):
         """
         inp : (batch, channel, nx, ny)
@@ -464,15 +467,12 @@ class OsmosisInpainting:
                 + bpo * inp[:, :, 2:self.nx+2, 1:self.ny+1]
 
         res = self.zero_pad(res)
-        # res = torch.where(self.mask1 == 1, inp, res)
+        res = torch.where(self.mask1 == 1, inp, res)
 
         if verbose :
             self.analyseImage(res, "X")
 
         return res
-
-    def zeroPad(self, x):
-        return self.zero_pad(x[ :, :, 1:self.nx+1, 1 :self.ny+1])
 
     def Stab_BiCGSTAB(self, x, b, kmax, eps, verbose = False):
         
@@ -495,7 +495,7 @@ class OsmosisInpainting:
 
         reslosss = ResidualLoss(self.nx, self.offset)
 
-        # b = torch.mul(b, self.mask1)
+        b = torch.mul(b, self.mask1)
         p   = self.zeroPad(b - self.applyStencil(x, self.boo, self.bmo, self.bom, self.bop, self.bpo))      
         r_0 = r = p
         r0_abs = torch.norm(r_0, dim = (2, 3), p = "fro")

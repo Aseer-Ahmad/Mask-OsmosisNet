@@ -130,9 +130,9 @@ class DiffusionInpainting:
         for i in range(kmax):
 
             # implicit 
-            X, max_k = solver(x = U, b = X, kmax = 350, eps = self.eps, verbose=verbose)
+            X, max_k = solver(x = U, b = X, kmax = 600, abs_eps = self.eps, verbose=verbose)
             U = X
-            # loss = mse( U, self.V)
+            # loss = mse( init, init)
             # print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)
 
             # explicit
@@ -162,11 +162,8 @@ class DiffusionInpainting:
             # self.writePGMImage((self.normalize(U, 255).reshape(self.batch*(self.nx+2), self.ny+2) - self.offset).cpu().detach().numpy().T, fname)
             self.writePGMImage(out.cpu().detach().numpy().T, fname) 
 
-        # print(torch.mean((self.normalize(U, 255) - self.normalize(self.V, 255)) ** 2, dim=(2, 3)))
-
         # mse loss 
-        max_k = 1
-        loss = None#mse(U , self.V)
+        loss = mse( init, U)
         return loss, tt, max_k, self.df_stencils, U
         # return loss, tt, max_k, self.df_stencils, self.bicg_mat
 
@@ -288,7 +285,7 @@ class DiffusionInpainting:
 
         return res
 
-    def CG(self, x, b, kmax, eps, verbose = False):
+    def CG(self, x, b, kmax, abs_eps, verbose = False):
 
         k       = torch.zeros((self.batch, self.channel), dtype=torch.long, device = self.device) 
         alpha   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device) 
@@ -298,16 +295,19 @@ class DiffusionInpainting:
         p       = torch.zeros_like(x, dtype = torch.float64) 
         q       = torch.zeros_like(x, dtype = torch.float64) 
 
+        relative_eps = abs_eps**2
+        
         b = torch.mul(b, self.mask)
         p = r = self.zeroPad(b - self.applyStencil(x))
         rho_0 = rho = rho_old = torch.sum( torch.mul(r, r), dim = (2, 3))
 
-        while ( (k < kmax) & (rho > eps * self.nx * self.ny) ).any():
+        # itearation counter, absolute residual and relative residual
+        while ( (k < kmax) & (rho > abs_eps * self.nx * self.ny) & (rho > relative_eps * rho_0)).any():
             
             # =======================================
             # WHILE CONVERGENCE CONDITION
             # =======================================
-            CONV_COND = (k < kmax) & (rho > eps * self.nx * self.ny)
+            CONV_COND = (k < kmax) & (rho > abs_eps * self.nx * self.ny) & (rho > relative_eps * rho_0)
             CONV_COND_EXP = CONV_COND[:, :, None, None]
             
             # update solution
@@ -324,7 +324,7 @@ class DiffusionInpainting:
             beta    = torch.where(CONV_COND, rho / rho_old, beta)
             p       = torch.where(CONV_COND_EXP, r + beta[:, :, None, None] * p, p)
             k       = torch.where(CONV_COND, k + 1, k) 
-            print(f"k : {k}, RESIDUAL : {rho}")
+            # print(f"k : {k}, RESIDUAL : {rho}")
 
         return x, torch.max(k)
 

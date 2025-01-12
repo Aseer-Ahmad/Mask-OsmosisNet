@@ -11,7 +11,7 @@ import sys
 import torchvision.transforms.functional as F
 import torch
 
-torch.manual_seed(1)
+# torch.manual_seed(1)
 # setting path
 sys.path.append('../')
 from utils import get_dfStencil, get_bicgDict
@@ -60,7 +60,7 @@ if __name__ == '__main__':
     # mask = readPGMImage('cameraman-dmask.pgm')
     # mask = mask.to(device)
 
-    V = readPGMImage('cameraman.pgm')
+    V = readPGMImage('scarf.pgm')
     V = V.to(device) + offset
     
     V = V.repeat(1, 1, 1, 1)
@@ -71,14 +71,16 @@ if __name__ == '__main__':
     bicg_mat = get_bicgDict()
     
     # Osmosis
-    osmosis = OsmosisInpainting(V, V, mask, mask, offset=offset, tau=16000, eps = 1e-3, device = device, apply_canny=False)
-    osmosis.calculateWeights(False, False, False)
-    osmosis.solveBatchParallel(df_stencils, bicg_mat, "Stab_BiCGSTAB", 1, save_batch = [True, "solved_b.pgm"], verbose = False)
-
+    # osmosis = OsmosisInpainting(V, V, mask, mask, offset=offset, tau=16000, eps = 1e-3, device = device, apply_canny=False)
+    # osmosis.calculateWeights(False, False, False)
+    # osmosis.solveBatchParallel(df_stencils, bicg_mat, "Stab_BiCGSTAB", 1, save_batch = [True, "solved_b.pgm"], verbose = False)
 
     # Diffusion
-    # U    = readPGMImage("klein.pgm").to(device)
-    # mask = readPGMImage("klein-mask.pgm").to(device)
-    diffusion = DiffusionInpainting(V, mask , tau=16000, eps = 1e-3, device = device, apply_canny=False)
+    U    = readPGMImage("klein.pgm").to(device)
+    mask = generate_random_mask(U.shape, 0.1).to(device)
+    mask = readPGMImage("klein-mask.pgm").to(device)
+    diffusion = DiffusionInpainting(U, mask , tau=16000, eps = 1e-5, device = device, apply_canny=False)
     diffusion.prepareInp()
-    diffusion.solveBatchParallel(df_stencils, bicg_mat, "CG", 1,  save_batch = [True, "solved_d.pgm"], verbose = False)
+    loss, tt, max_k, df_stencils, U = diffusion.solveBatchParallel(df_stencils, bicg_mat, "CG", 1,  save_batch = [True, "solved_d.pgm"], verbose = False)
+    print(loss, max_k)
+
