@@ -462,11 +462,14 @@ class OsmosisInpainting:
                 + bom * inp[:, :, 1:self.nx+1,  :self.ny  ] \
                 + bop * inp[:, :, 1:self.nx+1, 2:self.ny+2] \
                 + bpo * inp[:, :, 2:self.nx+2, 1:self.ny+1]
-                
+
+        res = self.zero_pad(res)
+        # res = torch.where(self.mask1 == 1, inp, res)
+
         if verbose :
             self.analyseImage(res, "X")
 
-        return self.zero_pad(res)
+        return res
 
     def zeroPad(self, x):
         return self.zero_pad(x[ :, :, 1:self.nx+1, 1 :self.ny+1])
@@ -492,6 +495,7 @@ class OsmosisInpainting:
 
         reslosss = ResidualLoss(self.nx, self.offset)
 
+        # b = torch.mul(b, self.mask1)
         p   = self.zeroPad(b - self.applyStencil(x, self.boo, self.bmo, self.bom, self.bop, self.bpo))      
         r_0 = r = p
         r0_abs = torch.norm(r_0, dim = (2, 3), p = "fro")

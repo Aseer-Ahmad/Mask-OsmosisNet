@@ -129,10 +129,15 @@ class DiffusionInpainting:
 
         for i in range(kmax):
 
-            X, max_k = solver(x = U, b = X, kmax = 100, eps = self.eps, verbose=verbose)
+            # implicit 
+            X, max_k = solver(x = U, b = X, kmax = 350, eps = self.eps, verbose=verbose)
             U = X
             # loss = mse( U, self.V)
             # print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)
+
+            # explicit
+            # X = self.explicitStep(U)
+            # U = X
 
         # print()
         
@@ -142,9 +147,9 @@ class DiffusionInpainting:
         if save_batch[0]:
             fname = save_batch[1]
             
-            init = torch.transpose(init, 2, 3)
-            self.mask = torch.transpose(self.mask, 2, 3)
-            U = torch.transpose(U, 2, 3)
+            # init = torch.transpose(init, 2, 3)
+            # self.mask = torch.transpose(self.mask, 2, 3)
+            # U = torch.transpose(U, 2, 3)
             
             out = torch.cat(( 
                             # (self.mask2 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
@@ -155,11 +160,12 @@ class DiffusionInpainting:
                             ),
                             dim = 1)
             # self.writePGMImage((self.normalize(U, 255).reshape(self.batch*(self.nx+2), self.ny+2) - self.offset).cpu().detach().numpy().T, fname)
-            self.writePGMImage(out.cpu().detach().numpy(), fname) 
+            self.writePGMImage(out.cpu().detach().numpy().T, fname) 
 
         # print(torch.mean((self.normalize(U, 255) - self.normalize(self.V, 255)) ** 2, dim=(2, 3)))
 
         # mse loss 
+        max_k = 1
         loss = None#mse(U , self.V)
         return loss, tt, max_k, self.df_stencils, U
         # return loss, tt, max_k, self.df_stencils, self.bicg_mat
@@ -184,7 +190,7 @@ class DiffusionInpainting:
         self.nx, self.ny = self.ny, self.nx
 
         # apply mask
-        # self.applyMask()
+        self.setMask()
 
     def analyseImage(self, x, name):
         comm = ""
@@ -210,7 +216,7 @@ class DiffusionInpainting:
         
     def createMaskfromCanny(self):
         output_batch = []
-        images = self.normalize(self.V, 255.).detach().cpu().numpy()
+        images = (self.U * 255.).detach().cpu().numpy()
 
         for image in images:
             image = image.squeeze(0) # assuming grey scale image
@@ -222,21 +228,12 @@ class DiffusionInpainting:
         output_batch = torch.tensor(np.stack(output_batch), device = self.device, dtype = torch.int8) * -1
         return output_batch
       
-    def applyMask(self , verbose = False):
+    def setMask(self , verbose = False):
 
         # get CannyMask
         if self.apply_canny : 
             self.canny_mask = self.createMaskfromCanny()
             self.mask = self.canny_mask
-
-        # apply mask
-        self.U = torch.mul(self.mask, self.U)
-
-        if verbose:
-            self.analyseImage(self.mask1, "mask1")
-            self.analyseImage(self.mask2, "mask2")
-            self.analyseImage(self.d1, "d1")
-            self.analyseImage(self.d2, "d2")
 
     def write_bicg_weights(self, x, name):
         comm, min_, max_, mean_, std_ = self.analyseImage(x, name)
@@ -262,6 +259,9 @@ class DiffusionInpainting:
             # print(f"Gradient of {var_name}\n grad norm : {grad.norm()}\n grad stats:\n{comm}")
         return hook
 
+    def zeroPad(self, x):
+        return self.zero_pad(x[ :, :, 1:self.nx+1, 1 :self.ny+1])
+
     def applyStencil(self, inp, verbose = False):
         """
         inp : (batch, channel, nx, ny)
@@ -272,22 +272,21 @@ class DiffusionInpainting:
 
         # pad input
         inp     = self.pad(inp[:, :, 1:self.nx+1, 1:self.ny+1])
-        inp     = torch.mul(inp, self.mask)
 
         # from top to bottom -> center, left, down, up, right
-        res     = (1 + 2 * rxx + 2 * ryy) * inp[:, :, 1:self.nx+1, 1:self.ny+1] \
-                                    - rxx * inp[:, :,  :self.nx,   1:self.ny+1] \
-                                    - ryy * inp[:, :, 1:self.nx+1,  :self.ny  ] \
-                                    - ryy * inp[:, :, 1:self.nx+1, 2:self.ny+2] \
-                                    - rxx * inp[:, :, 2:self.nx+2, 1:self.ny+1]
-                
+        res  = (1 + 2 * rxx + 2 * ryy) * inp[:, :, 1:self.nx+1, 1:self.ny+1] \
+                                 - rxx * inp[:, :,  :self.nx,   1:self.ny+1] \
+                                 - ryy * inp[:, :, 1:self.nx+1,  :self.ny  ] \
+                                 - ryy * inp[:, :, 1:self.nx+1, 2:self.ny+2] \
+                                 - rxx * inp[:, :, 2:self.nx+2, 1:self.ny+1]
+
+        res = self.zero_pad(res)
+        res = torch.where(self.mask == 1, inp, res)
+
         if verbose :
             self.analyseImage(res, "X")
 
-        return self.zero_pad(res)
-
-    def zeroPad(self, x):
-        return self.zero_pad(x[ :, :, 1:self.nx+1, 1 :self.ny+1])
+        return res
 
     def CG(self, x, b, kmax, eps, verbose = False):
 
@@ -299,7 +298,7 @@ class DiffusionInpainting:
         p       = torch.zeros_like(x, dtype = torch.float64) 
         q       = torch.zeros_like(x, dtype = torch.float64) 
 
-        # b = torch.mul(b, self.mask)
+        b = torch.mul(b, self.mask)
         p = r = self.zeroPad(b - self.applyStencil(x))
         rho_0 = rho = rho_old = torch.sum( torch.mul(r, r), dim = (2, 3))
 
@@ -329,5 +328,24 @@ class DiffusionInpainting:
 
         return x, torch.max(k)
 
-    def explicitStep(self, x):
-        pass
+    def explicitStep(self, inp):
+
+        # time savers
+        rxx = self.tau / (self.hx * self.hx)
+        ryy = self.tau / (self.hy * self.hy)
+
+        # pad input
+        inp     = self.pad(inp[:, :, 1:self.nx+1, 1:self.ny+1])
+
+        # explicit diffusion inpainting
+        # from top to bottom -> center, left, down, up, right
+        res  = (1 - 2 * rxx - 2 * ryy) * inp[:, :, 1:self.nx+1, 1:self.ny+1] \
+                                 + rxx * inp[:, :,  :self.nx,   1:self.ny+1] \
+                                 + ryy * inp[:, :, 1:self.nx+1,  :self.ny  ] \
+                                 + ryy * inp[:, :, 1:self.nx+1, 2:self.ny+2] \
+                                 + rxx * inp[:, :, 2:self.nx+2, 1:self.ny+1]
+        
+        res = self.zero_pad(res)
+        res = torch.where(self.mask == 1, inp, res)
+        
+        return res
