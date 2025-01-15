@@ -17,15 +17,6 @@ torch.set_printoptions(linewidth=3000)
 torch.set_printoptions(precision=6)
 
 
-def normalize_(X, scale = 1.):
-    b, c, _ , _ = X.shape
-    X = X - torch.amin(X, dim=(2,3)).view(b,c,1,1)
-    X = X / (torch.amax(X, dim=(2,3)).view(b,c,1,1) + 1e-7)
-    X = X * scale
-
-    return X
-
-
 class MSELoss(nn.Module):
     """
     Means squared loss : 
@@ -35,8 +26,6 @@ class MSELoss(nn.Module):
 
     def forward(self, U, V):
         nxny = U.shape[2] * U.shape[3]
-        # U = normalize_(U)
-        # V = normalize_(V)
         return torch.mean(torch.norm(U-V, p = 2, dim = (2,3))**2 / nxny)
 
 class OsmosisInpainting:
@@ -152,20 +141,7 @@ class OsmosisInpainting:
         self.getStencilMatrices(s_verbose)
         if s_verbose:
             print(f"stencils weights calculated")
-        
-    def normalize(self, X, scale = 1.):
-        b, c, _ , _ = X.shape
-        X = X - torch.amin(X, dim=(2,3)).view(b,c,1,1)
-        X = X / (torch.amax(X, dim=(2,3)).view(b,c,1,1) + 1e-7)
-        X = X * scale
-
-        return X
-        
-    def writePGMImage(self, X, filename):
-        # add comments for pgm img
-        cv2.imwrite(filename, X[1:-1, 1:-1])
-        # print(f"written to : {filename}")
-
+               
     def prepareInp(self):
         """
         transposed ; Weickert transposed it in his C code

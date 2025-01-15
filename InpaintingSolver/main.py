@@ -1,4 +1,6 @@
-from InpaintingSolver.Solvers import OsmosisInpainting
+from Osmosis import OsmosisInpainting
+from Diffusion import DiffusionInpainting
+
 # from jacobi import OsmosisInpainting
 import torch
 import numpy as np
@@ -7,7 +9,9 @@ import time
 from torchvision import transforms, utils
 import sys
 import torchvision.transforms.functional as F
+import torch
 
+# torch.manual_seed(1)
 # setting path
 sys.path.append('../')
 from utils import get_dfStencil, get_bicgDict
@@ -29,7 +33,7 @@ def readPGMImage( pth):
     pgm_T = torch.tensor(pgm, dtype = torch.float64)
     nx, ny = pgm_T.size()
     pgm_T = pgm_T.reshape(1, 1, nx, ny) / 255.
-    # pgm_T = F.resize(pgm_T.reshape(1, 1, nx, ny) / 255., (128, 128))
+    # pgm_T = F.resize(pgm_T.reshape(1, 1, nx, ny) / 255., (16, 16))
     return pgm_T
 
 
@@ -56,34 +60,27 @@ if __name__ == '__main__':
     # mask = readPGMImage('cameraman-dmask.pgm')
     # mask = mask.to(device)
 
-    V = readPGMImage('church.png')
+    V = readPGMImage('scarf.pgm')
     V = V.to(device) + offset
     
-    V = V.repeat(16, 1, 1, 1)
+    V = V.repeat(1, 1, 1, 1)
     mask = generate_random_mask(V.shape, 0.1)
     mask = mask.to(device)
 
     df_stencils = get_dfStencil()
     bicg_mat = get_bicgDict()
-    osmosis = OsmosisInpainting(None, V, mask, mask, offset=offset, tau=8000, eps = 1e-3, device = device, apply_canny=False)
-    osmosis.calculateWeights(False, False, False)
-    osmosis.solveBatchParallel(df_stencils, bicg_mat, 1, save_batch = [True, "solved_b.pgm"], verbose = False)
-
-
-    # osmosis = OsmosisInpainting(None, V, mask, mask, offset=1, tau=300, apply_canny=False)
+    
+    # Osmosis
+    # osmosis = OsmosisInpainting(V, V, mask, mask, offset=offset, tau=16000, eps = 1e-3, device = device, apply_canny=False)
     # osmosis.calculateWeights(False, False, False)
-    # osmosis.solve(10, save_every = 10, verbose = False)
+    # osmosis.solveBatchParallel(df_stencils, bicg_mat, "Stab_BiCGSTAB", 1, save_batch = [True, "solved_b.pgm"], verbose = False)
 
-    # image = np.array([[3,8,0],
-    #                   [6,0,1],
-    #                   [3,1,4]])
-    # image = np.clip(image, 0, 255).astype(np.uint8)
+    # Diffusion
+    U    = readPGMImage("klein.pgm").to(device)
+    mask = generate_random_mask(U.shape, 0.1).to(device)
+    mask = readPGMImage("klein-mask.pgm").to(device)
+    diffusion = DiffusionInpainting(U, mask , tau=16000, eps = 1e-5, device = device, apply_canny=False)
+    diffusion.prepareInp()
+    loss, tt, max_k, df_stencils, U = diffusion.solveBatchParallel(df_stencils, bicg_mat, "CG", 1,  save_batch = [True, "solved_d.pgm"], verbose = False)
+    print(loss, max_k)
 
-    # with open('test1.pgm', 'wb') as f:
-    #     # Write the PGM header
-    #     f.write(b'P5\n')
-    #     f.write(f'{image.shape[1]} {image.shape[0]}\n'.encode())
-    #     f.write(b'255\n')
-        
-    #     # Write the image data
-    #     f.write(image.tobytes())

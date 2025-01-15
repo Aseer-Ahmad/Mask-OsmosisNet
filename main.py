@@ -150,6 +150,7 @@ def main(config):
         max_norm  = config['MAX_NORM'],
         train_dataset = train_dataset , 
         test_dataset = test_dataset,
+        solver = config['SOLVER_TYPE'],
         offset = config['OFFSET'], 
         offset_evl_steps = config['OFFSET_EVL_STEPS'],
         tau = config['TAU'], 

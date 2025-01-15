@@ -35,7 +35,7 @@ MAX_NORM       : 1
 SKIP_NORM      : 500
 
 #solver params
-SOLVER_TYPE    : Stab_BiCGSTAB_GS
+SOLVER_TYPE    : BiCG
 R_ABS_EPS      : 1e-3
 OFFSET         : 0.004
 TAU            : 8000

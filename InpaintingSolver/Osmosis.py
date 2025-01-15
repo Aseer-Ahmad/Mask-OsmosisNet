@@ -25,49 +25,6 @@ def normalize_(X, scale = 1.):
 
     return X
 
-class SteadyState(nn.Module):
-    """
-    Rsidual Loss 
-    (1 / nxny) || (1 - C)(\laplacian u - div ( d u)) - C (u - f) ||2 
-    """
-    def __init__(self, img_size, offset):
-        super(SteadyState, self).__init__()
-        self.pad = Pad(1, padding_mode = "symmetric")
-        self.nxny = img_size * img_size
-        self.offset = offset
-
-    def forward(self, u, v, mask):
-        '''
-        u : evolved solution ; not padded
-        v : guidance image   ; not padded
-        '''
-        u   = self.pad(u + self.offset)
-        v   = self.pad(v + self.offset)
-
-        # laplacian kernel
-        lap_u_kernel = torch.tensor([[[[0., 1., 0.],
-                                    [1.,-4., 1.],
-                                    [0., 1., 0.]]]], dtype = torch.float64, device = self.device)
-        lap_u = F.conv2d(u, lap_u_kernel)
-
-        # row-direction filters  
-        f1 = torch.tensor([[[[-1.], [1.]]]], dtype = torch.float64, device = self.device)
-        f2 = torch.tensor([[[[.5], [.5]]]], dtype = torch.float64, device = self.device)
-        d1_u = (F.conv2d(v, f1, padding='same') / F.conv2d(v, f2, padding='same')) * F.conv2d(u, f2, padding='same')
-        dx_d1_u = d1_u[:, :, 1:-1, 1:-1] - d1_u[:, :, 0:-2, 1:-1]
-
-        # col-direction filters
-        f3 = torch.tensor([[[[-1., 1.]]]], dtype = torch.float64, device = self.device)
-        f4 = torch.tensor([[[[.5, .5]]]], dtype = torch.float64, device = self.device)
-        d2_u = (F.conv2d(v, f3, padding='same') / F.conv2d(v, f4, padding='same')) * F.conv2d(u, f4, padding='same')
-        dy_d2_u = d2_u[:, :, 1:-1, 1:-1] - d2_u[:, :, 1:-1, 0:-2]
-
-        #steady state 
-        ss = lap_u - dx_d1_u - dy_d2_u 
-
-        # residual loss
-        return torch.mean(torch.norm(ss, p = 2, dim = (2, 3)) / self.nxny)
-
 class MSELoss(nn.Module):
     """
     Means squared loss : 
@@ -80,6 +37,53 @@ class MSELoss(nn.Module):
         # U = normalize_(U)
         # V = normalize_(V)
         return torch.mean(torch.norm(U-V, p = 2, dim = (2,3))**2 / nxny)
+
+class ResidualLoss(nn.Module):
+
+    def __init__(self, img_size, offset):
+        super(ResidualLoss, self).__init__()
+        self.pad = Pad(1, padding_mode = "symmetric")
+        self.nxny = img_size * img_size
+        self.offset = offset
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    def forward(self, x, f, mask):
+        '''
+        Rsidual Loss 
+        (1 / nxny) || (1 - C)(\laplacian u - div ( d u)) - C (u - f) ||2 
+        x : evolved solution ; not padded
+        f : guidance image   ; not padded
+        '''
+        u   = self.pad(x + self.offset)
+        v   = self.pad(f + self.offset)
+
+        # laplacian kernel
+        lap_u_kernel = torch.tensor([[[[0., 1., 0.],
+                                       [1.,-4., 1.],
+                                       [0., 1., 0.]]]], dtype = torch.float64, device = self.device)
+        lap_u = F.conv2d(u, lap_u_kernel)
+
+        # row-direction filters  
+        f1 = torch.tensor([[[[-1.], [1.]]]], dtype = torch.float64, device = self.device)
+        f2 = torch.tensor([[[[.5], [.5]]]], dtype = torch.float64, device = self.device)
+        d1_u = (F.conv2d(v, f1, padding='same') / F.conv2d(v, f2, padding='same')) * F.conv2d(u, f2, padding='same')
+        d1_u = mask * d1_u
+        dx_d1_u = d1_u[:, :, 1:-1, 1:-1] - d1_u[:, :, 0:-2, 1:-1]
+
+        # col-direction filters
+        f3 = torch.tensor([[[[-1., 1.]]]], dtype = torch.float64, device = self.device)
+        f4 = torch.tensor([[[[.5, .5]]]], dtype = torch.float64, device = self.device)
+        d2_u = (F.conv2d(v, f3, padding='same') / F.conv2d(v, f4, padding='same')) * F.conv2d(u, f4, padding='same')
+        d2_u = mask * d2_u
+        dy_d2_u = d2_u[:, :, 1:-1, 1:-1] - d2_u[:, :, 1:-1, 0:-2]
+
+        # steady state 
+        ss = lap_u - dx_d1_u - dy_d2_u 
+
+        # residual loss
+        return torch.mean(torch.norm(ss, p = 2, dim = (2, 3)))  # / self.nxny
+        # return torch.mean(torch.norm((1 - mask) * ss - mask * (x - f), p = 2, dim = (2, 3)) / self.nxny)
+        
 
 class OsmosisInpainting:
 
@@ -123,7 +127,7 @@ class OsmosisInpainting:
         self.pad      = Pad(1, padding_mode = "symmetric") # mirror
         self.zero_pad = Pad(1,fill=0, padding_mode='constant') # zero padding
 
-    def solveBatchParallel(self, df_stencils, bicg_mat, kmax , save_batch = False, verbose = False):
+    def solveBatchParallel(self, df_stencils, bicg_mat, solver, kmax , save_batch = False, verbose = False):
 
         # init = self.U
         self.df_stencils = df_stencils
@@ -133,6 +137,16 @@ class OsmosisInpainting:
         tt = 0
 
         mse = MSELoss()
+
+        # select solver
+        if solver == "Stab_BiCGSTAB":
+            solver = self.Stab_BiCGSTAB
+        elif solver == "BiCGSTAB":
+            solver = self.BiCGSTAB
+        elif solver == "Jacobi":
+            solver = self.Jacobi
+        elif solver == "BiCG":
+            solver = self.BiCG
 
         # write forward drift stencil stats to df
         # comm, min_, max_, mean_, std_ = self.analyseImage(self.d1, f"d1")
@@ -172,7 +186,7 @@ class OsmosisInpainting:
 
         for i in range(kmax):
 
-            X, max_k = self.Stab_BiCGSTAB(x = U, b = X, kmax = 600, eps = self.eps, verbose=verbose)
+            X, max_k = solver(x = U, b = X, kmax = 600, eps = self.eps, verbose=verbose)
             U = X
             loss = mse( U, self.V)
             print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)
@@ -434,6 +448,9 @@ class OsmosisInpainting:
             # print(f"Gradient of {var_name}\n grad norm : {grad.norm()}\n grad stats:\n{comm}")
         return hook
 
+    def zeroPad(self, x):
+        return self.zero_pad(x[ :, :, 1:self.nx+1, 1 :self.ny+1])
+
     def applyStencil(self, inp, boo, bmo, bom, bop, bpo, verbose = False):
         """
         inp : (batch, channel, nx, ny)
@@ -448,14 +465,14 @@ class OsmosisInpainting:
                 + bom * inp[:, :, 1:self.nx+1,  :self.ny  ] \
                 + bop * inp[:, :, 1:self.nx+1, 2:self.ny+2] \
                 + bpo * inp[:, :, 2:self.nx+2, 1:self.ny+1]
-                
+
+        res = self.zero_pad(res)
+        res = torch.where(self.mask1 == 1, inp, res)
+
         if verbose :
             self.analyseImage(res, "X")
 
-        return self.zero_pad(res)
-
-    def zeroPad(self, x):
-        return self.zero_pad(x[ :, :, 1:self.nx+1, 1 :self.ny+1])
+        return res
 
     def Stab_BiCGSTAB(self, x, b, kmax, eps, verbose = False):
         
@@ -476,8 +493,9 @@ class OsmosisInpainting:
         s       = torch.zeros_like(x, dtype = torch.float64) 
         t       = torch.zeros_like(x, dtype = torch.float64) 
 
-        # reslosss = SteadyState(self.nx)
+        reslosss = ResidualLoss(self.nx, self.offset)
 
+        b = torch.mul(b, self.mask1)
         p   = self.zeroPad(b - self.applyStencil(x, self.boo, self.bmo, self.bom, self.bop, self.bpo))      
         r_0 = r = p
         r0_abs = torch.norm(r_0, dim = (2, 3), p = "fro")
@@ -600,8 +618,8 @@ class OsmosisInpainting:
 
             if verbose:
                 pass
-                # print(f"ss : {reslosss(x[:, :, 1:-1,1:-1], self.V[:, :, 1:-1,1:-1], None)} ")
-                print(f"k : {k}, RESIDUAL : {r_abs}")
+                print(f"ss : {reslosss(x[:, :, 1:-1,1:-1], self.V[:, :, 1:-1,1:-1], self.mask1)} ")
+                # print(f"k : {k}, RESIDUAL : {r_abs}")
 
             ## register backward hook
         #     v_abs.register_hook(self.create_backward_hook2("v_abs"))
@@ -629,12 +647,53 @@ class OsmosisInpainting:
 
         return x, torch.max(k)
 
-    def BiCGSTAB():
+    def BiCGSTAB(self, x, b, kmax, eps, verbose = False):
         '''
         Andreas meister : Numerik linearer Gleichungssysteme Page 208
         '''
-        pass
+        k       = torch.zeros((self.batch, self.channel), dtype=torch.long, device = self.device) 
+        r_abs   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device) 
+        alpha   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device) 
+        beta    = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device) 
+        omega   = torch.zeros((self.batch, self.channel), dtype=torch.float64, device = self.device) 
 
+        r_0     = torch.zeros_like(x, dtype = torch.float64)
+        r       = torch.zeros_like(x, dtype = torch.float64) 
+        p       = torch.zeros_like(x, dtype = torch.float64) 
+        v       = torch.zeros_like(x, dtype = torch.float64) 
+        s       = torch.zeros_like(x, dtype = torch.float64) 
+        t       = torch.zeros_like(x, dtype = torch.float64) 
+
+        r_0 = p = self.zeroPad(b - self.applyStencil(x, self.boo, self.bmo, self.bom, self.bop, self.bpo)) 
+        r_abs = rho = rho_old =  torch.norm(r_0, dim = (2, 3), p = "fro")
+
+        while ( (k < kmax) & (r_abs > eps * self.nx * self.ny) ).any():
+            
+            # =======================================
+            # WHILE CONVERGENCE CONDITION
+            # =======================================
+            CONV_COND = (k < kmax) & (r_abs > eps * self.nx * self.ny)
+            CONV_COND_EXP = CONV_COND[:, :, None, None]
+            
+            v       = torch.where(CONV_COND_EXP, self.applyStencil(p, self.boo, self.bmo, self.bom, self.bop, self.bpo), v)
+            alpha   = torch.where(CONV_COND, rho_old / torch.sum( torch.mul(v, r_0), dim = (2, 3)), alpha)
+            s       = torch.where(CONV_COND_EXP, r - alpha[:, :, None, None] * v, s)
+            t       = torch.where(CONV_COND_EXP, self.applyStencil(s, self.boo, self.bmo, self.bom, self.bop, self.bpo), t)
+            omega   = torch.where(CONV_COND, torch.sum( torch.mul(t, s), dim = (2, 3)) / torch.sum(t**2, dim = (2, 3)), omega) 
+            x       = torch.where(CONV_COND_EXP, x + alpha[:, :, None, None] * p + omega[:, :, None, None] * s, x)
+            r       = torch.where(CONV_COND_EXP, s - omega[:, :, None, None] * t, r)
+            rho     = torch.where(CONV_COND, torch.sum( torch.mul(r, r_0), dim = (2, 3)), rho)
+            beta    = torch.where(CONV_COND, (alpha * rho) / (omega * rho_old), beta)
+            rho_old = torch.where(CONV_COND, rho, rho_old)
+            p       = torch.where(CONV_COND_EXP, r + beta[:, :, None, None] * (p - omega[:, :, None, None] * v), p)
+            
+            # residual and increment
+            r_abs = torch.where(CONV_COND, torch.norm(r, dim = (2, 3), p = "fro"), r_abs)
+            k     = torch.where(CONV_COND, k + 1, k) 
+            print(f"k : {k}, RESIDUAL : {r_abs}")
+
+        return x, torch.max(k)
+                
     def BiCG(self, x, b, kmax, eps, verbose = False):
         '''
         Andreas meister : Numerik linearer Gleichungssysteme Page 198
@@ -651,6 +710,7 @@ class OsmosisInpainting:
         r_old   = torch.zeros_like(x, dtype = torch.float64) 
         p       = torch.zeros_like(x, dtype = torch.float64) 
         v       = torch.zeros_like(x, dtype = torch.float64) 
+        v_0     = torch.zeros_like(x, dtype = torch.float64) 
 
         r = r_0 = p = p_0 = self.zeroPad(b - self.applyStencil(x, self.boo, self.bmo, self.bom, self.bop, self.bpo)) 
         r0_abs = torch.norm(r_0, dim = (2, 3), p = "fro")
@@ -665,8 +725,7 @@ class OsmosisInpainting:
             CONV_COND_EXP = CONV_COND[:, :, None, None]
 
             v       = torch.where(CONV_COND_EXP, self.applyStencil(p, self.boo, self.bmo, self.bom, self.bop, self.bpo), v)
-            # CORRECTION : transpose stencils
-            v_0     = torch.where(CONV_COND_EXP, self.applyStencil(p_0, self.boo, self.bmo, self.bom, self.bop, self.bpo), v_0)
+            v_0     = torch.where(CONV_COND_EXP, self.applyStencil(p_0, torch.transpose(self.boo, 2, 3), torch.transpose(self.bmo, 2, 3), torch.transpose(self.bom, 2, 3), torch.transpose(self.bop, 2, 3), torch.transpose(self.bpo, 2, 3) ), v_0)
             alpha   = torch.where(CONV_COND, torch.sum( torch.mul(r, r_0), dim = (2, 3)) / torch.sum( torch.mul(v, p_0), dim = (2, 3)) , alpha)
             x       = torch.where(CONV_COND_EXP, x + alpha[:, :, None, None] * p, x)
             r_old   = torch.where(CONV_COND_EXP, r, r_old)
@@ -679,11 +738,9 @@ class OsmosisInpainting:
 
             # residual calculation
             r_abs = torch.where(CONV_COND, torch.norm(r, dim = (2, 3), p = "fro"), r_abs)
-            k     = torch.where(CONV_COND, k+1, k) 
-
+            k     = torch.where(CONV_COND, k + 1, k) 
+            print(r_abs)
         return x, torch.max(k)
-
-
 
     def applyStencil_LU(self, inp, bmo, bom, bop, bpo, verbose = False):
         """
@@ -746,3 +803,5 @@ class OsmosisInpainting:
             # print(k, r_abs)
 
         return x, torch.max(k)
+
+
