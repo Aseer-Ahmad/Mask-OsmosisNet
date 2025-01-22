@@ -970,10 +970,11 @@ return;
 int main ()
 
 {
-char    in1[80], in2[80];     /* name of input images */
+char    in1[80], in2[80]; in3[80]; /* name of input images and mask */
 char    out[80];              /* name of output image */
 double  **u;                  /* evolving image */
 double  **v;                  /* guidance image */
+double  **m;                  /* mask image*/
 double  **d1;                 /* drift vector field, x component */
 double  **d2;                 /* drift vector field, y component */
 double  **boo;                /* matrix entries for pixel [i][j] */
@@ -1017,6 +1018,12 @@ read_pgm_to_double (in1, &nx, &ny, &u);
 printf ("guidance image (pgm):             ");
 read_string (in2);
 read_pgm_to_double (in2, &nx, &ny, &v);
+
+/* ---- read mask image (pgm format P5) ---- */
+
+printf ("mask (pgm):             ");
+read_string (in3);
+read_pgm_to_double (in3, &nx, &ny, &m);
 
 
 /* ---- read other parameters ---- */
@@ -1068,6 +1075,13 @@ printf ("standard dev.:        %8.2lf \n\n", std);
 
 /* compute canonical drift vectors of the guidance image */
 canonical_drift_vectors (v, nx, ny, 1.0, 1.0, d1, d2);
+
+/* multiply mask with drift vectors*/
+for (i=0; i<=nx+1; i++)
+ for (j=0; j<=ny+1; j++){
+     d1[i][j] = d1[i][j] * m[i][j];
+     d2[i][j] = d2[i][j] * m[i][j];
+ }
 
 /* compute resulting osmosis weights */
 generate_matrix (tau, nx, ny, 1.0, 1.0, d1, d2, boo, bpo, bmo, bop, bom);

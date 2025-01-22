@@ -1,5 +1,6 @@
 mainberger_exp
-- EXP_1 : mean init image, eps 1e-3 
+===============
+- EXP_1 :     mean init image, eps 1e-3 
 - EXP_2 : original init image, eps 1e-3 
 - EXP_3 : original init image, eps 1e-6
 - EXP_3 : original init image, eps 1e-9
