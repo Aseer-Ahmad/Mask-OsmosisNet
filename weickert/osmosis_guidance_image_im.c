@@ -20,6 +20,47 @@
   - implicit scheme with BiCGSTAB solver 
 */
 
+
+/*--------------------------------------------------------------------------*/
+
+void alloc_long_matrix
+
+     (long   ***matrix,  /* matrix */
+      long   n1,         /* size in direction 1 */
+      long   n2)         /* size in direction 2 */
+
+/*
+  allocates memory for a matrix of size n1 * n2 in long format
+*/
+
+{
+long i;    /* loop variable */
+
+*matrix = (long **) malloc (n1 * sizeof(long *));
+
+if (*matrix == NULL)
+   {
+   printf("alloc_long_matrix: not enough memory available\n");
+   exit(1);
+   }
+
+for (i=0; i<n1; i++)
+    {
+    (*matrix)[i] = (long *) malloc (n2 * sizeof(long));
+    if ((*matrix)[i] == NULL)
+       {
+       printf("alloc_long_matrix: not enough memory available\n");
+       exit(1);
+       }
+    }
+
+return;
+
+}  /* alloc_long_matrix */
+
+/*--------------------------------------------------------------------------*/
+
+
 /*--------------------------------------------------------------------------*/
 
 void alloc_double_matrix
@@ -194,6 +235,65 @@ else
 return;
 
 } /* skip_white_space_and_comments */
+
+
+/*--------------------------------------------------------------------------*/
+
+void read_pgm_to_long
+
+     (const char  *file_name,    /* name of pgm file */
+      long        *nx,           /* image size in x direction, output */
+      long        *ny,           /* image size in y direction, output */
+      long        ***u)          /* image, output */
+
+/*
+  reads a greyscale image that has been encoded in pgm format P5 to
+  an image u in long format;
+  allocates memory for the image u;
+  adds boundary layers of size 1 such that
+  - the relevant image pixels in x direction use the indices 1,...,nx
+  - the relevant image pixels in y direction use the indices 1,...,ny
+*/
+
+{
+FILE   *inimage;    /* input file */
+char   row[80];     /* for reading data */
+long   i, j;        /* loop variables */
+
+/* open file */
+inimage = fopen (file_name, "rb");
+if (NULL == inimage)
+   {
+   printf ("could not open file '%s' for reading, aborting.\n", file_name);
+   exit (1);
+   }
+
+/* read header */
+fgets (row, 80, inimage);          /* skip format definition */
+fgets (row, 80, inimage);
+while (row[0]=='#')                /* skip comments */
+      fgets (row, 80, inimage);
+sscanf (row, "%ld %ld", nx, ny);   /* read image size */
+fgets (row, 80, inimage);          /* read maximum grey value */
+
+/* allocate memory */
+alloc_long_matrix (u, (*nx)+2, (*ny)+2);
+
+/* read image data row by row */
+for (j=1; j<=(*ny); j++)
+ for (i=1; i<=(*nx); i++)
+     (*u)[i][j] = (long) getc(inimage);
+
+/* close file */
+fclose(inimage);
+
+return;
+
+}  /* read_pgm_to_long */
+
+
+/*----------------------------------------------------------------------------*/
+
 
 /*--------------------------------------------------------------------------*/
 
@@ -970,11 +1070,11 @@ return;
 int main ()
 
 {
-char    in1[80], in2[80]; in3[80]; /* name of input images and mask */
+char    in1[80], in2[80], in3[80]; /* name of input images and mask */
 char    out[80];              /* name of output image */
 double  **u;                  /* evolving image */
 double  **v;                  /* guidance image */
-double  **m;                  /* mask image*/
+long  **m;                  /* mask image*/
 double  **d1;                 /* drift vector field, x component */
 double  **d2;                 /* drift vector field, y component */
 double  **boo;                /* matrix entries for pixel [i][j] */
@@ -1023,7 +1123,7 @@ read_pgm_to_double (in2, &nx, &ny, &v);
 
 printf ("mask (pgm):             ");
 read_string (in3);
-read_pgm_to_double (in3, &nx, &ny, &m);
+read_pgm_to_long (in3, &nx, &ny, &m);
 
 
 /* ---- read other parameters ---- */
@@ -1075,6 +1175,15 @@ printf ("standard dev.:        %8.2lf \n\n", std);
 
 /* compute canonical drift vectors of the guidance image */
 canonical_drift_vectors (v, nx, ny, 1.0, 1.0, d1, d2);
+
+
+/* binarise mask*/
+for (i=0; i<=nx+1; i++){
+ for (j=0; j<=ny+1; j++){
+   if (m[i][j] > 0)
+      m[i][j]  = 1;
+ }
+}
 
 /* multiply mask with drift vectors*/
 for (i=0; i<=nx+1; i++)
