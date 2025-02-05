@@ -1074,7 +1074,7 @@ char    in1[80], in2[80], in3[80]; /* name of input images and mask */
 char    out[80];              /* name of output image */
 double  **u;                  /* evolving image */
 double  **v;                  /* guidance image */
-long  **m;                  /* mask image*/
+long    **m;                  /* mask image*/
 double  **d1;                 /* drift vector field, x component */
 double  **d2;                 /* drift vector field, y component */
 double  **boo;                /* matrix entries for pixel [i][j] */
@@ -1200,6 +1200,7 @@ for (k=1; k<=kmax; k++)
     {
 
     printf("ITER : %ld \n", k);
+
     /* perform one iteration */
     osmosis (nx, ny, boo, bpo, bmo, bop, bom, u);
 

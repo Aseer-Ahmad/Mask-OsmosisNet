@@ -1722,7 +1722,8 @@ int main
    char *args[])
 
 {
-  char filename_image[1024];    /* filename of input image */
+  char filename_image[1024];    /* filename of init image */
+  char filename_guidance[1024];    /* filename of guidance image */
   char filename_mask[1024];     /* filename of input mask */
   char filename_output[1024];   /* filename of output files */
   char filename_help[1024];     /* helper filename for individual output */
@@ -1735,6 +1736,7 @@ int main
   Candidate* candidates;        /* list of exchange candidates */
 
   double*** image_in;           /* input image */
+  double*** image_gd;           /* input guidance */
   double*** inp_best;           /* best inpainted image (w.r.t. MSE) */
   double*** inp_new;            /* inpainted image after NLPE step */
   //double*** mask_image;         /* image representation of inpainting mask */
@@ -1799,8 +1801,10 @@ int main
   if (argc == 1) {
 
     show_intro();
-    printf("    input image (pgm, ppm):                    ");
+    printf("    init image (pgm, ppm):                     ");
     read_string (filename_image);
+    printf("    guidnace image (pgm, ppm):                     ");
+    read_string (filename_guidance);
     printf("    inpainting mask (pgm):                     ");
     read_string (filename_mask);
     printf("    output files (without ending):             ");
@@ -1865,6 +1869,7 @@ int main
     strcpy(filename_output, args[argc-1]);
 
     printf("    input file:                  %s\n", filename_image);
+    printf("    guidance file:               %s\n", filename_guidance);
     printf("    mask file:                   %s\n", filename_mask);
     printf("    output file:                 %s\n", filename_output);
     printf("    inpainting type:             %d\n", i_type);
@@ -1897,6 +1902,10 @@ int main
   read_pgm_to_long (filename_mask, &nx, &ny, &mask_old);
  
   if (!read_pgm_or_ppm(filename_image, &image_in, &nc, &nx, &ny)) {
+    NOTEEXIT;
+  }
+
+  if (!read_pgm_or_ppm(filename_guidance, &image_gd, &nc, &nx, &ny)) {
     NOTEEXIT;
   }
 
@@ -1965,15 +1974,14 @@ for (i=1; i<=nx; i++)
   }
 
   /* allocate memory for candidate list */
-  candidates = (Candidate *) malloc ((unsigned long)(n_cand
-      * sizeof(Candidate)));
+  candidates = (Candidate *) malloc ((unsigned long)(n_cand * sizeof(Candidate)));
 
   /* perform first inpainting */
   copy_double_3D(image_in, inp_best, nc, nx+2, ny+2);
   for (c = 0; c < nc; c++) {
     if (i_type == 0) {
-      hd_inpainting (nx, ny, hx, hy, rrstop, &cg_iter, &cg_res, mask_old, inp_best[c]);
-      //homdiff_inpainting (mask_old[0], inp_best[c], rrstop, hx, hy, nx, ny);
+      // hd_inpainting (nx, ny, hx, hy, rrstop, &cg_iter, &cg_res, mask_old, inp_best[c]);
+       osmosis_inpainting (nx, ny, 0.001, 1, 65536, mask_old, inp_best[c], image_gd[c]);
     }
     else {
       console_error("[main] unsupported inpainting type: %d", i_type);
@@ -1983,9 +1991,9 @@ for (i=1; i<=nx; i++)
 
   /* compute initial MSE */
   if (error_type == 0) {
-    mse_init = compute_mse_3D(image_in, inp_best, nc, nx, ny);
+    mse_init = compute_mse_3D(image_gd, inp_best, nc, nx, ny);
   } else {
-    mse_init = compute_mae_3D(image_in, inp_best, nc, nx, ny);
+    mse_init = compute_mae_3D(image_gd, inp_best, nc, nx, ny);
   }
   mse_new = mse_init;
 
@@ -2014,7 +2022,7 @@ for (i=1; i<=nx; i++)
         pos_x = candidates[k].x;
         pos_y = candidates[k].y;
         for (c = 0; c < nc; c++) {
-          current_error += abs(  image_in[c][pos_x][pos_y]
+          current_error += abs(  image_gd[c][pos_x][pos_y]
                                - inp_best[c][pos_x][pos_y]);
         }
         candidates[k].error = current_error / (double)nc;
@@ -2043,8 +2051,8 @@ for (i=1; i<=nx; i++)
       copy_double_3D(image_in, inp_new, nc, nx+2, ny+2);
       for (c = 0; c < nc; c++) {
         if (i_type == 0) {
-          hd_inpainting (nx, ny, hx, hy, rrstop, &cg_iter, &cg_res, mask_new, inp_new[c]);
-          //homdiff_inpainting (mask_new[0], inp_new[c], rrstop, hx, hy, nx, ny);
+          // hd_inpainting (nx, ny, hx, hy, rrstop, &cg_iter, &cg_res, mask_new, inp_new[c]);
+          osmosis_inpainting (nx, ny, 0.001, 1, 65536, mask_new, inp_new[c], image_gd[c]);
         }
         else {
           console_error("[main] unsupported inpainting type: %d", i_type);
@@ -2054,9 +2062,9 @@ for (i=1; i<=nx; i++)
 
       /* compute new mse and exchange mask in case of improvement */
       if (error_type == 0) {
-           error = compute_mse_3D(image_in, inp_new, nc, nx, ny);
+           error = compute_mse_3D(image_gd, inp_new, nc, nx, ny);
       } else {
-           error = compute_mae_3D(image_in, inp_new, nc, nx, ny);
+           error = compute_mae_3D(image_gd, inp_new, nc, nx, ny);
       }
       if (error < mse_new) {
         copy_double_3D(inp_new, inp_best, nc, nx+2, ny+2);
@@ -2097,13 +2105,13 @@ for (i=1; i<=nx; i++)
   sprintf(comments_all, "#    %f final MSE\n", mse_new);
 
   for (c = 0; c < nc; c++) {
-    hd_inpainting (nx, ny, hx, hy, rrstop, &cg_iter, &cg_res, mask_new, inp_new[c]);
-    //homdiff_inpainting (mask_new[0], inp_new[c], rrstop, hx, hy, nx, ny);
+    // hd_inpainting (nx, ny, hx, hy, rrstop, &cg_iter, &cg_res, mask_new, inp_new[c]);
+    osmosis_inpainting (nx, ny, 0.001, 1, 65536, mask_new, inp_new[c], image_gd[c]);
   }
   if (error_type == 0) {
-           error = compute_mse_3D(image_in, inp_new, nc, nx, ny);
+           error = compute_mse_3D(image_gd, inp_new, nc, nx, ny);
   } else {
-           error = compute_mae_3D(image_in, inp_new, nc, nx, ny);
+           error = compute_mae_3D(image_gd, inp_new, nc, nx, ny);
   }
   printf("    MSE check: %7.3f \n", error);
   
