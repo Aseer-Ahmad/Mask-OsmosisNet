@@ -16,15 +16,6 @@
 /*--------------------------------------------------------------------------*/
 
 
-/*
- features:
- - solves the elliptic PDE for homogeneous diffusion inpainting
- - CG for solving the linear systems of equations
- - mask sparsification with reservoir sampling and heapsort
-*/
-
-/*--------------------------------------------------------------------------*/
-
 void alloc_long_vector
 
      (long   **vector,   /* vector */
@@ -1135,8 +1126,6 @@ return;
 
 /*--------------------------------------------------------------------------*/
 
-/*--------------------------------------------------------------------------*/
-
 void matrix_times_vector
 
      (long     nx,          /* image dimension in x direction */
@@ -1169,6 +1158,7 @@ return;
 
 }  /* matrix_times_vector */
 
+/*--------------------------------------------------------------------------*/
 
 void BiCGSTAB
 
@@ -1356,6 +1346,7 @@ return;
 
 }  /* BiCGSTAB */
 
+/*--------------------------------------------------------------------------*/
 
 void generate_matrix 
 
@@ -1426,6 +1417,7 @@ return;
 
 }  /* generate_matrix */
 
+/*--------------------------------------------------------------------------*/
 
 void canonical_drift_vectors 
 
@@ -1473,28 +1465,20 @@ for (i=1; i<=nx; i++)
  for (j=1; j<=ny-1; j++)
      d2[i][j] = 2.0 / hy * (v[i][j+1] - v[i][j]) / (v[i][j+1] + v[i][j]);
 
-
-// show(v, nx, ny, 3);
-// printf("\n");
-// show(d1, nx, ny, 3);
-// printf("\n");
-// show(d2, nx, ny, 3);
-
-
- 
 return;
 
 } /* canonical_drift_vectors */
 
+/*--------------------------------------------------------------------------*/
 
-/*osmosis inpainting*/
+
 void osmosis_inpainting 
 
      (long     nx,      /* image dimension in x direction */ 
       long     ny,      /* image dimension in y direction */ 
-      long     offset,
-      long     kmax,
-      long     tau,
+      long     offset,  /* offset */
+      long     kmax,    /* largest iteration number */
+      long     tau,     /* time step size */
       long     **m,     /* binarized mask */
       double   **u,     /* input: init image;  output: filtered */
       double   **v)     /* input: guidance image;  */
@@ -1591,12 +1575,10 @@ free_double_matrix (bop, nx+2, ny+2);
 free_double_matrix (bom, nx+2, ny+2);
 return;
 
-} /* osmosis */
+} /* osmosis_inpainting */
 
 
 /*--------------------------------------------------------------------------*/
-
-
 
 
 void analyse_colour_double
@@ -1980,11 +1962,14 @@ long    k_rem;                /* # removed pixels */
 long    n;                    /* # sparsification steps */
 long    nc;                   /* number of image channels */
 long    nx, ny;               /* image size in x, y direction */
+long    kmax;                 /* largest iteration number */
+double  tau;                  /* time step size */
+double  offset;               /* offset */
 double  hx;                   /* step size in x direction */
 double  hy;                   /* step size in y direction */
 double  p=-1, q=-1;           /* fractions */
 double  qmin;                 /* smallest possible q */
-double  density=-1;              /* current density */
+double  density=-1;           /* current density */
 double  maxdensity=-1;        /* stopping density */
 double  rrstop=-1;            /* desired relative norm of reside */
 double  T;                    /* threshold */
@@ -2041,7 +2026,7 @@ if (argc>=9) {
   sprintf(out2,argv[8]);
 }
 
-/* ---- read input image (pgm format P5 or pgm format P6) ---- */
+/* ---- read init and guidance image (pgm format P5 or pgm format P6) ---- */
 if (argc < 2) {
  printf ("init image (pgm, ppm):                 ");
  read_string (in);
@@ -2079,10 +2064,21 @@ if (q<qmin+0.00005) {
   q = qmin;
 }
 
-if (rrstop < 0) {
-  printf ("residual decay for BiCG (in ]0,1[):       ");
-  read_double (&rrstop);
-}
+// if (rrstop < 0) {
+//   printf ("residual decay for BiCG (in ]0,1[):       ");
+//   read_double (&rrstop);
+// }
+
+/* ---- read other parameters ---- */
+
+printf ("time step size :                   ");
+read_double (&tau);
+
+printf ("number of iterations:             ");
+read_long (&kmax);
+
+printf ("greyscale offset (>0.0):          ");
+read_double (&offset);
 
 if (argc < 7) {
   if (nc == 1)
@@ -2140,20 +2136,9 @@ do {
    /* remove randomly fraction p of mask a, yielding mask a_test */
    mask_reduction (a, nx, ny, p, a_test);
 
-   /* inpaint with test mask a_test */
-   // for (i=1; i<=nx; i++)
-   //  for (j=1; j<=ny; j++)
-   //   for (m=0; m<=nc-1; m++)
-   //       if (a_test[i][j] == 1)
-   //          u[m][i][j] = f[m][i][j];
-   //       else
-   //         u[m][i][j] = 0;
-   // for (m=0; m<=nc-1; m++)
-   //     hd_inpainting (nx, ny, hx, hy, rrstop, a_test, u[m]);
-
    /*osmosis inpaint with test mask a_test*/
    for (m=0; m<=nc-1; m++)
-       osmosis_inpainting (nx, ny, 0.001, 1, 65536, a_test, u[m], v[m]);
+       osmosis_inpainting (nx, ny, offset, kmax, tau, a_test, u[m], v[m]);
 
 
    /* compute the error at each candidate mask point */
@@ -2217,21 +2202,9 @@ do {
 while (density > maxdensity);
 
 
-/* ---- inpaint with mask a ---- */
-
-// for (i=1; i<=nx; i++)
-//  for (j=1; j<=ny; j++)
-//   for (m=0; m<=nc-1; m++)
-//       if (a[i][j] == 1)
-//          u[m][i][j] = f[m][i][j];
-//       else 
-//         u[m][i][j] = 0;
-// for (m=0; m<=nc-1; m++)
-//     hd_inpainting (nx, ny, hx, hy, rrstop, a, u[m]);
-
 /*osmosis inpaint with mask a */
 for (m=0; m<=nc-1; m++)
-      osmosis_inpainting (nx, ny, 0.001, 1, 65536, a, u[m], v[m]);
+      osmosis_inpainting (nx, ny, offset, kmax, tau, a, u[m], v[m]);
 
 
 /* ---- analyse inpainted image ---- */
