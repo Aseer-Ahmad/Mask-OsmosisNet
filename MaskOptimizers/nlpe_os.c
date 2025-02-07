@@ -1567,6 +1567,462 @@ void homdiff_inpainting
 
 /* -------------------------------------------------------------------------- */
 
+
+void matrix_times_vector
+
+     (long     nx,          /* image dimension in x direction */
+      long     ny,          /* image dimension in y direction */
+      double   **boo,       /* matrix diagonal entries for [i,j], unchanged */
+      double   **bpo,       /* neighbour entries for [i+1,j], unchanged */
+      double   **bmo,       /* neighbour entries for [i-1,j], unchanged */
+      double   **bop,       /* neighbour entries for [i,j+1], unchanged */
+      double   **bom,       /* neighbour entries for [i,j-1], unchanged */
+      double   **f,         /* vector, unchanged */
+      double   **u)         /* result, changed */
+
+/*
+  computes the product of a pentadiagonal matrix specified by the
+  diagonal boo and the off-diagonals bpo,...,bom and a vector f
+*/
+
+{
+long    i, j;    /* loop variables */
+
+dummies_double (f, nx, ny);
+
+for (i=1; i<=nx; i++)
+ for (j=1; j<=ny; j++)
+     u[i][j] =   boo[i][j] * f[i][j]
+               + bpo[i][j] * f[i+1][j]   + bmo[i][j] * f[i-1][j]
+               + bop[i][j] * f[i][j+1]   + bom[i][j] * f[i][j-1];
+
+return;
+
+}  /* matrix_times_vector */
+
+/*--------------------------------------------------------------------------*/
+
+void BiCGSTAB
+
+     (double   eps,         /* admissible normalised residual norm */
+      long     kmax,        /* max. number of iterations */
+      long     nx,          /* image dimension in x direction */
+      long     ny,          /* image dimension in y direction */
+      double   **aoo,       /* diagonal entries for [i,j], unchanged */
+      double   **apo,       /* neighbour entries for [i+1,j], unchanged */
+      double   **amo,       /* neighbour entries for [i-1,j], unchanged */
+      double   **aop,       /* neighbour entries for [i,j+1], unchanged */
+      double   **aom,       /* neighbour entries for [i,j-1], unchanged */
+      double   **b,         /* right hand side, unchanged */
+      double   **x)         /* old and new solution, changed */
+
+/*
+  Biconjugate gradient stabilised method without preconditioning for
+  solving a linear system A x = b with an unsymmetric, pentadiagonal
+  system matrix A that involves four 2D neighbours.
+  Follows the description in A. Meister: Numerik linearer Gleichungssysteme.
+  Vieweg, Braunschweig, 1999.
+*/
+
+{
+long    i, j, k;           /* loop variables */
+long    restart;           /* restart required? */
+double  alpha, beta;       /* auxiliary variables */
+double  omega, sigma;      /* auxiliary variables */
+double  r0_abs, r_abs;     /* |r0|, |r| */
+double  v_abs;             /* |v| */
+double  **r0;              /* initial residue */
+double  **r_old;           /* old residue */
+double  **r;               /* new residue */
+double  **v, **p;          /* auxiliary vectors */
+double  **s, **t;          /* auxiliary vectors */
+
+
+/* ---- allocate storage ---- */
+
+alloc_double_matrix (&r0,    nx+2, ny+2);
+alloc_double_matrix (&r_old, nx+2, ny+2);
+alloc_double_matrix (&r,     nx+2, ny+2);
+alloc_double_matrix (&v,     nx+2, ny+2);
+alloc_double_matrix (&p,     nx+2, ny+2);
+alloc_double_matrix (&s,     nx+2, ny+2);
+alloc_double_matrix (&t,     nx+2, ny+2);
+
+
+restart = 1;
+k = 0;
+
+while (restart == 1)
+
+{
+
+restart = 0;
+
+
+/* ---- INITIALISATIONS ---- */
+
+/* r_0 = p_0 = b - A * x_0 */
+matrix_times_vector (nx, ny, aoo, apo, amo, aop, aom, x, r0);
+
+
+for (i=1; i<=nx; i++)
+ for (j=1; j<=ny; j++)
+     r[i][j] = r0[i][j] = p[i][j] = b[i][j] - r0[i][j];
+
+// printf("iteration : %ld p\n",k);
+// show(p, nx, ny, 1);
+
+r_abs = r0_abs = sqrt (inner_product (nx, ny, r0, r0));
+// printf("k : %ld , r_abs : %lf \n", k, r_abs);
+
+
+/* ---- ITERATIONS ---- */
+
+while ((k < kmax) && (r_abs > eps * nx * ny) && (restart == 0))
+
+      {
+
+      /* v_k = A p_k */
+      matrix_times_vector (nx, ny, aoo, apo, amo, aop, aom, p, v);
+      // show(v, nx, ny, 1);
+      // break;
+      /* sigma_k = <v_k, r_0> */
+      sigma = inner_product (nx, ny, v, r0);
+
+      /* v_abs = |v| */
+      v_abs = sqrt (inner_product (nx, ny, v, v));
+      // printf("k : %ld , sigma : %lf vabs : %lf\n", k, sigma, v_abs);
+
+      /* check if restart is necessary */
+      if (sigma <= 1.0e-9 * v_abs * r0_abs){
+         restart = 1;
+         // printf("restarting with sigma %lf \n", sigma);
+      }
+      else
+
+      {
+      /* alpha_k = <r_k, r_0> / sigma_k */
+      alpha = inner_product (nx, ny, r, r0) / sigma;
+      // printf("k : %ld , alpha : %lf \n", k, alpha);
+
+      /* s_k = r_k - alpha_k * v_k */
+      for (i=1; i<=nx; i++)
+       for (j=1; j<=ny; j++)
+           s[i][j] = r[i][j] - alpha * v[i][j];
+
+      if (sqrt (inner_product (nx, ny, s, s)) <= eps * nx * ny)
+         {
+         /* x_{k+1} = x_k + alpha_k * p_k */
+         for (i=1; i<=nx; i++)
+          for (j=1; j<=ny; j++)
+              x[i][j] = x[i][j] + alpha * p[i][j];
+
+         /* r_{k+1} = s_k */
+         for (i=1; i<=nx; i++)
+          for (j=1; j<=ny; j++)
+              r[i][j] = s[i][j];
+         }
+
+      else
+
+      {
+      /* t_k = A s_k */
+      matrix_times_vector (nx, ny, aoo, apo, amo, aop, aom, s, t);
+      // show(t, nx, ny, 1);
+
+      /* omega_k = <t_k, s_k> / <t_k, t_k> */
+      omega = inner_product (nx, ny, t, s) / inner_product (nx, ny, t, t);
+      // printf("k : %ld , omega : %lf \n", k, omega);
+
+      /* x_{k+1} = x_k + alpha_k * p_k + omega_k * s_k */
+      for (i=1; i<=nx; i++)
+       for (j=1; j<=ny; j++)
+           x[i][j] = x[i][j] + alpha * p[i][j] + omega * s[i][j];
+
+      /* save r_k in r_old */
+      for (i=1; i<=nx; i++)
+       for (j=1; j<=ny; j++)
+           r_old[i][j] = r[i][j];
+
+      /* r_{k+1} = s_k - omega_k * t_k */
+      for (i=1; i<=nx; i++)
+       for (j=1; j<=ny; j++)
+           r[i][j] = s[i][j] - omega * t[i][j];
+
+      /* beta_k = alpha_k / omega_k * <r_{k+1}, r_0> / <r_k, r_0> */
+      beta = alpha / omega *
+             inner_product (nx, ny, r, r0) / inner_product (nx, ny, r_old, r0);
+      // printf("k : %ld , omega : %lf , beta : %lf \n", k, omega, beta);
+
+      /* p_{k+1} = r_{k+1} + beta_k * (p_k - omega_k * v_k) */
+      for (i=1; i<=nx; i++)
+       for (j=1; j<=ny; j++)
+           p[i][j] = r[i][j] + beta * (p[i][j] - omega * v[i][j]);
+
+      }  /* else (if sqrt) */
+
+      k = k + 1;
+
+      /* r_abs = |r| */
+      r_abs = sqrt (inner_product (nx, ny, r, r));
+      // printf("k : %ld , residual : %lf \n", k, r_abs);
+
+      }  /* else (if sigma) */
+
+      }  /* while */
+
+}  /* while restart */
+
+
+/* ---- free memory ----*/
+
+free_double_matrix (r0,    nx+2, ny+2);
+free_double_matrix (r_old, nx+2, ny+2);
+free_double_matrix (r,     nx+2, ny+2);
+free_double_matrix (v,     nx+2, ny+2);
+free_double_matrix (p,     nx+2, ny+2);
+free_double_matrix (s,     nx+2, ny+2);
+free_double_matrix (t,     nx+2, ny+2);
+
+return;
+
+}  /* BiCGSTAB */
+
+/*--------------------------------------------------------------------------*/
+
+void generate_matrix 
+
+     (double   tau,     /* time step size */
+      long     nx,      /* image dimension in x direction */
+      long     ny,      /* image dimension in y direction */
+      double   hx,      /* pixel size in x direction */
+      double   hy,      /* pixel size in y direction */
+      double   **d1,    /* drift vector, x component in [i+1/2,j], unchanged */
+      double   **d2,    /* drift vector, y component in [i,j+1/2], unchanged */
+      double   **boo,   /* matrix entry for pixel [i][j],   output */
+      double   **bpo,   /* matrix entry for pixel [i+1][j], output */
+      double   **bmo,   /* matrix entry for pixel [i-1][j], output */
+      double   **bop,   /* matrix entry for pixel [i][j+1], output */
+      double   **bom)   /* matrix entry for pixel [i][j-1], output */
+
+/*
+  computes the pentadiagonal matrix (I - tau * A) for implicit osmosis 
+  filtering
+*/
+
+{
+long    i, j;             /* loop variables */
+double  rx, rxx;          /* time savers */
+double  ry, ryy;          /* time savers */
+
+
+/* ---- initialise all relevant matrix entries ---- */
+
+for (i=1; i<=nx; i++)
+ for (j=1; j<=ny; j++)
+     {
+     boo[i][j] = 1.0;
+     bpo[i][j] = bmo[i][j] = bop[i][j] = bom[i][j] = 0.0; 
+     }
+
+
+/* ---- specify them from the drift vector field ---- */
+
+/* compute time savers */
+rx  = tau / (2.0 * hx);
+ry  = tau / (2.0 * hy);
+rxx = tau / (hx * hx);
+ryy = tau / (hy * hy);
+
+for (i=1; i<=nx; i++)
+ for (j=1; j<=ny; j++)
+     {
+     /* matrix entry for pixel [i][j] */
+     boo[i][j] = 1.0 + 2.0 * (rxx + ryy)
+                 - rx * (d1[i-1][j] - d1[i][j])
+                 - ry * (d2[i][j-1] - d2[i][j]);
+
+     /* osmosis weight for pixel [i+1][j] */
+     bpo[i][j] = - rxx + rx * d1[i][j];
+
+     /* osmosis weight for pixel [i-1][j] */
+     bmo[i][j] = - rxx - rx * d1[i-1][j];
+
+     /* osmosis weight for pixel [i][j+1] */
+     bop[i][j] = - ryy + ry * d2[i][j];
+
+     /* osmosis weight for pixel [i][j-1] */
+     bom[i][j] = - ryy - ry * d2[i][j-1];
+     }
+
+return;  
+
+}  /* generate_matrix */
+
+/*--------------------------------------------------------------------------*/
+
+void canonical_drift_vectors 
+
+     (double   **v,     /* guidance image, unchanged */
+      long     nx,      /* image dimension in x direction */ 
+      long     ny,      /* image dimension in y direction */ 
+      double   hx,      /* pixel size in x direction */
+      double   hy,      /* pixel size in y direction */
+      double   **d1,    /* drift vector, x component in [i+1/2,j], output */
+      double   **d2)    /* drift vector, y component in [i,j+1/2], output */
+
+/*
+  computes the canonical drift vector field that allows to reconstruct the 
+  guidance image up to a multiplicative constant
+*/
+
+{
+long    i, j;             /* loop variables */
+
+
+/* ---- dummy boundaries for v ---- */
+
+dummies_double (v, nx, ny);
+
+
+/* ---- initialise drift vector field with 0 ---- */
+
+for (i=0; i<=nx+1; i++)
+ for (j=0; j<=ny+1; j++)
+     d1[i][j] = d2[i][j] = 0.0;
+
+
+/* ---- compute x component of canonical drift vector field ---- */
+
+/* index [i,j] refers to intergrid location [i+1/2,j] */
+for (i=1; i<=nx-1; i++)
+ for (j=1; j<=ny; j++)
+     d1[i][j] = 2.0 / hx * (v[i+1][j] - v[i][j]) / (v[i+1][j] + v[i][j]);
+    
+
+/* ---- compute y component of canonical drift vector field ---- */
+
+/* index [i,j] refers to intergrid location [i,j+1/2] */
+for (i=1; i<=nx; i++)
+ for (j=1; j<=ny-1; j++)
+     d2[i][j] = 2.0 / hy * (v[i][j+1] - v[i][j]) / (v[i][j+1] + v[i][j]);
+
+return;
+
+} /* canonical_drift_vectors */
+
+/*--------------------------------------------------------------------------*/
+
+
+void osmosis_inpainting 
+
+     (long     nx,      /* image dimension in x direction */ 
+      long     ny,      /* image dimension in y direction */ 
+      long     offset,  /* offset */
+      long     kmax,    /* largest iteration number */
+      long     tau,     /* time step size */
+      long     **m,     /* binarized mask */
+      double   **u,     /* input: init image;  output: filtered */
+      double   **v)     /* input: guidance image;  */
+      
+
+/* 
+  Osmosis scheme. Implicit discretisation with BiCGSTAB solver.
+*/
+
+{
+long    i, j;             /* loop variables */
+double  **f;              /* work copy of u */
+double  **d1;                 /* drift vector field, x component */
+double  **d2;                 /* drift vector field, y component */
+double  **boo;                /* matrix entries for pixel [i][j] */
+double  **bpo;                /* matrix entries for pixel [i+1][j] */
+double  **bmo;                /* matrix entries for pixel [i-1][j] */
+double  **bop;                /* matrix entries for pixel [i][j+1] */
+double  **bom;                /* matrix entries for pixel [i][j-1] */
+      
+alloc_double_matrix (&d1,  nx+2, ny+2);
+alloc_double_matrix (&d2,  nx+2, ny+2);
+alloc_double_matrix (&boo, nx+2, ny+2);
+alloc_double_matrix (&bpo, nx+2, ny+2);
+alloc_double_matrix (&bmo, nx+2, ny+2);
+alloc_double_matrix (&bop, nx+2, ny+2);
+alloc_double_matrix (&bom, nx+2, ny+2);
+
+/* ---- process image ---- */
+
+/* add offset in order to make data positive */
+for (i=1; i<=nx; i++)
+ for (j=1; j<=ny; j++)
+     {
+     u[i][j] = u[i][j] + offset;
+     v[i][j] = v[i][j] + offset;
+     }
+
+/* compute canonical drift vectors of the guidance image */
+canonical_drift_vectors (v, nx, ny, 1.0, 1.0, d1, d2);
+
+/* multiply mask with drift vectors*/
+for (i=0; i<=nx+1; i++)
+ for (j=0; j<=ny+1; j++){
+     d1[i][j] = d1[i][j] * m[i][j];
+     d2[i][j] = d2[i][j] * m[i][j];
+ }
+
+/* compute resulting osmosis weights */
+generate_matrix (tau, nx, ny, 1.0, 1.0, d1, d2, boo, bpo, bmo, bop, bom);
+
+
+for(i=0; i<kmax; i++)
+{
+   /* ---- allocate memory ---- */
+
+   alloc_double_matrix (&f, nx+2, ny+2);
+
+
+   /* ---- copy u into f ---- */
+
+   for (i=1; i<=nx; i++)
+   for (j=1; j<=ny; j++)
+      f[i][j] = u[i][j];
+
+
+   /* ---- dummy boundaries for f ---- */
+
+   dummies_double (f, nx, ny);
+
+   /* ---- compute implicit osmosis step ---- */
+
+   /* solve (I - tau * A) u = f */
+   BiCGSTAB (1.0e-9, 10000, nx, ny, boo, bpo, bmo, bop, bom, f, u);
+
+
+   /* ---- free memory ---- */
+
+   free_double_matrix (f, nx+2, ny+2);
+}
+
+/* subtract offset */
+for (i=1; i<=nx; i++)
+ for (j=1; j<=ny; j++)
+     u[i][j] = u[i][j] - offset;
+
+
+free_double_matrix (d1,  nx+2, ny+2);
+free_double_matrix (d2,  nx+2, ny+2);
+free_double_matrix (boo, nx+2, ny+2);
+free_double_matrix (bpo, nx+2, ny+2);
+free_double_matrix (bmo, nx+2, ny+2);
+free_double_matrix (bop, nx+2, ny+2);
+free_double_matrix (bom, nx+2, ny+2);
+return;
+
+} /* osmosis_inpainting */
+
+
+/*--------------------------------------------------------------------------*/
+
+
 /* datastructure for a mask candidate */
 
 typedef struct Candidate Candidate;
@@ -1773,6 +2229,10 @@ int main
   struct  timeval start_time; /* beginning of time measurement */
   double  runtime;            /* runtime */
 
+  long    kmax;                 /* largest iteration number */
+  double  tau;                  /* time step size */
+  double  offset;               /* offset */
+
   mse_init = FLT_MAX;
   mse_old = FLT_MAX;
   mse_new = FLT_MAX;
@@ -1809,8 +2269,20 @@ int main
     read_string (filename_mask);
     printf("    output files (without ending):             ");
     read_string(filename_output);
-    printf("    residual decay for CG (in ]0,1[):          ");
+    printf("    residual decay for BiCG (in ]0,1[):          ");
     read_double(&rrstop);
+
+    /* ---- read other parameters ---- */
+
+    printf ("time step size :                   ");
+    read_double (&tau);
+
+    printf ("number of iterations:             ");
+    read_long (&kmax);
+
+    printf ("greyscale offset (>0.0):          ");
+    read_double (&offset);
+
     printf("    number of candiates per NLPE iteration:    ");
     read_long(&n_cand);
     printf("    number of exchanges per NLPE iteration:    ");
@@ -1947,7 +2419,7 @@ for (i=1; i<=nx; i++)
  /*
   image_2_binmask_2D(mask_image[0], mask_old, nx, ny);
   n_mask_points = compute_noof_mask_points_2D(mask_old, nx, ny);
-  */
+  */  
   n_cand = (long)round(perc_cand * n_mask_points);
 
   printf("number of mask points %d/%d (%f)\n", n_mask_points, nx*ny, (double)n_mask_points/(double)(nx*ny));
@@ -2104,6 +2576,8 @@ for (i=1; i<=nx; i++)
   printf("    Final MSE: %7.3f \n", mse_new);
   sprintf(comments_all, "#    %f final MSE\n", mse_new);
 
+
+  copy_double_3D(image_in, inp_new, nc, nx+2, ny+2); // OSMOSIS : init inp_new with image_in
   for (c = 0; c < nc; c++) {
     // hd_inpainting (nx, ny, hx, hy, rrstop, &cg_iter, &cg_res, mask_new, inp_new[c]);
     osmosis_inpainting (nx, ny, 0.001, 1, 65536, mask_new, inp_new[c], image_gd[c]);

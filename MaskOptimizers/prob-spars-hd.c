@@ -1508,6 +1508,7 @@ double  ***f;                 /* original image */
 double  ***u;                 /* interpolated image */
 long    **a;                  /* inpainting mask, 0 for missing data */
 long    **a_test;             /* auxiliary inpainting mask */
+long    **a_intm;             /* intermediate inpainting mask */
 long    i, j, m;              /* loop variables */
 long    k;                    /* # pixels for test removal */
 long    k_rem;                /* # removed pixels */
@@ -1636,6 +1637,7 @@ alloc_double_vector (&error, nx*ny+1);
 alloc_double_vector (&aux, nx*ny+1);
 alloc_long_matrix   (&a, nx+2, ny+2);
 alloc_long_matrix   (&a_test, nx+2, ny+2);
+alloc_long_matrix   (&a_intm, nx+2, ny+2);
 alloc_double_cubix  (&u, nc, nx+2, ny+2);
 
 /* unit grid size */
@@ -1737,6 +1739,17 @@ do {
    printf ("candidate pixels:        %6ld\n", k);
    printf ("removed pixels:          %6ld\n", k_rem);
    printf ("density:                 %6.4lf\n\n", density);
+
+   /* write intermediate mask */
+   /* rescale a to range [0,255] */
+   for (j=1; j<=ny; j++)
+   for (i=1; i<=nx; i++)
+      a_intm[i][j] = 255 * a[i][j];
+
+   /* open file and write header (incl. filter parameters) */
+   /* write parameter values in comment string */
+   comments[0] = '\0';
+   write_long_to_pgm (a_intm, nx, ny, "temp.pgm", comments);
    }
 while (density > maxdensity);
 
