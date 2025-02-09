@@ -2191,100 +2191,100 @@ do {
    //      }
 
    /* compute the error in neighborhood for each candidate mask point */
-   k = 0;
-   for (i=1; i<=nx; i++)
-    for (j=1; j<=ny; j++)
-     if (a_test[i][j] != a[i][j])
-        {
-        k = k + 1;
-        error[k] = 0.0;
-        for (m=0; m<=nc-1; m++)
-            {
-            //if (error_type == 0) {
-              help = pow((u[m][i][j] - v[m][i][j]), 2) +
-                     pow((u[m][i+1][j] - v[m][i+1][j]), 2) +
-                     pow((u[m][i-1][j] - v[m][i-1][j]), 2) +
-                     pow((u[m][i][j+1] - v[m][i][j+1]), 2) +
-                     pow((u[m][i][j-1] - v[m][i][j-1]), 2) +
-                      
-                     pow((u[m][i+1][j+1] - v[m][i+1][j+1]), 2) + 
-                     pow((u[m][i-1][j+1] - v[m][i-1][j+1]), 2) + 
-                     pow((u[m][i+1][j-1] - v[m][i+1][j-1]), 2) + 
-                     pow((u[m][i-1][j-1] - v[m][i-1][j-1]), 2) ;
-                     
-                     
-                     // pow((u[m][i-1][j] - v[m][i-1][j]), 2) + 
-                     // pow((u[m][i-2][j] - v[m][i-2][j]), 2) + 
-                     // pow((u[m][i-2][j+1] - v[m][i-2][j+1]), 2) + 
-                     // pow((u[m][i-2][j-1] - v[m][i-2][j-1]), 2) + 
-
-                     // pow((u[m][i+1][j] - v[m][i+1][j]), 2) + 
-                     // pow((u[m][i+2][j] - v[m][i+2][j]), 2) + 
-                     // pow((u[m][i+2][j+1] - v[m][i+2][j+1]), 2) + 
-                     // pow((u[m][i+2][j-1] - v[m][i+2][j-1]), 2) + 
-
-                     // pow((u[m][i][j+1] - v[m][i][j+1]), 2) + 
-                     // pow((u[m][i][j+2] - v[m][i][j+2]), 2) + 
-                     // pow((u[m][i-1][j+2] - v[m][i-1][j+2]), 2) + 
-                     // pow((u[m][i+1][j+2] - v[m][i+1][j+2]), 2) + 
-
-                     // pow((u[m][i][j-1] - v[m][i][j-1]), 2) + 
-                     // pow((u[m][i][j-2] - v[m][i][j-2]), 2) + 
-                     // pow((u[m][i-1][j-2] - v[m][i-1][j-2]), 2) + 
-                     // pow((u[m][i+1][j-2] - v[m][i+1][j-2]), 2) + 
-                     
-                     // pow((u[m][i-1][j-1] - v[m][i-1][j-1]), 2) + 
-                     // pow((u[m][i-2][j-2] - v[m][i-2][j-2]), 2) + 
-                     // pow((u[m][i+1][j-1] - v[m][i+1][j-1]), 2) + 
-                     // pow((u[m][i+2][j-2] - v[m][i+2][j-2]), 2) + 
-                     
-                     // pow((u[m][i-1][j+1] - v[m][i-1][j+1]), 2) + 
-                     // pow((u[m][i-2][j+2] - v[m][i-2][j+2]), 2) + 
-                     // pow((u[m][i+1][j+1] - v[m][i+1][j+1]), 2) +
-                     // pow((u[m][i+2][j+2] - v[m][i+2][j+2]), 2) ;
-
-              error[k] = error[k] + help;
-            /*} else {
-              error[k] = error[k] + fabs(u[m][i][j] - f[m][i][j])
-            }*/
-            }
-        error[k] = sqrt (error[k] / (double) (nc*9)); 
-        }   
-
-
-   /* compute the global error for each candidate mask point */
-   // a_intm copy of a 
-   // for (i=1; i<=nx; i++)
-   //    for (j=1; j<=ny; j++)
-   //       a_intm[i][j] = a[i][j];
-   
-   // long o,p;
-   
    // k = 0;
    // for (i=1; i<=nx; i++)
    //  for (j=1; j<=ny; j++)
    //   if (a_test[i][j] != a[i][j])
    //      {
-   //          k = k + 1;
-   //          // set candidate to 0
-   //          a_intm[i][j] = 0; 
-      
-   //          /*osmosis inpaint with test mask a_intm*/
-   //          /* initialise u with init image f */
-   //          for (o=1; o<=nx; o++)
-   //             for (p=1; p<=ny; p++)
-   //                for (m=0; m<=nc-1; m++)
-   //                   u[m][o][p] = f[m][o][p];
-   //          for (m=0; m<=nc-1; m++)
-   //             osmosis_inpainting (nx, ny, offset, kmax, tau, a_intm, u[m], v[m]);
-            
-   //          /* get global error */
-   //          mse = MSE (nc, nx, ny, u, v);
-   //          error[k] = mse ;
+   //      k = k + 1;
+   //      error[k] = 0.0;
+   //      for (m=0; m<=nc-1; m++)
+   //          {
+   //          //if (error_type == 0) {
+   //            help = pow((u[m][i][j] - v[m][i][j]), 2) +
+   //                   pow((u[m][i+1][j] - v[m][i+1][j]), 2) +
+   //                   pow((u[m][i-1][j] - v[m][i-1][j]), 2) +
+   //                   pow((u[m][i][j+1] - v[m][i][j+1]), 2) +
+   //                   pow((u[m][i][j-1] - v[m][i][j-1]), 2) +
+                      
+   //                   pow((u[m][i+1][j+1] - v[m][i+1][j+1]), 2) + 
+   //                   pow((u[m][i-1][j+1] - v[m][i-1][j+1]), 2) + 
+   //                   pow((u[m][i+1][j-1] - v[m][i+1][j-1]), 2) + 
+   //                   pow((u[m][i-1][j-1] - v[m][i-1][j-1]), 2) ;
+                     
+                     
+   //                   // pow((u[m][i-1][j] - v[m][i-1][j]), 2) + 
+   //                   // pow((u[m][i-2][j] - v[m][i-2][j]), 2) + 
+   //                   // pow((u[m][i-2][j+1] - v[m][i-2][j+1]), 2) + 
+   //                   // pow((u[m][i-2][j-1] - v[m][i-2][j-1]), 2) + 
 
-   //          // set candidate back to 1
-   //          a_intm[i][j] = 1;
-   //      }
+   //                   // pow((u[m][i+1][j] - v[m][i+1][j]), 2) + 
+   //                   // pow((u[m][i+2][j] - v[m][i+2][j]), 2) + 
+   //                   // pow((u[m][i+2][j+1] - v[m][i+2][j+1]), 2) + 
+   //                   // pow((u[m][i+2][j-1] - v[m][i+2][j-1]), 2) + 
+
+   //                   // pow((u[m][i][j+1] - v[m][i][j+1]), 2) + 
+   //                   // pow((u[m][i][j+2] - v[m][i][j+2]), 2) + 
+   //                   // pow((u[m][i-1][j+2] - v[m][i-1][j+2]), 2) + 
+   //                   // pow((u[m][i+1][j+2] - v[m][i+1][j+2]), 2) + 
+
+   //                   // pow((u[m][i][j-1] - v[m][i][j-1]), 2) + 
+   //                   // pow((u[m][i][j-2] - v[m][i][j-2]), 2) + 
+   //                   // pow((u[m][i-1][j-2] - v[m][i-1][j-2]), 2) + 
+   //                   // pow((u[m][i+1][j-2] - v[m][i+1][j-2]), 2) + 
+                     
+   //                   // pow((u[m][i-1][j-1] - v[m][i-1][j-1]), 2) + 
+   //                   // pow((u[m][i-2][j-2] - v[m][i-2][j-2]), 2) + 
+   //                   // pow((u[m][i+1][j-1] - v[m][i+1][j-1]), 2) + 
+   //                   // pow((u[m][i+2][j-2] - v[m][i+2][j-2]), 2) + 
+                     
+   //                   // pow((u[m][i-1][j+1] - v[m][i-1][j+1]), 2) + 
+   //                   // pow((u[m][i-2][j+2] - v[m][i-2][j+2]), 2) + 
+   //                   // pow((u[m][i+1][j+1] - v[m][i+1][j+1]), 2) +
+   //                   // pow((u[m][i+2][j+2] - v[m][i+2][j+2]), 2) ;
+
+   //            error[k] = error[k] + help;
+   //          /*} else {
+   //            error[k] = error[k] + fabs(u[m][i][j] - f[m][i][j])
+   //          }*/
+   //          }
+   //      error[k] = sqrt (error[k] / (double) (nc*9)); 
+   //      }   
+
+
+   /* compute the global error for each candidate mask point */
+   // a_intm copy of a 
+   for (i=1; i<=nx; i++)
+      for (j=1; j<=ny; j++)
+         a_intm[i][j] = a[i][j];
+   
+   long o,p;
+   
+   k = 0;
+   for (i=1; i<=nx; i++)
+    for (j=1; j<=ny; j++)
+     if (a_test[i][j] != a[i][j])
+        {
+            k = k + 1;
+            // set candidate to 0
+            a_intm[i][j] = 0; 
+      
+            /*osmosis inpaint with test mask a_intm*/
+            /* initialise u with init image f */
+            for (o=1; o<=nx; o++)
+               for (p=1; p<=ny; p++)
+                  for (m=0; m<=nc-1; m++)
+                     u[m][o][p] = f[m][o][p];
+            for (m=0; m<=nc-1; m++)
+               osmosis_inpainting (nx, ny, offset, kmax, tau, a_intm, u[m], v[m]);
+            
+            /* get global error */
+            mse = MSE (nc, nx, ny, u, v);
+            error[k] = mse ;
+
+            // set candidate back to 1
+            a_intm[i][j] = 1;
+        }
       
 
    /* select threshold for fraction q of the errors */
