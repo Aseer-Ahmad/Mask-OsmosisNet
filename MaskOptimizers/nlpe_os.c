@@ -2274,13 +2274,13 @@ int main
 
     /* ---- read other parameters ---- */
 
-    printf ("time step size :                   ");
+    printf ("    time step size :                   ");
     read_double (&tau);
 
-    printf ("number of iterations:             ");
+    printf ("    number of iterations:             ");
     read_long (&kmax);
 
-    printf ("greyscale offset (>0.0):          ");
+    printf ("    greyscale offset (>0.0):          ");
     read_double (&offset);
 
     printf("    number of candiates per NLPE iteration:    ");

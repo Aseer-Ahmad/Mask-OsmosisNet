@@ -87,26 +87,30 @@ def PS(f, p, q, density):
         
         # select randomly p fraction of mask pixels in K
         num_pixels = int(p * (nx*ny - len(final_selected_indices)))
+        # select mask_indices_flat which are not in final_selected_indices  
         mask_indices_flat = mask_indices_flat[(mask_indices_flat == final_selected_indices.unsqueeze(-1)).sum(dim = 0) == 0]
         selected_indices_flat = mask_indices_flat[torch.randperm(mask_indices_flat.size(0))[:num_pixels]]
+        
+        # for all selected candidated set K to 0
         K_flat[selected_indices_flat] = 0
 
         # copy them into T
         T_flat = K_flat.clone()
         T_flat[final_selected_indices] = 2
         T = T_flat.view(nx, ny)
-        print(f"candidates pixel fraction : {len(selected_indices_flat)/(nx*ny)}")
+        print(f"candidates pixel : {len(selected_indices_flat)} fraction : {len(selected_indices_flat)/(nx*ny)}")
 
         # compute reconstruction U given T
+        SAVE = False
         if iter % config["SAVE_IMG_EVRY_ITER"] == 0:
             SAVE = True
             # temp =  torch.ones(K_flat.shape)
             # temp[final_selected_indices] = 0 
             # reconstruct(f, temp.view(nx, ny), True, 1)
-        else:
-            SAVE = False
+
         # reconstruct using only new selected candidated or in combination with final selected candidates ?? 
-        U = DiffusionReconstruct(f, K_flat.view(nx,ny), SAVE, iter)
+        K = K_flat.view(nx,ny)
+        U = DiffusionReconstruct(f, K, SAVE, iter)
         
         # compute local error u - f
         local_error = torch.abs(U - f)
@@ -120,7 +124,7 @@ def PS(f, p, q, density):
         final_selected_indices = torch.cat((final_selected_indices, topk_indices[k:]), dim=0)
         K_flat[topk_indices[:k]] = 1
         spf = len(final_selected_indices)/(nx*ny)
-        print(f"selected pixel fraction : {spf}", end= " ")
+        print(f"selected pixel : {len(final_selected_indices)} fraction : {spf}", end= " ")
         
         iter += 1
     

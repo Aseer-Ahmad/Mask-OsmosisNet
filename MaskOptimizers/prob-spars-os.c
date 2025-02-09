@@ -1126,6 +1126,27 @@ return;
 
 /*--------------------------------------------------------------------------*/
 
+void affine_rescaling
+
+     (long     nx,          /* image dimension in x direction */
+      long     ny,          /* image dimension in y direction */
+      double   max, 
+      double   min,
+      double   **u)         /* result, changed */
+
+/*
+  affine rescaling 
+*/
+
+{
+long    i, j;    /* loop variables */
+
+
+return;
+
+}  /* matrix_times_vector */
+
+
 void matrix_times_vector
 
      (long     nx,          /* image dimension in x direction */
@@ -1552,7 +1573,7 @@ for(i=0; i<kmax; i++)
    /* ---- compute implicit osmosis step ---- */
 
    /* solve (I - tau * A) u = f */
-   BiCGSTAB (1.0e-9, 10000, nx, ny, boo, bpo, bmo, bop, bom, f, u);
+   BiCGSTAB (1.0e-4, 10000, nx, ny, boo, bpo, bmo, bop, bom, f, u);
 
 
    /* ---- free memory ---- */
@@ -2073,13 +2094,13 @@ if (q<qmin+0.00005) {
 
 /* ---- read other parameters ---- */
 
-printf ("time step size :                   ");
+printf ("time step size :                     ");
 read_double (&tau);
 
-printf ("number of iterations:             ");
+printf ("number of iterations:                     ");
 read_long (&kmax);
 
-printf ("greyscale offset (>0.0):          ");
+printf ("greyscale offset (>0.0):                     ");
 read_double (&offset);
 
 if (argc < 7) {
@@ -2139,18 +2160,37 @@ do {
    /* remove randomly fraction p of mask a, yielding mask a_test */
    mask_reduction (a, nx, ny, p, a_test);
 
-   /*osmosis inpaint with test mask a_test*/
 
+   /*osmosis inpaint with test mask a_test*/
    /* initialise u with init image f */
    for (i=1; i<=nx; i++)
       for (j=1; j<=ny; j++)
          for (m=0; m<=nc-1; m++)
             u[m][i][j] = f[m][i][j];
-
    for (m=0; m<=nc-1; m++)
        osmosis_inpainting (nx, ny, offset, kmax, tau, a_test, u[m], v[m]);
 
-   /* compute the error at each candidate mask point */
+   /* compute the local error at each candidate mask point */
+   // k = 0;
+   // for (i=1; i<=nx; i++)
+   //  for (j=1; j<=ny; j++)
+   //   if (a_test[i][j] != a[i][j])
+   //      {
+   //      k = k + 1;
+   //      error[k] = 0.0;
+   //      for (m=0; m<=nc-1; m++)
+   //          {
+   //          //if (error_type == 0) {
+   //            help = u[m][i][j] - v[m][i][j];
+   //            error[k] = error[k] + help * help;
+   //          /*} else {
+   //            error[k] = error[k] + fabs(u[m][i][j] - f[m][i][j])
+   //          }*/
+   //          }
+   //      error[k] = sqrt (error[k] / (double) nc);
+   //      }
+
+   /* compute the error in neighborhood for each candidate mask point */
    k = 0;
    for (i=1; i<=nx; i++)
     for (j=1; j<=ny; j++)
@@ -2161,14 +2201,91 @@ do {
         for (m=0; m<=nc-1; m++)
             {
             //if (error_type == 0) {
-              help = u[m][i][j] - v[m][i][j];
-              error[k] = error[k] + help * help;
+              help = pow((u[m][i][j] - v[m][i][j]), 2) +
+                     pow((u[m][i+1][j] - v[m][i+1][j]), 2) +
+                     pow((u[m][i-1][j] - v[m][i-1][j]), 2) +
+                     pow((u[m][i][j+1] - v[m][i][j+1]), 2) +
+                     pow((u[m][i][j-1] - v[m][i][j-1]), 2) +
+                      
+                     pow((u[m][i+1][j+1] - v[m][i+1][j+1]), 2) + 
+                     pow((u[m][i-1][j+1] - v[m][i-1][j+1]), 2) + 
+                     pow((u[m][i+1][j-1] - v[m][i+1][j-1]), 2) + 
+                     pow((u[m][i-1][j-1] - v[m][i-1][j-1]), 2) ;
+                     
+                     
+                     // pow((u[m][i-1][j] - v[m][i-1][j]), 2) + 
+                     // pow((u[m][i-2][j] - v[m][i-2][j]), 2) + 
+                     // pow((u[m][i-2][j+1] - v[m][i-2][j+1]), 2) + 
+                     // pow((u[m][i-2][j-1] - v[m][i-2][j-1]), 2) + 
+
+                     // pow((u[m][i+1][j] - v[m][i+1][j]), 2) + 
+                     // pow((u[m][i+2][j] - v[m][i+2][j]), 2) + 
+                     // pow((u[m][i+2][j+1] - v[m][i+2][j+1]), 2) + 
+                     // pow((u[m][i+2][j-1] - v[m][i+2][j-1]), 2) + 
+
+                     // pow((u[m][i][j+1] - v[m][i][j+1]), 2) + 
+                     // pow((u[m][i][j+2] - v[m][i][j+2]), 2) + 
+                     // pow((u[m][i-1][j+2] - v[m][i-1][j+2]), 2) + 
+                     // pow((u[m][i+1][j+2] - v[m][i+1][j+2]), 2) + 
+
+                     // pow((u[m][i][j-1] - v[m][i][j-1]), 2) + 
+                     // pow((u[m][i][j-2] - v[m][i][j-2]), 2) + 
+                     // pow((u[m][i-1][j-2] - v[m][i-1][j-2]), 2) + 
+                     // pow((u[m][i+1][j-2] - v[m][i+1][j-2]), 2) + 
+                     
+                     // pow((u[m][i-1][j-1] - v[m][i-1][j-1]), 2) + 
+                     // pow((u[m][i-2][j-2] - v[m][i-2][j-2]), 2) + 
+                     // pow((u[m][i+1][j-1] - v[m][i+1][j-1]), 2) + 
+                     // pow((u[m][i+2][j-2] - v[m][i+2][j-2]), 2) + 
+                     
+                     // pow((u[m][i-1][j+1] - v[m][i-1][j+1]), 2) + 
+                     // pow((u[m][i-2][j+2] - v[m][i-2][j+2]), 2) + 
+                     // pow((u[m][i+1][j+1] - v[m][i+1][j+1]), 2) +
+                     // pow((u[m][i+2][j+2] - v[m][i+2][j+2]), 2) ;
+
+              error[k] = error[k] + help;
             /*} else {
               error[k] = error[k] + fabs(u[m][i][j] - f[m][i][j])
             }*/
             }
-        error[k] = sqrt (error[k] / (double) nc);
-        }
+        error[k] = sqrt (error[k] / (double) (nc*9)); 
+        }   
+
+
+   /* compute the global error for each candidate mask point */
+   // a_intm copy of a 
+   // for (i=1; i<=nx; i++)
+   //    for (j=1; j<=ny; j++)
+   //       a_intm[i][j] = a[i][j];
+   
+   // long o,p;
+   
+   // k = 0;
+   // for (i=1; i<=nx; i++)
+   //  for (j=1; j<=ny; j++)
+   //   if (a_test[i][j] != a[i][j])
+   //      {
+   //          k = k + 1;
+   //          // set candidate to 0
+   //          a_intm[i][j] = 0; 
+      
+   //          /*osmosis inpaint with test mask a_intm*/
+   //          /* initialise u with init image f */
+   //          for (o=1; o<=nx; o++)
+   //             for (p=1; p<=ny; p++)
+   //                for (m=0; m<=nc-1; m++)
+   //                   u[m][o][p] = f[m][o][p];
+   //          for (m=0; m<=nc-1; m++)
+   //             osmosis_inpainting (nx, ny, offset, kmax, tau, a_intm, u[m], v[m]);
+            
+   //          /* get global error */
+   //          mse = MSE (nc, nx, ny, u, v);
+   //          error[k] = mse ;
+
+   //          // set candidate back to 1
+   //          a_intm[i][j] = 1;
+   //      }
+      
 
    /* select threshold for fraction q of the errors */
    k_rem = (long) (q * (double)k + 0.5);
@@ -2178,6 +2295,7 @@ do {
        aux[i] = error[i];
    heapsort (k, aux);
    T = 0.5 * (aux[k_rem] + aux[k_rem+1]);
+ 
 
    /* remove this fraction q from the mask a */
    k = 0;

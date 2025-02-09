@@ -1504,6 +1504,7 @@ int main (long argc, char* argv[])
 {
 char    in[80];               /* name of input image */
 char    out1[80], out2[80];   /* names of output images */
+char    out3[80];
 double  ***f;                 /* original image */
 double  ***u;                 /* interpolated image */
 long    **a;                  /* inpainting mask, 0 for missing data */
@@ -1749,7 +1750,8 @@ do {
    /* open file and write header (incl. filter parameters) */
    /* write parameter values in comment string */
    comments[0] = '\0';
-   write_long_to_pgm (a_intm, nx, ny, "temp.pgm", comments);
+   sprintf(out3, "hd_%ld.pgm", n);
+   write_long_to_pgm (a_intm, nx, ny, out3, comments);
    }
 while (density > maxdensity);
 

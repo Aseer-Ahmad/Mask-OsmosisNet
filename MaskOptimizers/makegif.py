@@ -18,7 +18,8 @@ def create_video_from_images(image_folder, output_video, final_duration, quality
     
     # Load images
     l = os.listdir(image_folder)
-    l.sort(reverse = False, key = lambda x : int(x[4:-4]))
+    l.sort(reverse = False, key = lambda x : int(x[3:-4]))
+
     for filename in l:
         if any(filename.lower().endswith(ext) for ext in valid_extensions):
             img_path = os.path.join(image_folder, filename)
