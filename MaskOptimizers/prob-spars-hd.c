@@ -1741,17 +1741,17 @@ do {
    printf ("removed pixels:          %6ld\n", k_rem);
    printf ("density:                 %6.4lf\n\n", density);
 
-   /* write intermediate mask */
-   /* rescale a to range [0,255] */
-   for (j=1; j<=ny; j++)
-   for (i=1; i<=nx; i++)
-      a_intm[i][j] = 255 * a[i][j];
+   // /* write intermediate mask */
+   // /* rescale a to range [0,255] */
+   // for (j=1; j<=ny; j++)
+   // for (i=1; i<=nx; i++)
+   //    a_intm[i][j] = 255 * a[i][j];
 
-   /* open file and write header (incl. filter parameters) */
-   /* write parameter values in comment string */
-   comments[0] = '\0';
-   sprintf(out3, "hd_%ld.pgm", n);
-   write_long_to_pgm (a_intm, nx, ny, out3, comments);
+   // /* open file and write header (incl. filter parameters) */
+   // /* write parameter values in comment string */
+   // comments[0] = '\0';
+   // sprintf(out3, "hd_%ld.pgm", n);
+   // write_long_to_pgm (a_intm, nx, ny, out3, comments);
    }
 while (density > maxdensity);
 
@@ -1794,22 +1794,22 @@ printf ("*******************************\n\n");
 
 /* write parameter values in comment string */
 comments[0] = '\0';
-// comment_line (comments, "# homogeneous diffusion inpainting\n");
-// comment_line (comments, "# probabilistic mask sparsification\n");
-// comment_line (comments, "# initial image:       %s\n", in);
-// comment_line (comments, "# test fraction p:    %8.4lf\n", p);
-// comment_line (comments, "# red. fraction q:    %8.4lf\n", q);
-// comment_line (comments, "# residual decay:     %8.2le\n", rrstop);
-// comment_line (comments, "# sparsif. steps:     %8ld\n", n);
-// comment_line (comments, "# density:            %8.4lf\n", density);
-// comment_line (comments, "# error threshold:    %8.2lf\n", T);
-// comment_line (comments, "# minimum:            %8.2lf\n", min);
-// comment_line (comments, "# maximum:            %8.2lf\n", max);
-// comment_line (comments, "# mean:               %8.2lf\n", mean);
-// comment_line (comments, "# std. deviation:     %8.2lf\n", std);
-// comment_line (comments, "# error type:         %ld\n", error_type);
-// comment_line (comments, "# MSE:                %8.2lf\n", mse);
-// comment_line (comments, "# MAE:                %8.2lf\n", mae);
+comment_line (comments, "# homogeneous diffusion inpainting\n");
+comment_line (comments, "# probabilistic mask sparsification\n");
+comment_line (comments, "# initial image:       %s\n", in);
+comment_line (comments, "# test fraction p:    %8.4lf\n", p);
+comment_line (comments, "# red. fraction q:    %8.4lf\n", q);
+comment_line (comments, "# residual decay:     %8.2le\n", rrstop);
+comment_line (comments, "# sparsif. steps:     %8ld\n", n);
+comment_line (comments, "# density:            %8.4lf\n", density);
+comment_line (comments, "# error threshold:    %8.2lf\n", T);
+comment_line (comments, "# minimum:            %8.2lf\n", min);
+comment_line (comments, "# maximum:            %8.2lf\n", max);
+comment_line (comments, "# mean:               %8.2lf\n", mean);
+comment_line (comments, "# std. deviation:     %8.2lf\n", std);
+comment_line (comments, "# error type:         %ld\n", error_type);
+comment_line (comments, "# MSE:                %8.2lf\n", mse);
+comment_line (comments, "# MAE:                %8.2lf\n", mae);
 
 /* write image data */
 write_double_to_pgm_or_ppm (u, nc, nx, ny, out1, comments);
@@ -1826,20 +1826,20 @@ for (j=1; j<=ny; j++)
 /* open file and write header (incl. filter parameters) */
 /* write parameter values in comment string */
 comments[0] = '\0';
-// comment_line (comments, "# probabilistically sparsified inpainting mask\n");
-// comment_line (comments, "# for homogeneous diffusion inpainting\n");
-// comment_line (comments, "# initial image:       %s\n", in);
-// comment_line (comments, "# test fraction p:    %8.4lf\n", p);
-// comment_line (comments, "# red. fraction q:    %8.4lf\n", q);
-// comment_line (comments, "# residual decay:     %8.2le\n", rrstop);
-// comment_line (comments, "# sparsif. steps:     %8ld\n", n);
-// comment_line (comments, "# density:            %8.4lf\n", density);
-// comment_line (comments, "# error threshold:    %8.2lf\n", T);
-// comment_line (comments, "# minimum:            %8.2lf\n", min);
-// comment_line (comments, "# maximum:            %8.2lf\n", max);
-// comment_line (comments, "# mean:               %8.2lf\n", mean);
-// comment_line (comments, "# std. deviation:     %8.2lf\n", std);
-// comment_line (comments, "# MSE:                %8.2lf\n", mse);
+comment_line (comments, "# probabilistically sparsified inpainting mask\n");
+comment_line (comments, "# for homogeneous diffusion inpainting\n");
+comment_line (comments, "# initial image:       %s\n", in);
+comment_line (comments, "# test fraction p:    %8.4lf\n", p);
+comment_line (comments, "# red. fraction q:    %8.4lf\n", q);
+comment_line (comments, "# residual decay:     %8.2le\n", rrstop);
+comment_line (comments, "# sparsif. steps:     %8ld\n", n);
+comment_line (comments, "# density:            %8.4lf\n", density);
+comment_line (comments, "# error threshold:    %8.2lf\n", T);
+comment_line (comments, "# minimum:            %8.2lf\n", min);
+comment_line (comments, "# maximum:            %8.2lf\n", max);
+comment_line (comments, "# mean:               %8.2lf\n", mean);
+comment_line (comments, "# std. deviation:     %8.2lf\n", std);
+comment_line (comments, "# MSE:                %8.2lf\n", mse);
 
 
 /* write image data */

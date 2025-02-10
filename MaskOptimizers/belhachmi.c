@@ -1113,6 +1113,6 @@ int main(int argc, char** args) {
                density); 
   comment_line(comments,"#MSE %f", MSE(nx,ny,image,original));
   write_pgm(image,nx,ny,out_file,comments);
-  printf ("output image %s successfully written\n\n", mask_file);
+  printf ("output image %s successfully written\n\n", out_file);
   return 0;
 }

@@ -1144,8 +1144,9 @@ long    i, j;    /* loop variables */
 
 return;
 
-}  /* matrix_times_vector */
+}  /* affine_rescaling */
 
+/*--------------------------------------------------------------------------*/
 
 void matrix_times_vector
 
@@ -2050,8 +2051,8 @@ if (argc>=9) {
 }
 
 /*set params*/
-strncpy(in, "scarf_s_init.pgm", 80);
-strncpy(in1, "scarf_s.pgm", 80);
+strncpy(in, "house128_init.pgm", 80);
+strncpy(in1, "house128.pgm", 80);
 read_pgm_or_ppm_to_double (in, &nc, &nx, &ny, &f);
 read_pgm_or_ppm_to_double (in1, &nc, &nx, &ny, &v);
 density = 0.1;
@@ -2064,8 +2065,8 @@ if (q<qmin+0.00005) {
 tau = 65000;
 kmax = 1;
 offset = 0.001;
-strncpy(out1, "scarf_s_rec.pgm", 80);
-strncpy(out2, "scarf_s_mask.pgm", 80);
+strncpy(out1, "house128_rec.pgm", 80);
+strncpy(out2, "house128_mask.pgm", 80);
 
 
 // /* ---- read init and guidance image (pgm format P5 or pgm format P6) ---- */
@@ -2354,7 +2355,7 @@ do {
    /* open file and write header (incl. filter parameters) */
    /* write parameter values in comment string */
    comments[0] = '\0';
-   sprintf(out3, "old/temp%ld.pgm", n);
+   sprintf(out3, "OSM_house/temp%ld.pgm", n);
    write_long_to_pgm (a_intm, nx, ny, out3, comments);
    }
 while (density > maxdensity);

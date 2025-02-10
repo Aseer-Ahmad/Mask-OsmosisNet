@@ -1,6 +1,6 @@
 universe                = docker
-docker_image            = 89598473/neuralosmosis:ua
-executable              = main.py
+docker_image            = ubuntu:latest
+executable              = pcos_pepper.out
 output                  = out.$(ClusterId).$(ProcId).ckpt
 error                   = out.$(ClusterId).$(ProcId).err
 log                     = out.$(ClusterId).log
@@ -11,18 +11,6 @@ request_CPUs = 1
 request_memory = 50G
 requirements = UidDomain == "cs.uni-saarland.de"
 +WantGPUHomeMounted = true
-transfer_input_files    = config.yaml, outputs, InpaintingSolver, MaskModel, CustomDataset.py, main.py, train.py, utils.py
+transfer_input_files    = OSM_pepper, pcos_pepper.out, pepper128_init.pgm, pepper128.pgm
 getenv = HOME
 queue 1
-
-
-Executable = a.out
-Universe = vanilla
-Requirements = OpSys == "WINNT61" && Arch == "INTEL"
-Priority=high
-Error = addNum.err
-Output = addNum.out
-Log = addNum.log
-should_transfer_files = YES
-when_to_transfer_output = ON_EXIT
-Queue 
