@@ -2049,74 +2049,93 @@ if (argc>=9) {
   sprintf(out2,argv[8]);
 }
 
-/* ---- read init and guidance image (pgm format P5 or pgm format P6) ---- */
-if (argc < 2) {
- printf ("init image (pgm, ppm):                 ");
- read_string (in);
-
- printf ("guidance image (pgm, ppm):             ");
- read_string (in1);
-
-}
-
+/*set params*/
+strncpy(in, "scarf_s_init.pgm", 80);
+strncpy(in1, "scarf_s.pgm", 80);
 read_pgm_or_ppm_to_double (in, &nc, &nx, &ny, &f);
 read_pgm_or_ppm_to_double (in1, &nc, &nx, &ny, &v);
-
-
-/* ---- read other parameters ---- */
-
-if (density<0) {
-  printf ("density (in ]0,1[):                     ");
-  read_double (&maxdensity);
-}
-
-if (p<0) {
-  printf ("test fraction p (in ]0,1[):             ");
-  read_double (&p);
-}
-
-/* compute qmin such that at least 1 pixel is added */
+density = 0.1;
+p = 0.02;
 qmin = 1.0 / ((double)(nx * ny) * maxdensity * p);
-
-if (q < 0) {
-  printf ("densification fraction q (in [%6.4lf,1[):   ", qmin + 0.00005);
-  read_double (&q);
-}
-
+q = 0.02;
 if (q<qmin+0.00005) {
   q = qmin;
 }
+tau = 65000;
+kmax = 1;
+offset = 0.001;
+strncpy(out1, "scarf_s_rec.pgm", 80);
+strncpy(out2, "scarf_s_mask.pgm", 80);
+
+
+// /* ---- read init and guidance image (pgm format P5 or pgm format P6) ---- */
+// if (argc < 2) {
+//  printf ("init image (pgm, ppm):                 ");
+//  read_string (in);
+
+//  printf ("guidance image (pgm, ppm):             ");
+//  read_string (in1);
+
+// }
+
+// read_pgm_or_ppm_to_double (in, &nc, &nx, &ny, &f);
+// read_pgm_or_ppm_to_double (in1, &nc, &nx, &ny, &v);
+
+
+// /* ---- read other parameters ---- */
+
+// if (density<0) {
+//   printf ("density (in ]0,1[):                     ");
+//   read_double (&maxdensity);
+// }
+
+// if (p<0) {
+//   printf ("test fraction p (in ]0,1[):             ");
+//   read_double (&p);
+// }
+
+// /* compute qmin such that at least 1 pixel is added */
+// qmin = 1.0 / ((double)(nx * ny) * maxdensity * p);
+
+// if (q < 0) {
+//   printf ("densification fraction q (in [%6.4lf,1[):   ", qmin + 0.00005);
+//   read_double (&q);
+// }
+
+// if (q<qmin+0.00005) {
+//   q = qmin;
+// }
 
 // if (rrstop < 0) {
 //   printf ("residual decay for BiCG (in ]0,1[):       ");
 //   read_double (&rrstop);
 // }
 
-/* ---- read other parameters ---- */
+// /* ---- read other parameters ---- */
 
-printf ("time step size :                     ");
-read_double (&tau);
+// printf ("time step size :                     ");
+// read_double (&tau);
 
-printf ("number of iterations:                     ");
-read_long (&kmax);
+// printf ("number of iterations:                     ");
+// read_long (&kmax);
 
-printf ("greyscale offset (>0.0):                     ");
-read_double (&offset);
+// printf ("greyscale offset (>0.0):                     ");
+// read_double (&offset);
 
-if (argc < 7) {
-  if (nc == 1)
-    printf ("output image (pgm):                     ");
-  else if (nc == 3)
-    printf ("output image (ppm):                     ");
-  read_string (out1);
-}
+// if (argc < 7) {
+//   if (nc == 1)
+//     printf ("output image (pgm):                     ");
+//   else if (nc == 3)
+//     printf ("output image (ppm):                     ");
+//   read_string (out1);
+// }
 
-if (argc < 8) {
-  printf ("output mask (pgm):                      ");
-  read_string (out2);
-}
+// if (argc < 8) {
+//   printf ("output mask (pgm):                      ");
+//   read_string (out2);
+// }
 
-printf ("\n");
+// printf ("\n");
 
 
 /* ---- initialisations ---- */
@@ -2335,7 +2354,7 @@ do {
    /* open file and write header (incl. filter parameters) */
    /* write parameter values in comment string */
    comments[0] = '\0';
-   sprintf(out3, "temp%ld.pgm", n);
+   sprintf(out3, "old/temp%ld.pgm", n);
    write_long_to_pgm (a_intm, nx, ny, out3, comments);
    }
 while (density > maxdensity);
