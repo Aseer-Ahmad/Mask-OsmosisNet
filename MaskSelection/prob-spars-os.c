@@ -2051,22 +2051,22 @@ if (argc>=9) {
 }
 
 /*set params*/
-strncpy(in, "house128_init.pgm", 80);
-strncpy(in1, "house128.pgm", 80);
+strncpy(in, "scarf128_init.pgm", 80);
+strncpy(in1, "scarf128.pgm", 80);
 read_pgm_or_ppm_to_double (in, &nc, &nx, &ny, &f);
 read_pgm_or_ppm_to_double (in1, &nc, &nx, &ny, &v);
-density = 0.1;
+maxdensity = 0.1;
 p = 0.02;
 qmin = 1.0 / ((double)(nx * ny) * maxdensity * p);
 q = 0.02;
 if (q<qmin+0.00005) {
   q = qmin;
 }
-tau = 65000;
+tau = 16384;
 kmax = 1;
 offset = 0.001;
-strncpy(out1, "house128_rec.pgm", 80);
-strncpy(out2, "house128_mask.pgm", 80);
+strncpy(out1, "scarf128_loc_rec.pgm", 80);
+strncpy(out2, "scarf128_loc_mask.pgm", 80);
 
 
 // /* ---- read init and guidance image (pgm format P5 or pgm format P6) ---- */
@@ -2191,24 +2191,24 @@ do {
        osmosis_inpainting (nx, ny, offset, kmax, tau, a_test, u[m], v[m]);
 
    /* compute the local error at each candidate mask point */
-   // k = 0;
-   // for (i=1; i<=nx; i++)
-   //  for (j=1; j<=ny; j++)
-   //   if (a_test[i][j] != a[i][j])
-   //      {
-   //      k = k + 1;
-   //      error[k] = 0.0;
-   //      for (m=0; m<=nc-1; m++)
-   //          {
-   //          //if (error_type == 0) {
-   //            help = u[m][i][j] - v[m][i][j];
-   //            error[k] = error[k] + help * help;
-   //          /*} else {
-   //            error[k] = error[k] + fabs(u[m][i][j] - f[m][i][j])
-   //          }*/
-   //          }
-   //      error[k] = sqrt (error[k] / (double) nc);
-   //      }
+   k = 0;
+   for (i=1; i<=nx; i++)
+    for (j=1; j<=ny; j++)
+     if (a_test[i][j] != a[i][j])
+        {
+        k = k + 1;
+        error[k] = 0.0;
+        for (m=0; m<=nc-1; m++)
+            {
+            //if (error_type == 0) {
+              help = u[m][i][j] - v[m][i][j];
+              error[k] = error[k] + help * help;
+            /*} else {
+              error[k] = error[k] + fabs(u[m][i][j] - f[m][i][j])
+            }*/
+            }
+        error[k] = sqrt (error[k] / (double) nc);
+        }
 
    /* compute the error in neighborhood for each candidate mask point */
    // k = 0;
@@ -2274,37 +2274,37 @@ do {
 
    /* compute the global error for each candidate mask point */
    // a_intm copy of a 
-   for (i=1; i<=nx; i++)
-      for (j=1; j<=ny; j++)
-         a_intm[i][j] = a[i][j];
+   // for (i=1; i<=nx; i++)
+   //    for (j=1; j<=ny; j++)
+   //       a_intm[i][j] = a[i][j];
    
-   long o,p;
+   // long o,p;
    
-   k = 0;
-   for (i=1; i<=nx; i++)
-    for (j=1; j<=ny; j++)
-     if (a_test[i][j] != a[i][j])
-        {
-            k = k + 1;
-            // set candidate to 0
-            a_intm[i][j] = 0; 
+   // k = 0;
+   // for (i=1; i<=nx; i++)
+   //  for (j=1; j<=ny; j++)
+   //   if (a_test[i][j] != a[i][j])
+   //      {
+   //          k = k + 1;
+   //          // set candidate to 0
+   //          a_intm[i][j] = 0; 
       
-            /*osmosis inpaint with test mask a_intm*/
-            /* initialise u with init image f */
-            for (o=1; o<=nx; o++)
-               for (p=1; p<=ny; p++)
-                  for (m=0; m<=nc-1; m++)
-                     u[m][o][p] = f[m][o][p];
-            for (m=0; m<=nc-1; m++)
-               osmosis_inpainting (nx, ny, offset, kmax, tau, a_intm, u[m], v[m]);
+   //          /*osmosis inpaint with test mask a_intm*/
+   //          /* initialise u with init image f */
+   //          for (o=1; o<=nx; o++)
+   //             for (p=1; p<=ny; p++)
+   //                for (m=0; m<=nc-1; m++)
+   //                   u[m][o][p] = f[m][o][p];
+   //          for (m=0; m<=nc-1; m++)
+   //             osmosis_inpainting (nx, ny, offset, kmax, tau, a_intm, u[m], v[m]);
             
-            /* get global error */
-            mse = MSE (nc, nx, ny, u, v);
-            error[k] = mse ;
+   //          /* get global error */
+   //          mse = MSE (nc, nx, ny, u, v);
+   //          error[k] = mse ;
 
-            // set candidate back to 1
-            a_intm[i][j] = 1;
-        }
+   //          // set candidate back to 1
+   //          a_intm[i][j] = 1;
+   //      }
       
 
    /* select threshold for fraction q of the errors */
@@ -2355,7 +2355,7 @@ do {
    /* open file and write header (incl. filter parameters) */
    /* write parameter values in comment string */
    comments[0] = '\0';
-   sprintf(out3, "OSM_house/temp%ld.pgm", n);
+   sprintf(out3, "OSM_loc_scarf/temp%ld.pgm", n);
    write_long_to_pgm (a_intm, nx, ny, out3, comments);
    }
 while (density > maxdensity);
@@ -2396,22 +2396,22 @@ printf ("*******************************\n\n");
 
 /* write parameter values in comment string */
 comments[0] = '\0';
-// comment_line (comments, "# homogeneous diffusion inpainting\n");
-// comment_line (comments, "# probabilistic mask sparsification\n");
-// comment_line (comments, "# initial image:       %s\n", in);
-// comment_line (comments, "# test fraction p:    %8.4lf\n", p);
-// comment_line (comments, "# red. fraction q:    %8.4lf\n", q);
-// comment_line (comments, "# residual decay:     %8.2le\n", rrstop);
-// comment_line (comments, "# sparsif. steps:     %8ld\n", n);
-// comment_line (comments, "# density:            %8.4lf\n", density);
-// comment_line (comments, "# error threshold:    %8.2lf\n", T);
-// comment_line (comments, "# minimum:            %8.2lf\n", min);
-// comment_line (comments, "# maximum:            %8.2lf\n", max);
-// comment_line (comments, "# mean:               %8.2lf\n", mean);
-// comment_line (comments, "# std. deviation:     %8.2lf\n", std);
-// comment_line (comments, "# error type:         %ld\n", error_type);
-// comment_line (comments, "# MSE:                %8.2lf\n", mse);
-// comment_line (comments, "# MAE:                %8.2lf\n", mae);
+comment_line (comments, "# osmosis inpainting\n");
+comment_line (comments, "# probabilistic mask sparsification\n");
+comment_line (comments, "# initial image:       %s\n", in);
+comment_line (comments, "# test fraction p:    %8.4lf\n", p);
+comment_line (comments, "# red. fraction q:    %8.4lf\n", q);
+comment_line (comments, "# residual decay:     %8.2le\n", rrstop);
+comment_line (comments, "# sparsif. steps:     %8ld\n", n);
+comment_line (comments, "# density:            %8.4lf\n", density);
+comment_line (comments, "# error threshold:    %8.2lf\n", T);
+comment_line (comments, "# minimum:            %8.2lf\n", min);
+comment_line (comments, "# maximum:            %8.2lf\n", max);
+comment_line (comments, "# mean:               %8.2lf\n", mean);
+comment_line (comments, "# std. deviation:     %8.2lf\n", std);
+comment_line (comments, "# error type:         %ld\n", error_type);
+comment_line (comments, "# MSE:                %8.2lf\n", mse);
+comment_line (comments, "# MAE:                %8.2lf\n", mae);
 
 /* write image data */
 write_double_to_pgm_or_ppm (u, nc, nx, ny, out1, comments);
@@ -2428,20 +2428,20 @@ for (j=1; j<=ny; j++)
 /* open file and write header (incl. filter parameters) */
 /* write parameter values in comment string */
 comments[0] = '\0';
-// comment_line (comments, "# probabilistically sparsified inpainting mask\n");
-// comment_line (comments, "# for homogeneous diffusion inpainting\n");
-// comment_line (comments, "# initial image:       %s\n", in);
-// comment_line (comments, "# test fraction p:    %8.4lf\n", p);
-// comment_line (comments, "# red. fraction q:    %8.4lf\n", q);
-// comment_line (comments, "# residual decay:     %8.2le\n", rrstop);
-// comment_line (comments, "# sparsif. steps:     %8ld\n", n);
-// comment_line (comments, "# density:            %8.4lf\n", density);
-// comment_line (comments, "# error threshold:    %8.2lf\n", T);
-// comment_line (comments, "# minimum:            %8.2lf\n", min);
-// comment_line (comments, "# maximum:            %8.2lf\n", max);
-// comment_line (comments, "# mean:               %8.2lf\n", mean);
-// comment_line (comments, "# std. deviation:     %8.2lf\n", std);
-// comment_line (comments, "# MSE:                %8.2lf\n", mse);
+comment_line (comments, "# probabilistically  inpainting mask\n");
+comment_line (comments, "# for osmosis inpainting\n");
+comment_line (comments, "# initial image:       %s\n", in);
+comment_line (comments, "# test fraction p:    %8.4lf\n", p);
+comment_line (comments, "# red. fraction q:    %8.4lf\n", q);
+comment_line (comments, "# residual decay:     %8.2le\n", rrstop);
+comment_line (comments, "# sparsif. steps:     %8ld\n", n);
+comment_line (comments, "# density:            %8.4lf\n", density);
+comment_line (comments, "# error threshold:    %8.2lf\n", T);
+comment_line (comments, "# minimum:            %8.2lf\n", min);
+comment_line (comments, "# maximum:            %8.2lf\n", max);
+comment_line (comments, "# mean:               %8.2lf\n", mean);
+comment_line (comments, "# std. deviation:     %8.2lf\n", std);
+comment_line (comments, "# MSE:                %8.2lf\n", mse);
 
 
 /* write image data */

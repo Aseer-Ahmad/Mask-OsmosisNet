@@ -1,6 +1,6 @@
 universe                = docker
 docker_image            = ubuntu:latest
-executable              = pcos_pepper.out
+executable              = pcos_loc_scarf.out
 output                  = out.$(ClusterId).$(ProcId).ckpt
 error                   = out.$(ClusterId).$(ProcId).err
 log                     = out.$(ClusterId).log
@@ -11,6 +11,6 @@ request_CPUs = 1
 request_memory = 50G
 requirements = UidDomain == "cs.uni-saarland.de"
 +WantGPUHomeMounted = true
-transfer_input_files    = OSM_pepper, pcos_pepper.out, pepper128_init.pgm, pepper128.pgm
+transfer_input_files    = OSM_loc_scarf, pcos_loc_scarf.out, scarf128_init.pgm, scarf128.pgm
 getenv = HOME
 queue 1
