@@ -2417,7 +2417,7 @@ comment_line (comments, "# MAE:                %8.2lf\n", mae);
 write_double_to_pgm_or_ppm (u, nc, nx, ny, out1, comments);
 printf("output image %s successfully written\n", out1);
 
-
+   
 /* ---- write interpolation mask (pgm format P5) ---- */
 
 /* rescale a to range [0,255] */

@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <float.h>
 #include <stdarg.h>
 #include <ctype.h>
 
@@ -509,6 +510,38 @@ for (j=0; j<=ny+1; j++)
 return;
 
 }  /* dummies_double */
+
+/*--------------------------------------------------------------------------*/
+
+double PSNR (
+    long     nc,        /* number of channels */
+    long     nx,        /* image dimension in x direction */
+    long     ny,        /* image dimension in y direction */
+    double   **u,       /* reconstructed image */
+    double   **f,       /* original image */
+    double   max_val    /* maximum possible pixel value */
+    )
+{
+    long     i, j;      /* loop variables */
+    double   aux;       /* time saver */
+    double   sum;       /* mean squared error */
+    double   mse;       /* final mean squared error value */
+    
+    sum = 0.0;
+    for (i = 1; i <= nx; i++)
+        for (j = 1; j <= ny; j++)
+        {
+            aux = u[i][j] - f[i][j];
+            sum += aux * aux;
+        }
+    
+    mse = sum / (double)(nc * nx * ny);
+    
+    if (mse == 0)
+        return DBL_MAX; /* If MSE is zero, return a very high PSNR (perfect match) */
+    
+    return 10.0 * log10((max_val * max_val) / mse);
+} /* PSNR */
 
 /*--------------------------------------------------------------------------*/
 
@@ -1176,6 +1209,7 @@ long    nx, ny;               /* image size in x, y direction */
 double  tau;                  /* time step size */
 double  offset;               /* greyscale offset */
 long    kmax;                 /* largest iteration number */
+double  psnr;                 /* PSNR */
 double  mse;                  /* mean squared error */
 double  mae;                  /* mean absolute error */
 double  max, min;             /* largest, smallest grey value */
@@ -1325,6 +1359,7 @@ for (i=1; i<=nx; i++)
 /* compute mean squared error w.r.t. original image f */
 mse = MSE (1, nx, ny, u, v);
 mae = MAE (1, nx, ny, u, v);
+psnr = PSNR (1, nx, ny, u, v, 255.0);
 
 /* ---- write output image (pgm format P5) ---- */
 
@@ -1346,6 +1381,7 @@ comment_line (comments, "# mean:           %8.2lf\n", mean);
 comment_line (comments, "# std. dev.:      %8.2lf\n", std);
 comment_line (comments, "# MSE:            %8.2lf\n", mse);
 comment_line (comments, "# MAE:            %8.2lf\n", mae);
+comment_line (comments, "# PSNR:           %8.2lf\n", psnr);
 
 /* write image data */
 write_double_to_pgm (u, nx, ny, out, comments);
@@ -1357,6 +1393,7 @@ analyse_grey_double (v, nx, ny, &gd_min, &gd_max, &mean,  &std);
 affine_rescaling(nx, ny, max, min, gd_max, gd_min, u);
 mse = MSE (1, nx, ny, u, v);
 mae = MAE (1, nx, ny, u, v);
+psnr = PSNR (1, nx, ny, u, v, 255.0);
 
 /* write parameter values in comment string */
 comments[0] = '\0';
@@ -1376,6 +1413,7 @@ comment_line (comments, "# mean:           %8.2lf\n", mean);
 comment_line (comments, "# std. dev.:      %8.2lf\n", std);
 comment_line (comments, "# MSE:            %8.2lf\n", mse);
 comment_line (comments, "# MAE:            %8.2lf\n", mae);
+comment_line (comments, "# PSNR:           %8.2lf\n", psnr);
 
 /* write image data */
 strncpy(out, "out_scaled.pgm", 80);

@@ -992,285 +992,6 @@ return (aux);
 
 /*--------------------------------------------------------------------------*/
 
-void matrix5_times_vector
-
-     (long    nx,          /* image dimension in x direction */
-      long    ny,          /* image dimension in y direction */
-      double  **boo,       /* matrix diagonal entries for [i,j], unchanged */
-      double  **bpo,       /* neighbour entries for [i+1,j], unchanged */
-      double  **bmo,       /* neighbour entries for [i-1,j], unchanged */
-      double  **bop,       /* neighbour entries for [i,j+1], unchanged */
-      double  **bom,       /* neighbour entries for [i,j-1], unchanged */
-      double  **f,         /* vector, unchanged */
-      double  **u)         /* result, changed */
-
-/*
-  computes the product of a pentadiagonal matrix specified by the 
-  diagonal boo and the off-diagonals bpo,..., bom with a vector f
-*/
-
-{
-long    i, j;    /* loop variables */
-
-dummies_double (f, nx, ny);
-
-for (i=1; i<=nx; i++)
- for (j=1; j<=ny; j++)
-     u[i][j] = ( boo[i][j] * f[i][j]
-               + bpo[i][j] * f[i+1][j] + bmo[i][j] * f[i-1][j]
-               + bop[i][j] * f[i][j+1] + bom[i][j] * f[i][j-1] );
-
-return;
-}
-
-/*--------------------------------------------------------------------------*/
-
-void CG5
-
-     (long     nx,          /* image dimension in x direction */
-      long     ny,          /* image dimension in y direction */
-      double   **boo,       /* diagonal entries for [i,j], unchanged */
-      double   **bpo,       /* neighbour entries for [i+1,j], unchanged */
-      double   **bmo,       /* neighbour entries for [i-1,j], unchanged */
-      double   **bop,       /* neighbour entries for [i,j+1], unchanged */
-      double   **bom,       /* neighbour entries for [i,j-1], unchanged */
-      double   **d,         /* right hand side, unchanged */
-      double   rrstop,      /* desired decay of relative norm of residue */
-      long     *k,          /* number of iterations, output */
-      double   *rr,         /* relative 2-norm of residue, output */
-      double   **u)         /* old and new solution, changed */
-
-/*
-  Method of conjugate gradients without preconditioning for solving a 
-  linear system B u = f with a pentadiagonal system matrix B that involves 
-  all four 2D neighbours.
-  The stopping criterion is based on a specified relative residual decay.
-*/
-
-{
-long    i, j;              /* loop variables */
-double  **r;               /* residue */
-double  **p;               /* A-conjugate basis vector */
-double  **q;               /* q = A p */
-double  eps;               /* squared norm of residue r */
-double  eps0;              /* squared norm of initial residue r0 */
-double  alpha;             /* step size for updating u and r */
-double  beta;              /* step size for updating p */
-double  delta;             /* auxiliary variable */
-
-
-/* ---- allocate memory ---- */
-
-alloc_double_matrix (&r, nx+2, ny+2);
-alloc_double_matrix (&p, nx+2, ny+2);
-alloc_double_matrix (&q, nx+2, ny+2);
-
-
-/* ---- initialisations ---- */
-
-/* compute residue r = d - B * u */
-dummies_double (u, nx, ny);
-for (i=1; i<=nx; i++)
- for (j=1; j<=ny; j++)
-     r[i][j] = d[i][j] -
-               ( boo[i][j] * u[i][j]
-               + bpo[i][j] * u[i+1][j] + bmo[i][j] * u[i-1][j]
-               + bop[i][j] * u[i][j+1] + bom[i][j] * u[i][j-1] );
-
-for (i=1; i<=nx; i++)
- for (j=1; j<=ny; j++)
-     p[i][j] = r[i][j];
-
-eps0 = eps = inner_product (nx, ny, r, r);
-
-*k = 0;
-
-
-/* ---- iterations ---- */
-
-while (eps > rrstop * rrstop * eps0)
-
-      {
-
-      /* compute q = B * p */
-      matrix5_times_vector (nx, ny, boo, bpo, bmo, bop, bom, p, q);
-
-      /* update solution u and residue r */
-      alpha = eps / inner_product (nx, ny, p, q);
-      for (i=1; i<=nx; i++)
-       for (j=1; j<=ny; j++)
-           {
-           u[i][j] = u[i][j] + alpha * p[i][j];
-           r[i][j] = r[i][j] - alpha * q[i][j];
-           }
-
-      /* get next conjugate direction p */
-      delta = eps;
-      eps = inner_product (nx, ny, r, r);
-      beta = eps / delta;
-      for (i=1; i<=nx; i++)
-       for (j=1; j<=ny; j++)
-           p[i][j] = r[i][j] + beta * p[i][j];
-
-      *k = *k + 1;
-
-      }  /* while */
-
-/* compute relative norm of residue */
-*rr = sqrt (eps / eps0);
-
-
-/* ---- free memory ----*/
-
-free_double_matrix (r, nx+2, ny+2);
-free_double_matrix (p, nx+2, ny+2);
-free_double_matrix (q, nx+2, ny+2);
-
-return;
-
-}  /* CG5 */
-
-/*--------------------------------------------------------------------------*/
-
-void build_linear_system
-
-     (long     nx,          /* image dimension in x direction */
-      long     ny,          /* image dimension in y direction */
-      double   hx,          /* pixel size in x direction */
-      double   hy,          /* pixel size in y direction */
-      long     **a,         /* binary inpainting mask, unchanged */
-      double   **f,         /* image, unchanged */
-      double   **boo,       /* diagonal matrix entries for [i,j], output */
-      double   **bpo,       /* off-diagonal entries for [i+1,j], output */
-      double   **bmo,       /* off-diagonal entries for [i-1,j], output */
-      double   **bop,       /* off-diagonal entries for [i,j+1], output */
-      double   **bom,       /* off-diagonal entries for [i,j-1], output */
-      double   **d)         /* right hand side, output */
-
-/*
-  creates a pentadiagonal linear system of equations that result from
-  the elliptic homogeneous inpainting problem 
-*/
-
-{
-long    i, j;          /* loop variables */
-double  aux1, aux2;    /* time savers */
-
- 
-/* ---- initialisations ---- */
-
-for (i=1; i<=nx; i++)
- for (j=1; j<=ny; j++)
-     boo[i][j] = bpo[i][j] = bmo[i][j] = bop[i][j] = bom[i][j] = 0.0;
-
-aux1 = 1.0 / (hx * hx);
-aux2 = 1.0 / (hy * hy);
-
-
-/* ---- create linear system ---- */
-
-for (i=1; i<=nx; i++)
- for (j=1; j<=ny; j++)
-     if (a[i][j] == 1)
-        /* u[i][j] = f[i][j] */
-        {
-        boo[i][j] = 1.0;
-        d[i][j] = f[i][j];
-        }
-     else
-        /* -Laplace(u) = 0.0 with reflecting boundary conditions */
-        {
-        if (i < nx)
-           {
-           bpo[i][j] = - aux1;
-           boo[i][j] = boo[i][j] + aux1;
-           }
-        if (i > 1)
-           {
-           bmo[i][j] = - aux1;
-           boo[i][j] = boo[i][j] + aux1;
-           }
-        if (j < ny)
-           { 
-           bop[i][j] = - aux2;
-           boo[i][j] = boo[i][j] + aux2;
-           }
-        if (j > 1)
-           { 
-           bom[i][j] = - aux2;
-           boo[i][j] = boo[i][j] + aux2;
-           }
-        d[i][j] = 0.0;
-        }
-
-return; 
-
-}  /* build_linear_system */
- 
-/*--------------------------------------------------------------------------*/
-
-void hd_inpainting
-
-     (long     nx,          /* image dimension in x direction */ 
-      long     ny,          /* image dimension in y direction */ 
-      double   hx,          /* pixel size in x direction */
-      double   hy,          /* pixel size in y direction */
-      double   rrstop,      /* desired relative residual 2-norm decay */
-      long     *k,          /* number of CG iterations, output */
-      double   *rr,         /* relative 2-norm of residue, output */
-      long     **a,         /* binary inpainting mask, unchanged */
-      double   **u)         /* input: initialisation;  output: inpainted */
-
-/* 
-  Homogeneous diffusion inpainting. 
-  Solves the elliptic system with conjage gradients.
-*/
-
-{
-long    i, j;                 /* loop variables */
-double  **f;                  /* work copy of u */
-double  **boo;                /* matrix diagonal entries for [i,j] */
-double  **bpo;                /* matrix off-diagonal entries for [i+1,j] */
-double  **bmo;                /* matrix off-diagonal entries for [i-1,j] */
-double  **bop;                /* matrix off-diagonal entries for [i,j+1] */
-double  **bom;                /* matrix off-diagonal entries for [i,j-1] */
-double  **d;                  /* right hand side */
-      
-/* allocate memory */
-alloc_double_matrix (&f,   nx+2, ny+2);
-alloc_double_matrix (&boo, nx+2, ny+2);
-alloc_double_matrix (&bpo, nx+2, ny+2);
-alloc_double_matrix (&bmo, nx+2, ny+2);
-alloc_double_matrix (&bop, nx+2, ny+2);
-alloc_double_matrix (&bom, nx+2, ny+2);
-alloc_double_matrix (&d,   nx+2, ny+2);
-
-/* copy u into f */
-for (i=1; i<=nx; i++)
- for (j=1; j<=ny; j++)
-     f[i][j] = u[i][j];
-
-/* create linear system */
-build_linear_system (nx, ny, hx, hy, a, f, boo, bpo, bmo, bop, bom, d);
-
-/* solve linear system */
-CG5 (nx, ny, boo, bpo, bmo, bop, bom, d, rrstop, &(*k), &(*rr), u);
-
-/* free memory */
-free_double_matrix (f,   nx+2, ny+2);
-free_double_matrix (boo, nx+2, ny+2);
-free_double_matrix (bpo, nx+2, ny+2);
-free_double_matrix (bmo, nx+2, ny+2);
-free_double_matrix (bop, nx+2, ny+2);
-free_double_matrix (bom, nx+2, ny+2);
-free_double_matrix (d,   nx+2, ny+2);
-
-return;
-
-} /* hd_inpainting */
-
-/*--------------------------------------------------------------------------*/
-
 double inner_product2
 
      (double  **u,         /* image 1 (input) */
@@ -1324,243 +1045,6 @@ void matrix5_times_vector2
                 + bop[i][j] * f[i][j+1] + bom[i][j] * f[i][j-1] );
     }
   }
-
-  return;
-}
-
-/*--------------------------------------------------------------------------*/
-
-void CG52
-
-     (double   **boo,       /* diagonal entries for [i,j] (input) */
-      double   **bpo,       /* neighbour entries for [i+1,j] (input) */
-      double   **bmo,       /* neighbour entries for [i-1,j] (input) */
-      double   **bop,       /* neighbour entries for [i,j+1] (input) */
-      double   **bom,       /* neighbour entries for [i,j-1] (input) */
-      double   **d,         /* right hand side (input) */
-      double   **u,         /* old and new solution (input, output) */
-      double   rrstop,      /* desired decay of relative norm of residue */
-      long     nx,          /* image dimension in x direction */
-      long     ny)          /* image dimension in y direction */
-
-     /* Method of conjugate gradients without preconditioning for solving a
-        linear system B u = f with a pentadiagonal system matrix B that involves
-        all four 2D neighbours.
-        The stopping criterion is based on a specified relative residual
-        decay. */
-
-{
-  double  **r;               /* residue in each pixel */
-  double  **p;               /* A-conjugate basis vector */
-  double  **q;               /* q = A p */
-  double  eps;               /* squared norm of residue r */
-  double  eps0;              /* squared norm of initial residue r0 */
-  double  alpha;             /* step size for updating u and r */
-  double  beta;              /* step size for updating p */
-  double  delta;             /* auxiliary variable */
-  long    i, j;              /* loop variables */
-
-
-  /* ---- allocate memory ---- */
-
-  alloc_double_2D (&r, nx+2, ny+2);
-  alloc_double_2D (&p, nx+2, ny+2);
-  alloc_double_2D (&q, nx+2, ny+2);
-
-
-  /* ---- initialisations ---- */
-
-  /* compute residue r = d - B * u */
-  neumann_bounds_2D (u, nx, ny);
-  for (i = 1; i < nx+1; i++) {
-    for (j = 1; j < ny; j++) {
-      r[i][j] = d[i][j] -
-               ( boo[i][j] * u[i][j]
-               + bpo[i][j] * u[i+1][j] + bmo[i][j] * u[i-1][j]
-               + bop[i][j] * u[i][j+1] + bom[i][j] * u[i][j-1] );
-    }
-  }
-
-  for (i = 1; i < nx+1; i++) {
-    for (j = 1; j < ny+1; j++) {
-      p[i][j] = r[i][j];
-    }
-  }
-
-  eps0 = eps = inner_product2 (r, r, nx, ny);
-
-
-  /* ---- iterations ---- */
-
-  while (eps > rrstop * rrstop * eps0) {
-
-    /* compute q = B * p */
-    matrix5_times_vector2 (boo, bpo, bmo, bop, bom, p, q, nx, ny);
-
-    /* update solution u and residue r */
-    alpha = eps / inner_product2 (p, q, nx, ny);
-    for (i = 1; i < nx+1; i++) {
-      for (j = 1; j < ny+1; j++) {
-        u[i][j] = u[i][j] + alpha * p[i][j];
-        r[i][j] = r[i][j] - alpha * q[i][j];
-      }
-    }
-
-    /* get next conjugate direction p */
-    delta = eps;
-    eps = inner_product2 (r, r, nx, ny);
-    beta = eps / delta;
-    for (i = 1; i < nx+1; i++) {
-      for (j = 1; j < ny+1; j++) {
-        p[i][j] = r[i][j] + beta * p[i][j];
-      }
-    }
-
-  }
-
-
-  /* ---- free memory ----*/
-
-  disalloc_double_2D (r, nx+2, ny+2);
-  disalloc_double_2D (p, nx+2, ny+2);
-  disalloc_double_2D (q, nx+2, ny+2);
-
-  return;
-}
-
-/*--------------------------------------------------------------------------*/
-
-void build_linear_system2
-
-     (double   **a,         /* binary inpainting mask (input) */
-      double   **f,         /* image (input) */
-      double   **boo,       /* diagonal matrix entries for [i,j] (output) */
-      double   **bpo,       /* off-diagonal entries for [i+1,j] (output) */
-      double   **bmo,       /* off-diagonal entries for [i-1,j] (output) */
-      double   **bop,       /* off-diagonal entries for [i,j+1] (output) */
-      double   **bom,       /* off-diagonal entries for [i,j-1] (output) */
-      double   **d,         /* right hand side (output) */
-      double   hx,          /* pixel size in x direction */
-      double   hy,          /* pixel size in y direction */
-      long     nx,          /* image dimension in x direction */
-      long     ny)          /* image dimension in y direction */
-
-     /* Creates a pentadiagonal linear system of equations that result from
-        the elliptic homogeneous inpainting problem. */
-
-{
-  double  aux1, aux2;    /* time savers */
-  long    i, j;          /* loop variables */
-
-
-  /* ---- initialisations ---- */
-
-  for (i = 1; i < nx+1; i++) {
-    for (j = 1; j < ny+1; j++) {
-      boo[i][j] = bpo[i][j] = bmo[i][j] = bop[i][j] = bom[i][j] = 0.0;
-    }
-  }
-
-  aux1 = 1.0 / (hx * hx);
-  aux2 = 1.0 / (hy * hy);
-
-
-  /* ---- create linear system ---- */
-
-  for (i = 1; i < nx+1; i++) {
-    for (j = 1; j < ny+1; j++) {
-
-      /* u[i][j] = f[i][j] */
-      if (a[i][j] == 1) {
-        boo[i][j] = 1.0;
-        d[i][j] = f[i][j];
-      }
-
-      /* -Laplace(u) = 0.0 with reflecting boundary conditions */
-      else {
-        if (i < nx) {
-          bpo[i][j] = - aux1;
-          boo[i][j] = boo[i][j] + aux1;
-        }
-        if (i > 1) {
-          bmo[i][j] = - aux1;
-          boo[i][j] = boo[i][j] + aux1;
-        }
-        if (j < ny) {
-          bop[i][j] = - aux2;
-          boo[i][j] = boo[i][j] + aux2;
-        }
-        if (j > 1) {
-          bom[i][j] = - aux2;
-          boo[i][j] = boo[i][j] + aux2;
-        }
-        d[i][j] = 0.0;
-      }
-
-    }
-  }
-
-  return;
-}
-
-/*--------------------------------------------------------------------------*/
-
-void homdiff_inpainting
-
-     (double   **a,         /* binary inpainting mask (input) */
-      double   **u,         /* input: initialisation;  output: inpainted */
-      double   rrstop,      /* desired relative residual 2-norm decay */
-      double   hx,          /* pixel size in x direction */
-      double   hy,          /* pixel size in y direction */
-      long     nx,          /* image dimension in x direction */
-      long     ny)          /* image dimension in y direction */
-
-     /* Homogeneous diffusion inpainting.
-        Solves the elliptic system with conjage gradients. */
-
-{
-  double  **f;                  /* work copy of u */
-  double  **boo;                /* matrix diagonal entries for [i,j] */
-  double  **bpo;                /* matrix off-diagonal entries for [i+1,j] */
-  double  **bmo;                /* matrix off-diagonal entries for [i-1,j] */
-  double  **bop;                /* matrix off-diagonal entries for [i,j+1] */
-  double  **bom;                /* matrix off-diagonal entries for [i,j-1] */
-  double  **d;                  /* right hand side */
-  long    i, j;                 /* loop variables */
-
-  /* allocate memory */
-  alloc_double_2D (&f,   nx+2, ny+2);
-  alloc_double_2D (&boo, nx+2, ny+2);
-  alloc_double_2D (&bpo, nx+2, ny+2);
-  alloc_double_2D (&bmo, nx+2, ny+2);
-  alloc_double_2D (&bop, nx+2, ny+2);
-  alloc_double_2D (&bom, nx+2, ny+2);
-  alloc_double_2D (&d,   nx+2, ny+2);
-
-  /* copy u into f */
-  for (i = 1; i < nx+1; i++) {
-    for (j = 1; j < ny+1; j++) {
-      if (a[i][j]==1)
-        f[i][j] = u[i][j];
-      else
-        f[i][j]=0;
-    }
-  }
-
-  /* create linear system */
-  build_linear_system2 (a, f, boo, bpo, bmo, bop, bom, d, hx, hy, nx, ny);
-
-  /* solve linear system */
-  CG52 (boo, bpo, bmo, bop, bom, d, u, rrstop, nx, ny);
-
-  /* free memory */
-  disalloc_double_2D (f,   nx+2, ny+2);
-  disalloc_double_2D (boo, nx+2, ny+2);
-  disalloc_double_2D (bpo, nx+2, ny+2);
-  disalloc_double_2D (bmo, nx+2, ny+2);
-  disalloc_double_2D (bop, nx+2, ny+2);
-  disalloc_double_2D (bom, nx+2, ny+2);
-  disalloc_double_2D (d,   nx+2, ny+2);
 
   return;
 }
@@ -2195,7 +1679,7 @@ int main
   double*** image_gd;           /* input guidance */
   double*** inp_best;           /* best inpainted image (w.r.t. MSE) */
   double*** inp_new;            /* inpainted image after NLPE step */
-  //double*** mask_image;         /* image representation of inpainting mask */
+  double*** mask_image;         /* image representation of inpainting mask */
   long** mask_old;           /* old inpainting mask */
   long** mask_new;           /* improved inpainting mask */
 
@@ -2452,8 +1936,7 @@ for (i=1; i<=nx; i++)
   copy_double_3D(image_in, inp_best, nc, nx+2, ny+2);
   for (c = 0; c < nc; c++) {
     if (i_type == 0) {
-      // hd_inpainting (nx, ny, hx, hy, rrstop, &cg_iter, &cg_res, mask_old, inp_best[c]);
-       osmosis_inpainting (nx, ny, 0.001, 1, 65536, mask_old, inp_best[c], image_gd[c]);
+       osmosis_inpainting (nx, ny, offset, kmax, tau, mask_old, inp_best[c], image_gd[c]);
     }
     else {
       console_error("[main] unsupported inpainting type: %d", i_type);
@@ -2523,8 +2006,7 @@ for (i=1; i<=nx; i++)
       copy_double_3D(image_in, inp_new, nc, nx+2, ny+2);
       for (c = 0; c < nc; c++) {
         if (i_type == 0) {
-          // hd_inpainting (nx, ny, hx, hy, rrstop, &cg_iter, &cg_res, mask_new, inp_new[c]);
-          osmosis_inpainting (nx, ny, 0.001, 1, 65536, mask_new, inp_new[c], image_gd[c]);
+         osmosis_inpainting (nx, ny, offset, kmax, tau, mask_old, inp_best[c], image_gd[c]);
         }
         else {
           console_error("[main] unsupported inpainting type: %d", i_type);
@@ -2560,7 +2042,7 @@ for (i=1; i<=nx; i++)
     printf("         Iterations: %5d; Last MSE: %7.3f; Current MSE: %7.3f \n",
            iter, mse_old, mse_new);
 
-    /*
+    
     if (f_write) {
       binmask_2_image_2D(mask_new[0], mask_image[0], nx, ny);
       sprintf(filename_help, "%s_mask_%d.pgm", filename_output, iter);
@@ -2569,7 +2051,7 @@ for (i=1; i<=nx; i++)
       if (!write_pgm_or_ppm(mask_image, 1, nx, ny, filename_help, comments)) {
         NOTEEXIT;
       }
-    }*/
+    }
 
   }
   
@@ -2579,8 +2061,7 @@ for (i=1; i<=nx; i++)
 
   copy_double_3D(image_in, inp_new, nc, nx+2, ny+2); // OSMOSIS : init inp_new with image_in
   for (c = 0; c < nc; c++) {
-    // hd_inpainting (nx, ny, hx, hy, rrstop, &cg_iter, &cg_res, mask_new, inp_new[c]);
-    osmosis_inpainting (nx, ny, 0.001, 1, 65536, mask_new, inp_new[c], image_gd[c]);
+     osmosis_inpainting (nx, ny, offset, kmax, tau, mask_old, inp_best[c], image_gd[c]);
   }
   if (error_type == 0) {
            error = compute_mse_3D(image_gd, inp_new, nc, nx, ny);
