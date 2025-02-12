@@ -769,7 +769,7 @@ long write_pgm_or_ppm
   if (comments != 0) {
     fprintf (outimage, comments);              /* comments */
   }
-  fprintf (outimage, "%d %d\n", nx, ny);     /* image size */
+  fprintf (outimage, "%ld %ld\n", nx, ny);     /* image size */
   fprintf (outimage, "255\n");                 /* maximal value */
 
   /* write image data */
@@ -830,7 +830,7 @@ void image_2_binmask_2D
 
 void binmask_2_image_2D
 
-     (double** mask,       /* binary mask (input) */
+     (long** mask,       /* binary mask (input) */
       double** u,          /* image (output) */
       long     nx,         /* size in x-direction */
       long     ny)         /* size in y-direction */
@@ -1668,6 +1668,7 @@ int main
   char filename_output[1024];   /* filename of output files */
   char filename_help[1024];     /* helper filename for individual output */
   char file_ending[8];          /* ending of output files */
+  char out_directory[80];          /* ending of output files */
   char comments_all[4096];      /* comments for all images */
   char comments[4096];          /* comments for one specific image */
 
@@ -1745,41 +1746,55 @@ int main
   if (argc == 1) {
 
     show_intro();
-    printf("    init image (pgm, ppm):                     ");
-    read_string (filename_image);
-    printf("    guidnace image (pgm, ppm):                     ");
-    read_string (filename_guidance);
-    printf("    inpainting mask (pgm):                     ");
-    read_string (filename_mask);
-    printf("    output files (without ending):             ");
-    read_string(filename_output);
-    printf("    residual decay for BiCG (in ]0,1[):          ");
-    read_double(&rrstop);
+    strncpy(filename_image, "scarf128_init.pgm", 1024);
+    strncpy(filename_guidance, "scarf128.pgm", 1024);
+    strncpy(filename_mask, "scarf128_mask_0.1.pgm", 1024);
+    strncpy(filename_output, "scarf128_osm_rec", 1024);
+    strncpy(out_directory, "OSM_NLPE_scarf", 80);
+    rrstop = 0.00001;
+    tau    = 16384;
+    kmax   = 1;
+    offset = 0.001;
+    n_cand = 100;
+    n_ex   = 1;
+    perc_stop = 0.1;
+    f_write  = 1;
 
-    /* ---- read other parameters ---- */
+    // printf("    init image (pgm, ppm):                     ");
+    // read_string (filename_image);
+    // printf("    guidnace image (pgm, ppm):                     ");
+    // read_string (filename_guidance);
+    // printf("    inpainting mask (pgm):                     ");
+    // read_string (filename_mask);
+    // printf("    output files (without ending):             ");
+    // read_string(filename_output);
+    // printf("    residual decay for BiCG (in ]0,1[):          ");
+    // read_double(&rrstop);
 
-    printf ("    time step size :                   ");
-    read_double (&tau);
+    // /* ---- read other parameters ---- */
 
-    printf ("    number of iterations:             ");
-    read_long (&kmax);
+    // printf ("    time step size :                   ");
+    // read_double (&tau);
 
-    printf ("    greyscale offset (>0.0):          ");
-    read_double (&offset);
+    // printf ("    number of iterations:             ");
+    // read_long (&kmax);
 
-    printf("    number of candiates per NLPE iteration:    ");
-    read_long(&n_cand);
-    printf("    number of exchanges per NLPE iteration:    ");
-    read_long(&n_ex);
-    printf("    stopping criterion - percentage of \n"
-           "    MSE reduction after 100 NLPE steps:        ");
-    read_double(&perc_stop);
-    printf("    write mask every 100 iterations? \n");
-    printf("    0 - no, 1 - yes:                           ");
-    read_long(&f_write);
-    printf("\n");
-    printf("    ***********************************************************");
-    printf("\n\n");
+    // printf ("    greyscale offset (>0.0):          ");
+    // read_double (&offset);
+
+    // printf("    number of candiates per NLPE iteration:    ");
+    // read_long(&n_cand);
+    // printf("    number of exchanges per NLPE iteration:    ");
+    // read_long(&n_ex);
+    // printf("    stopping criterion - percentage of \n"
+    //        "    MSE reduction after 100 NLPE steps:        ");
+    // read_double(&perc_stop);
+    // printf("    write mask every 100 iterations? \n");
+    // printf("    0 - no, 1 - yes:                           ");
+    // read_long(&f_write);
+    // printf("\n");
+    // printf("    ***********************************************************");
+    // printf("\n\n");
 
   }
 
@@ -1828,11 +1843,11 @@ int main
     printf("    guidance file:               %s\n", filename_guidance);
     printf("    mask file:                   %s\n", filename_mask);
     printf("    output file:                 %s\n", filename_output);
-    printf("    inpainting type:             %d\n", i_type);
+    printf("    inpainting type:             %ld\n", i_type);
     printf("    relative residual decay:     %f\n", rrstop);
     printf("    candidate perc:              %f\n", perc_cand);
     printf("    exchanges:                   %d\n", n_ex);
-    printf("    cycles:                      %d", cycles);
+    printf("    cycles:                      %ld", cycles);
     printf("\n");
     printf("    ***********************************************************");
     printf("\n\n");
@@ -1841,10 +1856,10 @@ int main
 
   sprintf(comments_all, "# Nonlocal Pixel Exchange \n"
                         "#    residual decay: %f \n"
-                        "#    candidates: %d \n"
-                        "#    exchanges: %d \n"
-                        "#    cycles: %d \n",
-          rrstop, n_cand, n_ex, perc_stop);
+                        "#    candidates: %ld \n"
+                        "#    exchanges: %ld \n"
+                        "#    cycles: %ld \n",
+          rrstop, n_cand, n_ex, cycles);
 
   /* ------------------------------------------------------------------------ */
   /* ------ READ INPUT AND ALLOC -------------------------------------------- */
@@ -1869,6 +1884,7 @@ int main
   alloc_double_3D(&inp_new, nc, nx+2, ny+2);
   /*alloc_double_3D(&mask_old, nc, nx+2, ny+2);
   alloc_double_3D(&mask_new, nc, nx+2, ny+2);*/
+  alloc_double_3D(&mask_image, nc, nx+2, ny+2);
   alloc_long_matrix(&mask_new, nx+2, ny+2);
 
   if (nc == 1) {
@@ -1906,8 +1922,8 @@ for (i=1; i<=nx; i++)
   */  
   n_cand = (long)round(perc_cand * n_mask_points);
 
-  printf("number of mask points %d/%d (%f)\n", n_mask_points, nx*ny, (double)n_mask_points/(double)(nx*ny));
-  printf("%d cycles, %d iterations\n", cycles, n_mask_points*cycles);
+  printf("number of mask points %ld/%ld (%lf)\n", n_mask_points, nx*ny, (double)n_mask_points/(double)(nx*ny));
+  printf("%ld cycles, %ld iterations\n", cycles, n_mask_points*cycles);
   copy_long_2D(mask_old, mask_new, nx+2, ny+2);
 
   /* sanity check of NLPE parameters */
@@ -1930,7 +1946,8 @@ for (i=1; i<=nx; i++)
   }
 
   /* allocate memory for candidate list */
-  candidates = (Candidate *) malloc ((unsigned long)(n_cand * sizeof(Candidate)));
+  candidates = (Candidate *) malloc ((unsigned long)(n_cand 
+      * sizeof(Candidate)));
 
   /* perform first inpainting */
   copy_double_3D(image_in, inp_best, nc, nx+2, ny+2);
@@ -2006,7 +2023,7 @@ for (i=1; i<=nx; i++)
       copy_double_3D(image_in, inp_new, nc, nx+2, ny+2);
       for (c = 0; c < nc; c++) {
         if (i_type == 0) {
-         osmosis_inpainting (nx, ny, offset, kmax, tau, mask_old, inp_best[c], image_gd[c]);
+         osmosis_inpainting (nx, ny, offset, kmax, tau, mask_new, inp_new[c], image_gd[c]);
         }
         else {
           console_error("[main] unsupported inpainting type: %d", i_type);
@@ -2039,18 +2056,19 @@ for (i=1; i<=nx; i++)
     iter += 100;
 
     printf(ONE_UP);printf(CLRLINE);
-    printf("         Iterations: %5d; Last MSE: %7.3f; Current MSE: %7.3f \n",
+    printf("         Iterations: %5ld; Last MSE: %7.3lf; Current MSE: %7.3lf \n",
            iter, mse_old, mse_new);
 
     
     if (f_write) {
-      binmask_2_image_2D(mask_new[0], mask_image[0], nx, ny);
-      sprintf(filename_help, "%s_mask_%d.pgm", filename_output, iter);
-      sprintf(comments, "%s # inpainting mask after %d iterations \n",
+      // binmask_2_image_2D(mask_new[0], mask_image[0], nx, ny);
+      sprintf(filename_help, "%s/%s_mask_%ld.pgm",out_directory, filename_output, iter);
+      sprintf(comments, "%s # inpainting mask after %ld iterations \n",
               comments_all, iter);
-      if (!write_pgm_or_ppm(mask_image, 1, nx, ny, filename_help, comments)) {
-        NOTEEXIT;
-      }
+      write_mask_to_pgm (mask_new, nx, ny, filename_help, comments);
+      // if (!write_pgm_or_ppm(mask_image, 1, nx, ny, filename_help, comments)) {
+      //   NOTEEXIT;
+      // }
     }
 
   }
@@ -2061,7 +2079,7 @@ for (i=1; i<=nx; i++)
 
   copy_double_3D(image_in, inp_new, nc, nx+2, ny+2); // OSMOSIS : init inp_new with image_in
   for (c = 0; c < nc; c++) {
-     osmosis_inpainting (nx, ny, offset, kmax, tau, mask_old, inp_best[c], image_gd[c]);
+     osmosis_inpainting (nx, ny, offset, kmax, tau, mask_new, inp_new[c], image_gd[c]);
   }
   if (error_type == 0) {
            error = compute_mse_3D(image_gd, inp_new, nc, nx, ny);
@@ -2076,21 +2094,18 @@ for (i=1; i<=nx; i++)
   /* ------ WRITE OUTPUT AND FREE MEMORY ------------------------------------ */
   /* ------------------------------------------------------------------------ */
 
-  sprintf(filename_help, "%s_inp.%s", filename_output, file_ending);
+  sprintf(filename_help, "%s/%s_inp.%s", out_directory, filename_output, file_ending);
 
   sprintf(comments, "%s # final inpainting\n", comments_all);
   if (!write_pgm_or_ppm(inp_best, nc, nx, ny, filename_help, comments)) {
     NOTEEXIT;
   }
 
-  //binmask_2_image_2D(mask_new[0], mask_image[0], nx, ny);
-  
-  
-  sprintf(filename_help, "%s_mask_final.pgm", filename_output);
+  // binmask_2_image_2D(mask_new[0], mask_image[0], nx, ny);
+  sprintf(filename_help, "%s/%s_mask_final.pgm",out_directory, filename_output);
   sprintf(comments, "%s # final inpainting mask\n", comments_all);
   write_mask_to_pgm (mask_new, nx, ny, filename_help, comments);
-  /*
-  if (!write_pgm_or_ppm(mask_image, 1, nx, ny, filename_help, comments)) {
+  /*if (!write_pgm_or_ppm(mask_image, 1, nx, ny, filename_help, comments)) {
     NOTEEXIT;
   }*/
 

@@ -12,6 +12,6 @@ request_memory = 50G
 requirements = UidDomain == "cs.uni-saarland.de"
 +WantGPUHomeMounted = true
 transfer_output_files   = OSM_loc_pepper
-transfer_input_files    = OSM_loc_pepper, pcos_loc_pepper.out, pepper128_init.pgm, pepper128.pgm
+transfer_input_files    = OSM_loc_pepper, nlpe_pepper, nlpe_scarf,nlpe_house  pepper128_init.pgm, pepper128.pgm, scarf128.pgm, scarf128_init.pgm, house128.pgm, house128_init.pgm, pepper128_mask_0.1.pgm, house128_mask_0.1.pgm, scarf128_mask_0.1.pgm
 getenv = HOME
 queue 1
