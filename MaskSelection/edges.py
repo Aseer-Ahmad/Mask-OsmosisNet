@@ -22,9 +22,14 @@ def sobel_edges(img, ksize = 5):
     max_val = np.max(sobelxy)
     return  sobelxy
 
-def canny_edges(img, t1=100, t2=200):
-    edges = cv2.Canny(image=img, threshold1=t1, threshold2=t2)
+def canny_edges(img, t1=100, t2=200, apertureSize=3):
+    edges = cv2.Canny(image=img, threshold1=t1, threshold2=t2, apertureSize = apertureSize)
     return edges
+
+def getDensity(img):
+    nx, ny = img.shape
+    x = np.count_nonzero(img == 255)
+    return x / (nx*ny)
 
 def main():
     # read image
@@ -34,17 +39,18 @@ def main():
 
     # create canny edges and save
     print("creating canny edges")
-    t1, t2 = 100, 150 
-    c_edges = canny_edges(img, t1=t1, t2=t2)
-    f_name  = IMG_BASE_NAME + "_canny_" + str(t1) + "_" + str(t2) + ".pgm" # house128_canny_100 _200.pgm
+    t1, t2 = 50, 100 
+    c_edges = canny_edges(img, t1=t1, t2=t2, apertureSize = 3)
+    den     = getDensity(c_edges)
+    f_name  = IMG_BASE_NAME + "_canny_" + str(t1) + "_" + str(t2) + "_" + str(den) + ".pgm" # house128_canny_100_200_d.1.pgm
     cv2.imwrite(os.path.join(BASE_PTH, f_name), c_edges)
 
     # create sobel edges and save
-    print("creating sobel edges")
-    ksize = 5
-    s_edges = sobel_edges(img, ksize = ksize)
-    f_name  = IMG_BASE_NAME + "_sobel_" + str(ksize) + ".pgm" # house128_sobel_5.pgm
-    cv2.imwrite(os.path.join(BASE_PTH, f_name), s_edges)    
+    # print("creating sobel edges")
+    # ksize = 5
+    # s_edges = sobel_edges(img, ksize = ksize)
+    # f_name  = IMG_BASE_NAME + "_sobel_" + str(ksize) + ".pgm" # house128_sobel_5.pgm
+    # cv2.imwrite(os.path.join(BASE_PTH, f_name), s_edges)    
 
 
     # osmosis inpaint for each edge set ; 
@@ -57,6 +63,12 @@ def main():
     return
 
 if __name__ == "__main__":
+
+    '''
+    eg : python edges.py --gd_pth ch3/3.2/house/house128.pgm --init_pth ch3/3.2/house/house128_init.pgm
+    50 100 3 scarf
+
+    '''
 
     parser = argparse.ArgumentParser(description='Edge detection using Sobel and Canny methods.')
     parser.add_argument('--gd_pth', type=str, help='Path to the guidance PGM image')

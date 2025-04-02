@@ -1357,8 +1357,8 @@ for (i=1; i<=nx; i++)
      u[i][j] = u[i][j] - offset;
 
 /* compute mean squared error w.r.t. original image f */
-mse = MSE (1, nx, ny, u, v);
-mae = MAE (1, nx, ny, u, v);
+mse  = MSE (1, nx, ny, u, v);
+mae  = MAE (1, nx, ny, u, v);
 psnr = PSNR (1, nx, ny, u, v, 255.0);
 
 /* ---- write output image (pgm format P5) ---- */
@@ -1374,7 +1374,7 @@ comment_line (comments, "# initial image:    %s\n", in1);
 comment_line (comments, "# guidance image:   %s\n", in2);
 comment_line (comments, "# tau:            %8.2lf\n", tau);
 comment_line (comments, "# iterations:     %8ld\n",   kmax);
-comment_line (comments, "# offset:         %8.2lf\n", offset);
+comment_line (comments, "# offset:         %8.3lf\n", offset);
 comment_line (comments, "# minimum:        %8.2lf\n", min);
 comment_line (comments, "# maximum:        %8.2lf\n", max);
 comment_line (comments, "# mean:           %8.2lf\n", mean);

@@ -1,0 +1,45 @@
+import cv2
+import argparse
+import numpy as np
+
+def getMetrics(img1, img2):
+    
+    nx, ny = img1.shape
+    print(nx, ny)
+
+    mse = np.sum((img1 - img2)**2) / (nx*ny)
+    mae = np.sum(np.absolute(img1 - img2)) / (nx*ny)
+    psnr = 10 * np.log10( (255*255) / mse)
+    
+    return mse, mae, psnr
+
+def readPGM(pth):
+    img = cv2.imread(pth,flags=0)  
+    return img
+
+def main(IMG_PTH1, IMG_PTH2):
+    img1 = readPGM(IMG_PTH1)
+    img2 = readPGM(IMG_PTH2)
+
+    mse, mae, psnr = getMetrics(img1, img2)
+
+    print(f"MSE  : {mse}")
+    print(f"MAE  : {mae}")
+    print(f"PSNR : {psnr}")
+    
+
+if __name__ == "__main__":
+    '''
+    python getMetrics.py --img1_pth ch3/3.1/house/house128.pgm  --img2_pth ch3/3.1/house/house128_osm_rec.pgm 
+    '''
+    parser = argparse.ArgumentParser(description='Calculate metrics.')
+    parser.add_argument('--img1_pth', type=str, help='Path to the PGM image 1')
+    parser.add_argument('--img2_pth', type=str, help='Path to the PGM image 2')
+
+    args = parser.parse_args()
+
+    PTH1 = args.img1_pth
+    PTH2 = args.img2_pth
+    
+
+    main(PTH1, PTH2)
