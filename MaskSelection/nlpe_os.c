@@ -1478,7 +1478,7 @@ for(i=0; i<kmax; i++)
    /* ---- compute implicit osmosis step ---- */
 
    /* solve (I - tau * A) u = f */
-   BiCGSTAB (1.0e-9, 10000, nx, ny, boo, bpo, bmo, bop, bom, f, u);
+   BiCGSTAB (1.0e-4, 10000, nx, ny, boo, bpo, bmo, bop, bom, f, u);
 
 
    /* ---- free memory ---- */
@@ -1747,14 +1747,14 @@ int main
     show_intro();
     strncpy(filename_image, "scarf128_init.pgm", 1024);
     strncpy(filename_guidance, "scarf128.pgm", 1024);
-    strncpy(filename_mask, "scarf128_mask_0.1.pgm", 1024);
+    strncpy(filename_mask, "scarf128_mask_0.15.pgm", 1024);
     strncpy(filename_output, "scarf128_osm_rec", 1024);
     strncpy(out_directory, "OSM_NLPE_scarf", 80);
     rrstop = 0.00001;
     tau    = 16384;
     kmax   = 1;
     offset = 0.001;
-    n_cand = 100;
+    n_cand = 10;
     n_ex   = 1;
     perc_stop = 0.1;
     f_write  = 1;
@@ -1838,20 +1838,21 @@ int main
     strcpy(filename_mask, args[argc-2]);
     strcpy(filename_output, args[argc-1]);
 
+  }
+
     printf("    input file:                  %s\n", filename_image);
     printf("    guidance file:               %s\n", filename_guidance);
     printf("    mask file:                   %s\n", filename_mask);
     printf("    output file:                 %s\n", filename_output);
     printf("    inpainting type:             %ld\n", i_type);
     printf("    relative residual decay:     %f\n", rrstop);
+    printf("    candidates:                  %d\n", n_cand);
     printf("    candidate perc:              %f\n", perc_cand);
     printf("    exchanges:                   %d\n", n_ex);
     printf("    cycles:                      %ld", cycles);
     printf("\n");
     printf("    ***********************************************************");
     printf("\n\n");
-
-  }
 
   sprintf(comments_all, "# Nonlocal Pixel Exchange \n"
                         "#    residual decay: %f \n"
@@ -1984,19 +1985,37 @@ for (i=1; i<=nx; i++)
     /* perform 100 NLPE iterations */
     for (i = 0; i < 100; i++) {
 
-      /* find random candidates and set in mask */
+      /* find random candidates and set to 1 in mask */
       generate_candidates(mask_new, candidates, n_cand, nx, ny);
 
-      /* compute local errors */
-      for (k = 0; k < n_cand; k++) {
-        current_error = 0.0;
+      /* randomly remove n_ex points from mask */
+      remove_mask_points(mask_new, n_mask_points, n_ex, nx, ny);
+
+      /* compute global errors ; assuming to use mask_new*/
+      for( k = 0;  k < n_cand; k++){
         pos_x = candidates[k].x;
         pos_y = candidates[k].y;
+
+        // set candidate to 0
+        mask_new[pos_x][pos_y] = 0;
+
+        //inpaint and cal error
+        copy_double_3D(image_in, inp_new, nc, nx+2, ny+2);
         for (c = 0; c < nc; c++) {
-          current_error += abs(  image_gd[c][pos_x][pos_y]
-                               - inp_best[c][pos_x][pos_y]);
+          if (i_type == 0) {
+          osmosis_inpainting (nx, ny, offset, kmax, tau, mask_new, inp_new[c], image_gd[c]);
+          }
+          else {
+            console_error("[main] unsupported inpainting type: %d", i_type);
+            NOTEEXIT;
+          }
         }
-        candidates[k].error = current_error / (double)nc;
+
+        // calculate MSE
+        candidates[k].error = compute_mse_3D(image_gd, inp_new, nc, nx, ny);
+
+        // set candidate to 1
+        mask_new[pos_x][pos_y] = 1;
       }
 
       /* sort candidate vector according to errors */
@@ -2008,8 +2027,6 @@ for (i=1; i<=nx; i++)
         mask_new[candidates[k].x][candidates[k].y] = 0.0;
       }
 
-      /* randomly remove n_ex points from mask */
-      remove_mask_points(mask_new, n_mask_points, n_ex, nx, ny);
 
       /* sanity check */
       /*

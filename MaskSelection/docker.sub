@@ -50,7 +50,8 @@ request_memory = 50G
 requirements = UidDomain == "cs.uni-saarland.de"
 +WantGPUHomeMounted = true
 transfer_output_files   = OSM_NLPE_scarf
-transfer_input_files    = OSM_NLPE_scarf, nlpe_house, nlpe_scarf, nlpe_pepper,  pepper128_init.pgm, pepper128.pgm, scarf128.pgm, scarf128_init.pgm, house128.pgm, house128_init.pgm, pepper128_mask_0.1.pgm, house128_mask_0.1.pgm, scarf128_mask_0.1.pgm
+transfer_input_files    = OSM_NLPE_scarf, nlpe_scarf, scarf128.pgm, scarf128_init.pgm, scarf128_mask_0.1.pgm, scarf128_mask_0.15.pgm
 getenv = HOME
 queue 1
+
 

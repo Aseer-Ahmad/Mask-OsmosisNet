@@ -134,7 +134,7 @@ void read_string
 */
 
 {
-if (fgets (v, 80, stdin) == NULL)
+if (fgets (v, 200, stdin) == NULL)
    {
    printf ("could not read string, aborting\n");
    exit(1);
@@ -1193,7 +1193,7 @@ int main ()
 
 {
 char    in1[80], in2[80], in3[80]; /* name of input images and mask */
-char    out[80];              /* name of output image */
+char    out[200];              /* name of output image */
 double  **u;                  /* evolving image */
 double  **v;                  /* guidance image */
 long    **m;                  /* mask image*/
@@ -1416,7 +1416,7 @@ comment_line (comments, "# MAE:            %8.2lf\n", mae);
 comment_line (comments, "# PSNR:           %8.2lf\n", psnr);
 
 /* write image data */
-strncpy(out, "out_scaled.pgm", 80);
+strncpy(out, "out_scaled.pgm", 200);
 write_double_to_pgm (u, nx, ny, out, comments);
 printf ("output scaled image %s successfully written\n\n", out);
 

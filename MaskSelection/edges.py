@@ -14,7 +14,7 @@ INIT_IMG_PTH = None
 def read_PGMImg(pth, blur = False):
     img = cv2.imread(pth,flags=0)  
     if blur : 
-        img = cv2.GaussianBlur(img,(3,3), SigmaX=0, SigmaY=0)
+        img = cv2.GaussianBlur(img, (3,3), 0)
     return img
 
 def sobel_edges(img, ksize = 5):
@@ -31,16 +31,21 @@ def getDensity(img):
     x = np.count_nonzero(img == 255)
     return x / (nx*ny)
 
+def dilate(img, k, iter ):
+    kernel = np.ones((k, k), np.uint8)
+    dilated_image = cv2.dilate(img, kernel, iterations=iter)    
+    return dilated_image
+
 def main():
     # read image
-    img = read_PGMImg(GD_IMG_PTH, blur = False)    
+    img = read_PGMImg(GD_IMG_PTH, blur = True)    
     IMG_BASE_NAME = GD_IMG_PTH.split("/")[-1][:-4]   # house128
     BASE_PTH = '/'.join(GD_IMG_PTH.split("/")[:-1])  # ch3/3.2/house/
 
     # create canny edges and save
     print("creating canny edges")
-    t1, t2 = 50, 100 
-    c_edges = canny_edges(img, t1=t1, t2=t2, apertureSize = 3)
+    t1, t2 = 150, 160 
+    c_edges = canny_edges(img, t1=t1, t2=t2, apertureSize = 5)
     den     = getDensity(c_edges)
     f_name  = IMG_BASE_NAME + "_canny_" + str(t1) + "_" + str(t2) + "_" + str(den) + ".pgm" # house128_canny_100_200_d.1.pgm
     cv2.imwrite(os.path.join(BASE_PTH, f_name), c_edges)
@@ -62,12 +67,16 @@ def main():
 
     return
 
+
+
 if __name__ == "__main__":
 
     '''
-    eg : python edges.py --gd_pth ch3/3.2/house/house128.pgm --init_pth ch3/3.2/house/house128_init.pgm
-    50 100 3 scarf
+    python edges.py --gd_pth ch3/3.2/house/house128.pgm --init_pth ch3/3.2/house/house128_init.pgm
 
+    python edges.py --gd_pth ch3/3.2/scarf/scarf128.pgm --init_pth ch3/3.2/scarf/scarf128_init.pgm
+    50 100 3 scarf
+    
     '''
 
     parser = argparse.ArgumentParser(description='Edge detection using Sobel and Canny methods.')

@@ -1,6 +1,7 @@
 import cv2
 import argparse
 import numpy as np
+import os
 
 def getMetrics(img1, img2):
     
@@ -16,6 +17,17 @@ def getMetrics(img1, img2):
 def readPGM(pth):
     img = cv2.imread(pth,flags=0)  
     return img
+
+def calculateMetricsForDirectory(IMG_PTH1, directory_path):
+    img1 = readPGM(IMG_PTH1)
+    with open("ch3/3.2/scarf/metrics.txt", 'w') as file:
+        file.write("Filename, MSE, MAE, PSNR\n")
+        for filename in os.listdir(directory_path):
+            file_path = os.path.join(directory_path, filename)
+            if os.path.isfile(file_path):
+                img = readPGM(file_path)
+                mse, mae, psnr = getMetrics(img1, img)
+                file.write(f"{filename}, {mse:.4f}, {mae:.4f}, {psnr:.4f}\n")
 
 def main(IMG_PTH1, IMG_PTH2):
     img1 = readPGM(IMG_PTH1)
@@ -38,8 +50,10 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    PTH1 = args.img1_pth
-    PTH2 = args.img2_pth
-    
-
+    # PTH1 = args.img1_pth
+    # PTH2 = args.img2_pth
+    PTH1 = "ch3/3.4/global/scarf/scarf128.pgm"
+    PTH2 = "ch3/3.4/global/scarf/scarf128_osm_rec_m0.1.pgm"
     main(PTH1, PTH2)
+
+    # calculateMetricsForDirectory("ch3/3.2/scarf/scarf128.pgm", "ch3/3.2/scarf/masks")

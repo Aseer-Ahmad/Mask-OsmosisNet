@@ -98,6 +98,10 @@ class OsmosisInpainting:
 
         self.device = device
 
+        self.offset  = offset
+        self.tau     = tau
+        self.eps     = eps
+
         if U is not None:
             self.U   = U   # original image
         else:
@@ -109,10 +113,6 @@ class OsmosisInpainting:
         else :
             self.mask1   = mask1
             self.mask2   = mask2
-
-        self.offset  = offset
-        self.tau     = tau
-        self.eps     = eps
                 
         # pixel sizes x and y direction
         self.hx      = hx
@@ -186,7 +186,7 @@ class OsmosisInpainting:
 
         for i in range(kmax):
 
-            X, max_k = solver(x = U, b = X, kmax = 600, eps = self.eps, verbose=verbose)
+            X, max_k = solver(x = U, b = X, kmax = 6000, eps = self.eps, verbose=verbose)
             U = X
             loss = mse( U, self.V)
             print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)
@@ -219,6 +219,8 @@ class OsmosisInpainting:
             self.writePGMImage(out.cpu().detach().numpy().T, fname) 
 
         # print(torch.mean((self.normalize(U, 255) - self.normalize(self.V, 255)) ** 2, dim=(2, 3)))
+        
+        self.U = (U - self.offset) * 255.
 
         # mse loss 
         loss = mse(U , self.V)
@@ -307,7 +309,7 @@ class OsmosisInpainting:
         return metrics
 
     def getInit_U(self):
-        m  = torch.mean(self.V, dim = (2,3))
+        m  = torch.mean(self.V - self.offset, dim = (2,3))
         
         # create a flat image ; avg gray val same as guidance
         u  = torch.ones_like(self.V, device = self.device) * m.view(self.batch, self.channel, 1, 1)

@@ -1,8 +1,8 @@
 P5
 # linear osmosis
 # implicit scheme with BiCGSTAB solver
-# initial image:    ch3/3.2/house/house128_init.pgm
-# guidance image:   ch3/3.2/house/house128.pgm
+# initial image:    house128_init.pgm
+# guidance image:   house128.pgm
 # tau:            16384.00
 # iterations:            1
 # offset:            0.001
