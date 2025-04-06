@@ -1,0 +1,4 @@
+Filename, MSE, MAE, PSNR
+hosue128_mask_0.05_rec.pgm, 70.1405, 108.7737, 29.6711
+house128_osm_m0.1_rec.pgm, 44.5487, 99.5117, 31.6425
+hosue128_mask_0.079_rec.pgm, 54.0442, 105.2950, 30.8033

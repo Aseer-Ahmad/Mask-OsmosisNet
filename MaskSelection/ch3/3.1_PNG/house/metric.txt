@@ -1,0 +1,3 @@
+Filename, MSE, MAE, PSNR
+house128_osm_rec.pgm, 110.4045, 109.9438, 27.7009
+house128_ps_rec.pgm, 52.1797, 83.0757, 30.9558

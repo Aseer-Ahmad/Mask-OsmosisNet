@@ -18,9 +18,9 @@ def readPGM(pth):
     img = cv2.imread(pth,flags=0)  
     return img
 
-def calculateMetricsForDirectory(IMG_PTH1, directory_path):
+def calculateMetricsForDirectory(IMG_PTH1, directory_path, save_pth):
     img1 = readPGM(IMG_PTH1)
-    with open("ch3/3.2/scarf/metrics.txt", 'w') as file:
+    with open(save_pth, 'w') as file:
         file.write("Filename, MSE, MAE, PSNR\n")
         for filename in os.listdir(directory_path):
             file_path = os.path.join(directory_path, filename)
@@ -52,8 +52,10 @@ if __name__ == "__main__":
 
     # PTH1 = args.img1_pth
     # PTH2 = args.img2_pth
-    PTH1 = "ch3/3.4/global/scarf/scarf128.pgm"
-    PTH2 = "ch3/3.4/global/scarf/scarf128_osm_rec_m0.1.pgm"
-    main(PTH1, PTH2)
+    # PTH1 = "ch3/3.2/pepper/pepper128.pgm"
+    # PTH2 = "ch3/3.2/pepper/pepper128_canny_170_180_0.10_rec.pgm"
+    # main(PTH1, PTH2)
 
-    # calculateMetricsForDirectory("ch3/3.2/scarf/scarf128.pgm", "ch3/3.2/scarf/masks")
+    calculateMetricsForDirectory("ch3/3.1/house/house128.pgm", 
+                                 "ch3/3.1/house/rec",
+                                 "ch3/3.1/house/metric.txt")

@@ -1,0 +1,3 @@
+Filename, MSE, MAE, PSNR
+scarf128_osm_rec.pgm, 111.9171, 125.6519, 27.6418
+scarf128_ps_rec.pgm, 34.0471, 101.6521, 32.8100

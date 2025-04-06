@@ -44,10 +44,10 @@ def main():
 
     # create canny edges and save
     print("creating canny edges")
-    t1, t2 = 150, 160 
+    t1, t2 , asize = 60, 70 , 5
     c_edges = canny_edges(img, t1=t1, t2=t2, apertureSize = 5)
     den     = getDensity(c_edges)
-    f_name  = IMG_BASE_NAME + "_canny_" + str(t1) + "_" + str(t2) + "_" + str(den) + ".pgm" # house128_canny_100_200_d.1.pgm
+    f_name  = IMG_BASE_NAME + "_canny_" + str(t1) + "_" + str(t2) + "_" + str(asize) + "_" + str(den) + ".pgm" # house128_canny_100_200_d.1.pgm
     cv2.imwrite(os.path.join(BASE_PTH, f_name), c_edges)
 
     # create sobel edges and save
@@ -57,7 +57,7 @@ def main():
     # f_name  = IMG_BASE_NAME + "_sobel_" + str(ksize) + ".pgm" # house128_sobel_5.pgm
     # cv2.imwrite(os.path.join(BASE_PTH, f_name), s_edges)    
 
-
+    
     # osmosis inpaint for each edge set ; 
     # osmosis = OsmosisInpainting(None, X, mask1, mask2, offset=0.001, tau=tau, eps = 1e-6, device = device , apply_canny=False)
     # osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)

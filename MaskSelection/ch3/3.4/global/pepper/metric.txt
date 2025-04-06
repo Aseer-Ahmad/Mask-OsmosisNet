@@ -1,0 +1,7 @@
+Filename, MSE, MAE, PSNR
+pepper128_mask_0.112_rec.pgm, 80.2373, 127.9846, 29.0870
+pepper128_mask_0.538_rec.pgm, 7.2564, 67.8544, 39.5236
+pepper128_mask_0.084_rec.pgm, 85.6597, 129.2280, 28.8030
+pepper128_mask_0.359_rec.pgm, 24.3998, 102.7609, 34.2569
+pepper128_mask_0.1_rec.pgm, 81.7982, 128.6057, 29.0034
+pepper128_mask_0.203_rec.pgm, 58.0641, 122.1717, 30.4917
