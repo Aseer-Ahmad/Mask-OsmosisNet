@@ -401,7 +401,7 @@ void comment_line
 */
 
 {
-char     line[80];
+char     line[400];
 va_list  arguments;
 
 /* get list of optional function arguments */
@@ -411,7 +411,7 @@ va_start (arguments, lineformat);
 vsprintf (line, lineformat, arguments);
 
 /* add line to total commentary string */
-strncat (comment, line, 80);
+strncat (comment, line, 400);
 
 /* add line break if input string does not end with one */
 if (line[strlen(line)-1] != '\n')
@@ -1192,8 +1192,8 @@ return;
 int main ()
 
 {
-char    in1[80], in2[80], in3[80]; /* name of input images and mask */
-char    out[200];              /* name of output image */
+char    in1[400], in2[400], in3[400]; /* name of input images and mask */
+char    out[400];              /* name of output image */
 double  **u;                  /* evolving image */
 double  **v;                  /* guidance image */
 long    **m;                  /* mask image*/
@@ -1416,9 +1416,9 @@ comment_line (comments, "# MAE:            %8.2lf\n", mae);
 comment_line (comments, "# PSNR:           %8.2lf\n", psnr);
 
 /* write image data */
-strncpy(out, "out_scaled.pgm", 200);
-write_double_to_pgm (u, nx, ny, out, comments);
-printf ("output scaled image %s successfully written\n\n", out);
+// strncpy(out, "out_scaled.pgm", 200);
+// write_double_to_pgm (u, nx, ny, out, comments);
+// printf ("output scaled image %s successfully written\n\n", out);
 
 
 /* ---- free memory ---- */

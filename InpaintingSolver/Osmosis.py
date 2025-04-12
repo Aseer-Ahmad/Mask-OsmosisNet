@@ -206,15 +206,18 @@ class OsmosisInpainting:
         if save_batch[0]:
             fname = save_batch[1]
 
-            out = torch.cat(( 
-                            ((self.V - self.offset) * 255.).reshape(self.batch*(self.nx+2), self.ny+2) , 
-                            (self.mask1 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
-                            # (self.mask2 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
-                            # (self.canny_mask * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
-                            # (init-self.offset).reshape(self.batch*(self.nx+2), self.ny+2),
-                            ((U - self.offset) * 255.).reshape(self.batch*(self.nx+2), self.ny+2)
-                            ),
-                            dim = 1)
+            # out = torch.cat(( 
+            #                 ((self.V - self.offset) * 255.).reshape(self.batch*(self.nx+2), self.ny+2) , 
+            #                 (self.mask1 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
+            #                 # (self.mask2 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
+            #                 # (self.canny_mask * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
+            #                 # (init-self.offset).reshape(self.batch*(self.nx+2), self.ny+2),
+            #                 ((U - self.offset) * 255.).reshape(self.batch*(self.nx+2), self.ny+2)
+            #                 ),
+            #                 dim = 1)
+
+            out = ((U - self.offset) * 255.).reshape(self.batch*(self.nx+2), self.ny+2)
+  
             # self.writePGMImage((self.normalize(U, 255).reshape(self.batch*(self.nx+2), self.ny+2) - self.offset).cpu().detach().numpy().T, fname)
             self.writePGMImage(out.cpu().detach().numpy().T, fname) 
 
@@ -469,7 +472,7 @@ class OsmosisInpainting:
                 + bpo * inp[:, :, 2:self.nx+2, 1:self.ny+1]
 
         res = self.zero_pad(res)
-        res = torch.where(self.mask1 == 1, inp, res)
+        # res = torch.where(self.mask1 == 1, inp, res) # added to make the HD inpainting equation
 
         if verbose :
             self.analyseImage(res, "X")
@@ -497,7 +500,7 @@ class OsmosisInpainting:
 
         reslosss = ResidualLoss(self.nx, self.offset)
 
-        b = torch.mul(b, self.mask1)
+        # b = torch.mul(b, self.mask1) # added to make the HD inpainting equation
         p   = self.zeroPad(b - self.applyStencil(x, self.boo, self.bmo, self.bom, self.bop, self.bpo))      
         r_0 = r = p
         r0_abs = torch.norm(r_0, dim = (2, 3), p = "fro")

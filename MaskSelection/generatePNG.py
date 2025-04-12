@@ -4,7 +4,7 @@ import cv2
 import glob
 import shutil
 
-DIR_PTH = 'ch3/3.1'
+DIR_PTH = 'ch3/3.3'
 
 # copy paste same path and files
 DIR_PNG_PTH = DIR_PTH + "_PNG"
