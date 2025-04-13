@@ -50,12 +50,12 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    PTH1 = args.img1_pth
-    PTH2 = args.img2_pth
-    PTH1 = "ch3/3.3/scarf/scarf128.pgm"
-    PTH2 = "ch3/3.3/scarf/scarf128_bh_rec.pgm"
-    main(PTH1, PTH2)
+    # PTH1 = args.img1_pth
+    # PTH2 = args.img2_pth
+    # PTH1 = "ch3/3.3/scarf/scarf128.pgm"
+    # PTH2 = "ch3/3.3/scarf/scarf128_bh_rec.pgm"
+    # main(PTH1, PTH2)
 
-    # calculateMetricsForDirectory("ch3/3.2_PNG/scarf/scarf128.png", 
-    #                              "ch3/3.2_PNG/scarf/rec",
-    #                              "ch3/3.2_PNG/scarf/metric1.txt")
+    calculateMetricsForDirectory("ch3/3.4/global/scarf/scarf128.pgm", 
+                                 "ch3/3.4/global/scarf/rec",
+                                 "ch3/3.4/global/scarf/metric1.txt")

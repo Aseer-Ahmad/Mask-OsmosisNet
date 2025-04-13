@@ -129,7 +129,7 @@ class OsmosisInpainting:
 
     def solveBatchParallel(self, df_stencils, bicg_mat, solver, kmax , save_batch = False, verbose = False):
 
-        # init = self.U
+        self.init = self.U
         self.df_stencils = df_stencils
         self.bicg_mat = bicg_mat
         X = self.U

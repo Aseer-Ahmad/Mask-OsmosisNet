@@ -1,0 +1,18 @@
+universe                = docker
+docker_image            = ubuntu:latest
+executable              = nlpe_house
+output                  = out.$(ClusterId).$(ProcId).ckpt
+error                   = out.$(ClusterId).$(ProcId).err
+log                     = out.$(ClusterId).log
+should_transfer_files   = YES
+when_to_transfer_output = ON_EXIT_OR_EVICT
+request_GPUs = 1
+request_CPUs = 1
+request_memory = 50G
+requirements = UidDomain == "cs.uni-saarland.de"
++WantGPUHomeMounted = true
+transfer_output_files   = OSM_NLPE_house79
+transfer_input_files    = OSM_NLPE_house79, nlpe_house, house128.pgm, house128_init.pgm, hosue128_mask_0.079.pgm
+getenv = HOME
+queue 1
+

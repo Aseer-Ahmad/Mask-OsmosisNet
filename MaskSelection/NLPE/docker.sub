@@ -1,0 +1,57 @@
+universe                = docker
+docker_image            = ubuntu:latest
+executable              = nlpe_house
+output                  = out.$(ClusterId).$(ProcId).ckpt
+error                   = out.$(ClusterId).$(ProcId).err
+log                     = out.$(ClusterId).log
+should_transfer_files   = YES
+when_to_transfer_output = ON_EXIT_OR_EVICT
+request_GPUs = 1
+request_CPUs = 1
+request_memory = 50G
+requirements = UidDomain == "cs.uni-saarland.de"
++WantGPUHomeMounted = true
+transfer_output_files   = OSM_NLPE_house
+transfer_input_files    = OSM_NLPE_house, nlpe_house, nlpe_scarf, nlpe_pepper,  pepper128_init.pgm, pepper128.pgm, scarf128.pgm, scarf128_init.pgm, house128.pgm, house128_init.pgm, pepper128_mask_0.1.pgm, house128_mask_0.1.pgm, scarf128_mask_0.1.pgm
+getenv = HOME
+queue 1
+
+
+universe                = docker
+docker_image            = ubuntu:latest
+executable              = nlpe_pepper
+output                  = out.$(ClusterId).$(ProcId).ckpt
+error                   = out.$(ClusterId).$(ProcId).err
+log                     = out.$(ClusterId).log
+should_transfer_files   = YES
+when_to_transfer_output = ON_EXIT_OR_EVICT
+request_GPUs = 1
+request_CPUs = 1
+request_memory = 50G
+requirements = UidDomain == "cs.uni-saarland.de"
++WantGPUHomeMounted = true
+transfer_output_files   = OSM_NLPE_pepper
+transfer_input_files    = OSM_NLPE_pepper, nlpe_house, nlpe_scarf, nlpe_pepper,  pepper128_init.pgm, pepper128.pgm, scarf128.pgm, scarf128_init.pgm, house128.pgm, house128_init.pgm, pepper128_mask_0.1.pgm, house128_mask_0.1.pgm, scarf128_mask_0.1.pgm
+getenv = HOME
+queue 1
+
+
+universe                = docker
+docker_image            = ubuntu:latest
+executable              = nlpe_scarf
+output                  = out.$(ClusterId).$(ProcId).ckpt
+error                   = out.$(ClusterId).$(ProcId).err
+log                     = out.$(ClusterId).log
+should_transfer_files   = YES
+when_to_transfer_output = ON_EXIT_OR_EVICT
+request_GPUs = 1
+request_CPUs = 1
+request_memory = 50G
+requirements = UidDomain == "cs.uni-saarland.de"
++WantGPUHomeMounted = true
+transfer_output_files   = OSM_NLPE_scarf
+transfer_input_files    = OSM_NLPE_scarf, nlpe_scarf, scarf128.pgm, scarf128_init.pgm, scarf128_mask_0.1.pgm, scarf128_mask_0.15.pgm
+getenv = HOME
+queue 1
+
+

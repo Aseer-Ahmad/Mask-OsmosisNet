@@ -8,6 +8,7 @@ from torchvision import transforms, utils
 import sys
 import torchvision.transforms.functional as F
 import torch
+import random
 
 # torch.manual_seed(1)
 # setting path
@@ -33,8 +34,14 @@ def readPGMImage( pth):
     pgm = cv2.imread(pth, cv2.IMREAD_GRAYSCALE) 
     pgm_T = torch.tensor(pgm, dtype = torch.float64)
     nx, ny = pgm_T.size()
-    pgm_T = pgm_T.reshape(1, 1, nx, ny) / 255.
-    # pgm_T = F.resize(pgm_T.reshape(1, 1, nx, ny) / 255., (16, 16))
+    # Perform center square crop
+    min_dim = min(nx, ny)
+    top = (nx - min_dim) // 2
+    left = (ny - min_dim) // 2
+    pgm_T = pgm_T[top:top + min_dim, left:left + min_dim]
+    pgm_T = F.resize(pgm_T.reshape(1, 1, min_dim, min_dim) / 255., (256, 256)) 
+
+    # pgm_T = F.resize(pgm_T.reshape(1, 1, nx, ny) / 255., (128, 128))
     return pgm_T
 
 def readPGMBinaryImage( pth):
@@ -63,10 +70,10 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     offset = 0.001
 
-    V1 = readPGMImage("ch3/3.3/scarf/scarf128.pgm").to(device) + offset
-    V1_init = readPGMImage("ch3/3.3/scarf/scarf128_init.pgm").to(device) + offset
-    mask = readPGMImage("ch3/3.3/scarf/mask/scarf128_bh_mask_density_0.098.pgm").to(device)
-    print(mask)
+    V1 = readPGMImage("ch2/2.4/senstivity/lisa2.pgm").to(device) + offset
+    # V1_init = readPGMImage("ch2/2.4/patch/pepper128_init.pgm").to(device) + offset
+    mask = readPGMImage("ch2/2.4/senstivity/fry2.pgm").to(device)
+    # print(mask)
     nx, ny = V1.shape[2],V1.shape[3]
 
     # V = readPGMImage('scarf.pgm')
@@ -80,10 +87,29 @@ if __name__ == '__main__':
     # bicg_mat = get_bicgDict()
     
     # Osmosis
-    osmosis = OsmosisInpainting(V1_init, V1, mask, mask, offset=offset, tau=16384, eps = 1e-9, device = device, apply_canny=False)
+    # for i in range(1,15):
+    #     mask = readPGMImage("ch2/2.4/patch/pepper128_canny_170_180_0.10.pgm").to(device)
+    #     kernel_size = 50
+    #     top = random.randint(0, nx - kernel_size)
+    #     left = random.randint(0, ny - kernel_size)
+    #     mask[0, 0, top:top+kernel_size, left:left+kernel_size] = 0
+        
+    osmosis = OsmosisInpainting(None, V1, mask, mask, offset=offset, tau=65536, eps = 1e-9, device = device, apply_canny=True)
     osmosis.calculateWeights(False, False, False)
-    osmosis.solveBatchParallel(None, None, "Stab_BiCGSTAB", 1, save_batch = [True, "ch3/3.3/scarf/scarf128_bh_rec.pgm"], verbose = False)
-    rec = osmosis.U[0][0]
+    osmosis.solveBatchParallel(None, None, "Stab_BiCGSTAB", 1, save_batch = [True, f"ch2/2.4/senstivity/lisa256_rec.pgm"], verbose = False)
+    
+    init = osmosis.init[0][0].cpu().detach().numpy().T * 255
+    d1 = osmosis.d1[0][0].cpu().detach().numpy().T * 255
+    d2 = osmosis.d2[0][0].cpu().detach().numpy().T * 255
+    print(d1.shape, d2.shape)
+
+    # cv2.imwrite("ch2/2.4/patch/pepper128_init.pgm", init)
+    cv2.imwrite("ch2/2.4/senstivity/lisa256_mask.pgm", osmosis.mask1[0][0].cpu().detach().numpy().T*255. )
+    cv2.imwrite("ch2/2.4/senstivity/lisa256.pgm", V1[0][0].cpu().detach().numpy() * 255.)
+    cv2.imwrite("ch2/2.4/senstivity/lisa256_d1.pgm", d1)
+    cv2.imwrite("ch2/2.4/senstivity/lisa256_d2.pgm", d2)
+    
+
 
     
     # Diffusion

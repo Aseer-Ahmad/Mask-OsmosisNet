@@ -44,4 +44,4 @@ def calculate_and_append_density(image_dir):
         print(f"Renamed {file_name} to {new_file_name}")
 
 
-calculate_and_append_density("ch3/3.3/scarf/mask")
+calculate_and_append_density("OSM_NLPE_scarf/")

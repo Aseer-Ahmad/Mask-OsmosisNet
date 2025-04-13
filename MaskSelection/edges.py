@@ -11,6 +11,14 @@ import torch
 GD_IMG_PTH = None
 INIT_IMG_PTH = None
 
+def readPGMImage( pth):
+    pgm = cv2.imread(pth, cv2.IMREAD_GRAYSCALE) 
+    pgm_T = torch.tensor(pgm, dtype = torch.float64)
+    nx, ny = pgm_T.size()
+    pgm_T = pgm_T.reshape(1, 1, nx, ny) / 255.
+    # pgm_T = F.resize(pgm_T.reshape(1, 1, nx, ny) / 255., (16, 16))
+    return pgm_T
+
 def read_PGMImg(pth, blur = False):
     img = cv2.imread(pth,flags=0)  
     if blur : 
@@ -44,8 +52,8 @@ def main():
 
     # create canny edges and save
     print("creating canny edges")
-    t1, t2 , asize = 60, 70 , 5
-    c_edges = canny_edges(img, t1=t1, t2=t2, apertureSize = 5)
+    t1, t2 , asize = 50, 60 , 3
+    c_edges = canny_edges(img, t1=t1, t2=t2, apertureSize = asize)
     den     = getDensity(c_edges)
     f_name  = IMG_BASE_NAME + "_canny_" + str(t1) + "_" + str(t2) + "_" + str(asize) + "_" + str(den) + ".pgm" # house128_canny_100_200_d.1.pgm
     cv2.imwrite(os.path.join(BASE_PTH, f_name), c_edges)
@@ -58,10 +66,13 @@ def main():
     # cv2.imwrite(os.path.join(BASE_PTH, f_name), s_edges)    
 
     
-    # osmosis inpaint for each edge set ; 
-    # osmosis = OsmosisInpainting(None, X, mask1, mask2, offset=0.001, tau=tau, eps = 1e-6, device = device , apply_canny=False)
-    # osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)
-    # loss3, tts, max_k, df_stencils, bicg_mat = osmosis.solveBatchParallel(df_stencils, bicg_mat, "Stab_BiCGSTAB", kmax = 1, save_batch = False, verbose = False)
+    # osmosis inpaint for each edge set ;
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    V1 = readPGMImage(GD_IMG_PTH).to(device) + 0.001
+    mask = readPGMImage(os.path.join(BASE_PTH, f_name)).to(device)
+    osmosis = OsmosisInpainting(None, V1, mask, mask, offset=0.001, tau=16384, eps = 1e-9, device = device, apply_canny=True)
+    osmosis.calculateWeights(False, False, False)
+    osmosis.solveBatchParallel(None, None, "Stab_BiCGSTAB", 1, save_batch = [True, f"{BASE_PTH}/rec.pgm"], verbose = False)
 
     # save init, gd, edge mask, reconstruction 
 
@@ -75,6 +86,9 @@ if __name__ == "__main__":
     python edges.py --gd_pth ch3/3.2/house/house128.pgm --init_pth ch3/3.2/house/house128_init.pgm
 
     python edges.py --gd_pth ch3/3.2/scarf/scarf128.pgm --init_pth ch3/3.2/scarf/scarf128_init.pgm
+
+    python edges.py --gd_pth ch2/2.4/patch/masks/pepper128.pgm
+
     50 100 3 scarf
     
     '''

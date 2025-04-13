@@ -2024,7 +2024,7 @@ for (i=1; i<=nx; i++)
 
       /* remove candidates with lowest errors from mask,
        * n_ex new points remain in mask */
-      for (k = 0; k < (n_cand - n_ex); k++) {
+      for (k = 0; k <= (n_cand - n_ex); k++) {
         mask_new[candidates[k].x][candidates[k].y] = 0.0;
       }
 
