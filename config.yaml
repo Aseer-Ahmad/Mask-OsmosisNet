@@ -27,7 +27,7 @@ OPT            :
 SCHEDL         : 
 TRAIN_BATCH    : 8
 TEST_BATCH     : 8
-ALPHA1         : 0.001
+ALPHA1         : 0.01
 ALPHA2         : 1
 MASK_DEN       : 0.2
 BIN_METH       : QUANT
@@ -56,15 +56,15 @@ RESUME_CHECKPOINT_MN :
 RESUME_CHECKPOINT_IN : 
 
 OPT1 :
-    opt : SGD-Nestrov
-    lr : 0.001
+    opt : Adam
+    lr : 0.00001
     wd : 0.001
     momentum : 0.009
 SCHEDL1 : 
 
 OPT2 :
-    opt : SGD-Nestrov
-    lr : 0.001
+    opt : Adam
+    lr : 0.00001
     wd : 0.001
     momentum : 0.009
 SCHEDL2 : 

@@ -298,7 +298,8 @@ class JointModelTrainer():
                                 
                 print(f'Epoch {epoch}/{epochs} , batch {i}/{len(train_dataloader)} ')
                 
-                X = X_crop.to(self.device, dtype=torch.float64) 
+                # X = X_crop.to(self.device, dtype=torch.float64) 
+                X = X.to(self.device, dtype = torch.float64)
 
                 # mask 
                 mask  = maskModel(X) # non-binary [0,1]
