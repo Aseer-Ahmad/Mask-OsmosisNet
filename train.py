@@ -32,8 +32,8 @@ from utils import initialize_weights_he, init_weights_xavier, save_plot, check_g
 from utils import inspect_gradients, MyCustomTransform2, mean_density, normalize, OffsetEvolve
 
 torch.backends.cuda.matmul.allow_tf32 = True
-SEED = 5 # 4
-torch.manual_seed(SEED)
+# SEED = 5 # 4
+# torch.manual_seed(SEED)
 
 # def seed_worker(worker_id):
 #     worker_seed = torch.initial_seed() % 2**32
@@ -59,13 +59,17 @@ class ResidualLoss(nn.Module):
 
     def forward(self, x, f, mask):
         '''
+        Steady State
+        (∆u - div ( d u )) = 0
+
         Rsidual Loss 
-        (1 / nxny) || (1 - C)(\laplacian u - div ( d u)) - C (u - f) ||2 
+        (1 / nxny) * || (1 - C)(∆u - div ( d u)) - C (u - f) ||2 
         x : evolved solution ; not padded
         f : guidance image   ; not padded
         '''
         u   = self.pad(x + self.offset)
         v   = self.pad(f + self.offset)
+        mask= self.pad(mask)
 
         # laplacian kernel
         lap_u_kernel = torch.tensor([[[[0., 1., 0.],
@@ -227,7 +231,8 @@ class JointModelTrainer():
                     skip_norm, 
                     max_norm, 
                     train_dataset,
-                    test_dataset):
+                    test_dataset,
+                    solver):
         
         # loss lists
         loss1_list, loss2_list, loss3_list, gradnorm_list, tot_mask_loss_list = [], [], [], [], []
@@ -300,7 +305,7 @@ class JointModelTrainer():
                 loss1 = maskLoss(mask) 
 
                 # inpainting 
-                mask = mask.detach()
+                # mask = mask.detach()
                 stack_X_mask = torch.cat((X, mask), dim=1)
                 rec_X = inpModel(stack_X_mask)
                 loss2 = mseLoss(rec_X, X)
@@ -308,7 +313,7 @@ class JointModelTrainer():
                 
                 maskModelLoss = loss2 + alpha1 * loss1 
                 
-                maskModelLoss.backward(retain_graph=True)
+                # maskModelLoss.backward(retain_graph=True)
                 opt1.step()
                 
                 loss3.backward()
@@ -318,9 +323,11 @@ class JointModelTrainer():
                 opt2.zero_grad()
 
                 # solve using solver
+                mask = mask.detach() 
                 osmosis = OsmosisInpainting(None, X, mask, mask, offset = offset, tau=tau, eps = 1e-9, device = self.device, apply_canny=False)
-                osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)                
-                loss3, tts, max_k, df_stencils, U = osmosis.solveBatchParallel(None, None, kmax = 1, save_batch = [False], verbose = False)
+                osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)
+                _ , tts, max_k, df_stencils, U = osmosis.solveBatchParallel(None, None, solver, kmax = 1, save_batch = [False], verbose = False)
+                
                 U = torch.transpose(U[:, :, 1:-1, 1:-1], 2, 3)
 
                 if (i-1) % save_every == 0:

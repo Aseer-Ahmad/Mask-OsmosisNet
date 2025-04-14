@@ -160,7 +160,9 @@ def main(config):
         skip_norm = config['SKIP_NORM'],
         max_norm  = config['MAX_NORM'],
         train_dataset = train_dataset , 
-        test_dataset = test_dataset
+        test_dataset = test_dataset,
+        solver = config['SOLVER_TYPE'],
+
     )
     
 if __name__ == '__main__':

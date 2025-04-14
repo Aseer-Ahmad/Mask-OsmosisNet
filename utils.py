@@ -159,6 +159,9 @@ def mean_density(mask):
 def hardRoundBinarize(mask):
     return torch.floor(mask + 0.5)
 
+def Binarize(mask):
+    return (mask > 0).float()
+
 def normalize(X, scale = 1.):
     b, c, _ , _ = X.shape
     X = X - torch.amin(X, dim=(2,3)).view(b,c,1,1)

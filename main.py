@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import yaml
-from train import ModelTrainer
+from train import ModelTrainer, JointModelTrainer
 from CustomDataset import MaskDataset
 import torch
 from MaskModel.unet_model import UNet
