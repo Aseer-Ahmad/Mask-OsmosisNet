@@ -54,22 +54,8 @@ class ResidualLoss(nn.Module):
                                        [0., 1., 0.]]]], dtype = torch.float64, device = self.device)
         lap_u = F.conv2d(u, lap_u_kernel)
 
-        # row-direction filters  
-        f1 = torch.tensor([[[[-1.], [1.]]]], dtype = torch.float64, device = self.device)
-        f2 = torch.tensor([[[[.5], [.5]]]], dtype = torch.float64, device = self.device)
-        d1_u = (F.conv2d(v, f1, padding='same') / F.conv2d(v, f2, padding='same')) * F.conv2d(u, f2, padding='same')
-        d1_u = mask * d1_u
-        dx_d1_u = d1_u[:, :, 1:-1, 1:-1] - d1_u[:, :, 0:-2, 1:-1]
-
-        # col-direction filters
-        f3 = torch.tensor([[[[-1., 1.]]]], dtype = torch.float64, device = self.device)
-        f4 = torch.tensor([[[[.5, .5]]]], dtype = torch.float64, device = self.device)
-        d2_u = (F.conv2d(v, f3, padding='same') / F.conv2d(v, f4, padding='same')) * F.conv2d(u, f4, padding='same')
-        d2_u = mask * d2_u
-        dy_d2_u = d2_u[:, :, 1:-1, 1:-1] - d2_u[:, :, 1:-1, 0:-2]
-
         # steady state 
-        ss = lap_u - dx_d1_u - dy_d2_u 
+        ss = lap_u
 
         # residual loss
         return torch.mean(torch.norm(ss, p = 2, dim = (2, 3)))  # / self.nxny
@@ -231,30 +217,6 @@ class DiffusionInpainting:
         if self.apply_canny : 
             self.canny_mask = self.createMaskfromCanny()
             self.mask = self.canny_mask
-
-    def write_bicg_weights(self, x, name):
-        comm, min_, max_, mean_, std_ = self.analyseImage(x, name)
-        self.bicg_mat[name + "_max"].append(max_)
-        self.bicg_mat[name + "_min"].append(min_)
-        self.bicg_mat[name + "_mean"].append(mean_)
-
-    def create_backward_hook(self, var_name):
-        def hook(grad):
-            comm, min_, max_, mean_, std_ = self.analyseImage(grad, var_name)
-            self.df_stencils[var_name + "_max"].append(max_)
-            self.df_stencils[var_name + "_min"].append(min_)
-            self.df_stencils[var_name + "_mean"].append(mean_)
-            # print(f"Gradient of {var_name}\n grad norm : {grad.norm()}\n grad stats:\n{comm}")
-        return hook
-
-    def create_backward_hook2(self, var_name):
-        def hook(grad):
-            comm, min_, max_, mean_, std_ = self.analyseImage(grad, var_name)
-            self.bicg_mat[var_name + "_max"].append(max_)
-            self.bicg_mat[var_name + "_min"].append(min_)
-            self.bicg_mat[var_name + "_mean"].append(mean_)
-            # print(f"Gradient of {var_name}\n grad norm : {grad.norm()}\n grad stats:\n{comm}")
-        return hook
 
     def zeroPad(self, x):
         return self.zero_pad(x[ :, :, 1:self.nx+1, 1 :self.ny+1])

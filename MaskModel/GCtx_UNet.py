@@ -162,7 +162,7 @@ class ReduceSize(nn.Module):
         super().__init__()
         self.conv = nn.Sequential(
             nn.Conv2d(dim, dim, 3, 1, 1,
-                      groups=dim, bias=False),
+                      groups=dim, padding_mode = 'reflect', bias=False),
             nn.GELU(),
             SE(dim, dim),
             nn.Conv2d(dim, dim, 1, 1, 0, bias=False),
@@ -171,7 +171,7 @@ class ReduceSize(nn.Module):
             dim_out = dim
         else:
             dim_out = 2 * dim
-        self.reduction = nn.Conv2d(dim, dim_out, 3, 2, 1, bias=False)
+        self.reduction = nn.Conv2d(dim, dim_out, 3, 2, 1, padding_mode = 'reflect',  bias=False)
         self.norm2 = norm_layer(dim_out)
         self.norm1 = norm_layer(dim)
 
@@ -214,7 +214,7 @@ class UpSize(nn.Module):
             dim_out = dim//2
         #self.upsample=nn.ConvTranspose2d(dim, dim_out, kernel_size=2, stride=2, padding=0, bias=False)
         self.upsample = nn.Upsample(scale_factor=2, mode='bicubic')#'nearest', 'linear', 'bilinear', 'bicubic' and 'trilinear'
-        self.expansion =  nn.Conv2d(dim, dim_out, 1, 1, 0, bias=False)#nn.ConvTranspose2d(dim, dim_out, 2, 2, 0, bias=False)#
+        self.expansion =  nn.Conv2d(dim, dim_out, 1, 1, 0, padding_mode = 'reflect',  bias=False)#nn.ConvTranspose2d(dim, dim_out, 2, 2, 0, bias=False)#
         self.norm1 = norm_layer(dim)
         self.norm2 = norm_layer(dim_out)
 
@@ -239,10 +239,10 @@ class Upsample(nn.Module):
         super().__init__()
         self.conv1 = nn.Sequential(
             nn.Conv2d(dim, dim, 3, 1, 1,
-                      groups=dim, bias=False),
+                      groups=dim, padding_mode = 'reflect',  bias=False),
             nn.GELU(),
             SE(dim, dim),
-            nn.Conv2d(dim, dim, 1, 1, 0, bias=False),
+            nn.Conv2d(dim, dim, 1, 1, 0, padding_mode = 'reflect',  bias=False),
         )
 
         self.scale_factor = 2
@@ -251,7 +251,7 @@ class Upsample(nn.Module):
             dim_out = dim
         else:
             dim_out = dim//2
-        self.conv = nn.Conv2d(dim, dim_out, kernel_size=1, bias=False)
+        self.conv = nn.Conv2d(dim, dim_out,  padding_mode = 'reflect', kernel_size=1, bias=False)
         #self.se = SE(dim_in, dim_out)  # Add SE mechanism
         self.norm1 = norm_layer(dim)
         self.norm2 = norm_layer(dim_out)
@@ -282,7 +282,7 @@ class PatchEmbed(nn.Module):
         """
 
         super().__init__()
-        self.proj = nn.Conv2d(in_chans, dim, 3, 2, 1)
+        self.proj = nn.Conv2d(in_chans, dim, 3, 2, 1, padding_mode = 'reflect', )
         self.conv_down = ReduceSize(dim=dim, keep_dim=True)
 
     def forward(self, x):
@@ -312,7 +312,7 @@ class FeatExtract(nn.Module):
                       groups=dim, bias=False),
             nn.GELU(),
             SE(dim, dim),
-            nn.Conv2d(dim, dim, 1, 1, 0, bias=False),
+            nn.Conv2d(dim, dim, 1, 1, 0,  padding_mode = 'reflect', bias=False),
         )
         if not keep_dim:
             self.pool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
@@ -1002,10 +1002,20 @@ class GCViT_Unet(nn.Module):
         # if x.size()[1] == 1:
         #     x = x.repeat(1,3,1,1)
         logits = self.model(x)
+
         prob = torch.special.expit(logits)
-        prob_scaled = self.scaleDensity(prob)
-        return prob_scaled
+        # prob_scaled = self.scaleDensity(prob)
+        # out_norm = self.normalize(logits)
+
+        return prob
     
+    def normalize(self, X, scale = 1.):
+        b, c, _ , _ = X.shape
+        X = X - torch.amin(X, dim=(2,3)).view(b,c,1,1)
+        X = X / (torch.amax(X, dim=(2,3)).view(b,c,1,1) + 1e-7)
+        X = X * scale
+
+        return X
     def scaleDensity(self, inp):
         b, c, h, w = inp.shape
         hw = h*w

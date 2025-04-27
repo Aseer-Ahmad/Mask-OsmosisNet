@@ -113,21 +113,22 @@ def main(config):
 
 
     # get Mask model
-    config_ViT = get_config()
-    maskNet = ViT_seg(config_ViT, img_size=128, num_classes=1)
-    print(f"Mask model loaded")
-    print(f"Mask model summary")
-    model_sum = summary(maskNet, 
-                        input_data =(1, 128, 128), 
-                        col_names=["kernel_size", "output_size", "num_params", "mult_adds"])
 
-    # maskNet = MaskNet(config['MN_INP_CHANNELS'], config['MN_OUT_CHANNELS'], tar_den = config['MASK_DEN'])
+    # config_ViT = get_config()
+    # maskNet = ViT_seg(config_ViT, img_size=128, num_classes=1)
+    # print(f"Mask model loaded")
+    # print(f"Mask model summary")
     # model_sum = summary(maskNet, 
-    #                     input_data =(config['MN_INP_CHANNELS'], config['IMG_SIZE'], config['IMG_SIZE']), 
+    #                     input_data =(1, 128, 128), 
     #                     col_names=["kernel_size", "output_size", "num_params", "mult_adds"])
+
+    maskNet = MaskNet(config['MN_INP_CHANNELS'], config['MN_OUT_CHANNELS'], tar_den = config['MASK_DEN'])
+    model_sum = summary(maskNet, 
+                        input_data =(config['MN_INP_CHANNELS'], config['IMG_SIZE'], config['IMG_SIZE']), 
+                        col_names=["kernel_size", "output_size", "num_params", "mult_adds"])
     
-    # model_sum = str(model_sum).encode('ascii', errors='replace')
-    # print(model_sum.decode())
+    model_sum = str(model_sum).encode('ascii', errors='replace')
+    print(model_sum.decode())
 
     # get Inpainting model
     inpNet = InpaintingNet(config['IN_INP_CHANNELS'], config['IN_OUT_CHANNELS'])
@@ -137,7 +138,7 @@ def main(config):
                         input_data=(config['IN_INP_CHANNELS'], config['IMG_SIZE'], config['IMG_SIZE']),
                         col_names=["kernel_size", "output_size", "num_params", "mult_adds"])
     model_sum = str(model_sum).encode('ascii', errors='replace')
-    # print(model_sum.decode())
+    print(model_sum.decode())
 
 
 

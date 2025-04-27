@@ -27,7 +27,7 @@ import cv2
 import numpy as np
 import random
 
-from utils import get_dfStencil, get_bicgDict, getOptimizer, getScheduler, loadCheckpoint, saveCheckpoint
+from utils import hardRoundBinarize, get_dfStencil, get_bicgDict, getOptimizer, getScheduler, loadCheckpoint, saveCheckpoint
 from utils import initialize_weights_he, init_weights_xavier, save_plot, check_gradients
 from utils import inspect_gradients, MyCustomTransform2, mean_density, normalize, OffsetEvolve
 
@@ -271,7 +271,7 @@ class JointModelTrainer():
 
         # losses 
         mseLoss  = MSELoss()
-        maskLoss = InvarianceLoss()
+        maskLoss = DensityLoss(density = mask_density) # InvarianceLoss()
         resLoss  = ResidualLoss(img_size=img_size, offset=offset)
 
         torch.autograd.set_detect_anomaly(True)
@@ -302,8 +302,9 @@ class JointModelTrainer():
                 X = X.to(self.device, dtype = torch.float64)
 
                 # mask 
-                mask  = maskModel(X) # non-binary [0,1]
-                loss1 = maskLoss(mask) 
+                mask_nb = maskModel(X) # non-binary [0,1]
+                mask    = hardRoundBinarize(mask_nb) # binary {0, 1}
+                loss1   = maskLoss(mask) 
 
                 # inpainting 
                 # mask = mask.detach()
