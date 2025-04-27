@@ -2,11 +2,11 @@
 EPOCHS : 100
 MODEL_TYPE : unet_standard
 RESUME_CHECKPOINT : 
-SAVE_EVERY_ITER : 50
-VAL_EVERY_ITER : 25
-BATCH_PLOT_EVERY_ITER : 25
+SAVE_EVERY_ITER : 25
+VAL_EVERY_ITER : 26
+BATCH_PLOT_EVERY_ITER : 2
 OUTPUT_DIR : outputs
-EXP_NAME : 14_4_JM_2
+EXP_NAME : 27_4_SM_1
 
 # DATA PARMS
 TRAIN_FILENAME : iids_train.txt
@@ -19,26 +19,26 @@ OUT_CHANNELS   : 1
 
 # HYPER PARAMS unet
 OPT            : 
-    opt        : SGD-Nestrov
-    lr         : 0.001
+    opt        : Adam
+    lr         : 0.0001
     wd         : 0.001
     momentum   : 0.009  
 
 SCHEDL         : 
-TRAIN_BATCH    : 2
-TEST_BATCH     : 2
-ALPHA1         : 1
+TRAIN_BATCH    : 4
+TEST_BATCH     : 4
+ALPHA1         : 0.01
 ALPHA2         : 1
-MASK_DEN       : 0.2
+MASK_DEN       : 0.1
 BIN_METH       : QUANT
 MAX_NORM       : 1
 SKIP_NORM      : 500
 
 #solver params
 SOLVER_TYPE    : Stab_BiCGSTAB
-R_ABS_EPS      : 1e-3
+R_ABS_EPS      : 1e-4
 OFFSET         : 0.004
-TAU            : 8000
+TAU            : 16000
 ITERATIONS     : 
 OFFSET_EVL     : constant
 OFFSET_EVL_STEPS : 5000

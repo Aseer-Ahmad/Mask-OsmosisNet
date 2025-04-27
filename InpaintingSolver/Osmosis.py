@@ -191,7 +191,6 @@ class OsmosisInpainting:
             loss = mse( U, self.V)
             print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)
 
-        # print()
         
         et = time.time()
         tt += (et-st)
@@ -206,24 +205,24 @@ class OsmosisInpainting:
         if save_batch[0]:
             fname = save_batch[1]
 
-            # out = torch.cat(( 
-            #                 ((self.V - self.offset) * 255.).reshape(self.batch*(self.nx+2), self.ny+2) , 
-            #                 (self.mask1 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
-            #                 # (self.mask2 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
-            #                 # (self.canny_mask * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
-            #                 # (init-self.offset).reshape(self.batch*(self.nx+2), self.ny+2),
-            #                 ((U - self.offset) * 255.).reshape(self.batch*(self.nx+2), self.ny+2)
-            #                 ),
-            #                 dim = 1)
+            out = torch.cat(( 
+                            ((self.V - self.offset) * 255.).reshape(self.batch*(self.nx+2), self.ny+2) , 
+                            (self.mask1 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
+                            # (self.mask2 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
+                            # (self.canny_mask * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
+                            # (init-self.offset).reshape(self.batch*(self.nx+2), self.ny+2),
+                            (U  * 255. - self.offset).reshape(self.batch*(self.nx+2), self.ny+2)
+                            ),
+                            dim = 1)
 
-            out = ((U - self.offset) * 255.).reshape(self.batch*(self.nx+2), self.ny+2)
+            # out = ((U - self.offset) * 255.).reshape(self.batch*(self.nx+2), self.ny+2)
   
             # self.writePGMImage((self.normalize(U, 255).reshape(self.batch*(self.nx+2), self.ny+2) - self.offset).cpu().detach().numpy().T, fname)
             self.writePGMImage(out.cpu().detach().numpy().T, fname) 
 
         # print(torch.mean((self.normalize(U, 255) - self.normalize(self.V, 255)) ** 2, dim=(2, 3)))
         
-        self.U = (U - self.offset) * 255.
+        self.U = U * 255 - self.offset
 
         # mse loss 
         loss = mse(U , self.V)
@@ -312,7 +311,7 @@ class OsmosisInpainting:
         return metrics
 
     def getInit_U(self):
-        m  = torch.mean(self.V - self.offset, dim = (2,3))
+        m  = torch.mean(self.V - self.offset, dim = (2,3)) 
         
         # create a flat image ; avg gray val same as guidance
         u  = torch.ones_like(self.V, device = self.device) * m.view(self.batch, self.channel, 1, 1)

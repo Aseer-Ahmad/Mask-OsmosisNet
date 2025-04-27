@@ -32,8 +32,8 @@ from utils import initialize_weights_he, init_weights_xavier, save_plot, check_g
 from utils import inspect_gradients, MyCustomTransform2, mean_density, normalize, OffsetEvolve
 
 torch.backends.cuda.matmul.allow_tf32 = True
-# SEED = 5 # 4
-# torch.manual_seed(SEED)
+SEED = 5 # 4
+torch.manual_seed(SEED)
 
 # def seed_worker(worker_id):
 #     worker_seed = torch.initial_seed() % 2**32
@@ -271,7 +271,7 @@ class JointModelTrainer():
 
         # losses 
         mseLoss  = MSELoss()
-        maskLoss = DensityLoss(density = mask_density) # InvarianceLoss()
+        maskLoss = InvarianceLoss() # DensityLoss(density = mask_density)
         resLoss  = ResidualLoss(img_size=img_size, offset=offset)
 
         torch.autograd.set_detect_anomaly(True)
@@ -299,11 +299,11 @@ class JointModelTrainer():
                 print(f'Epoch {epoch}/{epochs} , batch {i}/{len(train_dataloader)} ')
                 
                 # X = X_crop.to(self.device, dtype=torch.float64) 
-                X = X.to(self.device, dtype = torch.float64)
+                X = X.to(self.device, dtype = torch.float64) + offset
 
                 # mask 
-                mask_nb = maskModel(X) # non-binary [0,1]
-                mask    = hardRoundBinarize(mask_nb) # binary {0, 1}
+                mask = maskModel(X)                    # non-binary [0,1]
+                # mask    = hardRoundBinarize(mask_nb) # binary {0, 1}
                 loss1   = maskLoss(mask) 
 
                 # inpainting 
@@ -344,9 +344,9 @@ class JointModelTrainer():
                     fname = f"batch_epoch_{str(epoch)}_iter_{str(i)}.png"
                     fname_path = os.path.join(self.output_dir, "imgs", fname)
                     out_save = torch.cat((
-                                        (X * 255).reshape(self.train_batch_size*img_size, img_size),
+                                        (X * 255 - offset).reshape(self.train_batch_size*img_size, img_size),
                                         (mask * 255).reshape(self.train_batch_size*img_size, img_size),
-                                        (U * 255).reshape(self.train_batch_size*img_size, img_size))
+                                        (U * 255 - offset).reshape(self.train_batch_size*img_size, img_size))
                                         , dim = 1).cpu().detach().numpy()
                     cv2.imwrite(fname_path, out_save)
 
@@ -422,7 +422,7 @@ class ModelTrainer():
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"device : {self.device}")
 
-    def validate(self, model, test_dataloader, density, alpha1, alpha2, offset, tau, eps):
+    def validate(self, model, solver, test_dataloader, density, alpha1, alpha2, offset, tau, eps):
         print("validating on test dataset")
         avg_loss = 0.0
 
@@ -455,7 +455,7 @@ class ModelTrainer():
                 osmosis = OsmosisInpainting(None, X, mask1, mask2, offset=0, tau=tau, eps = 1e-9, device = self.device, apply_canny=False)
                 osmosis.calculateWeights(d_verbose=False, m_verbose=False, s_verbose=False)
                 save_batch = [False]
-                loss3, tts, max_k, df_stencils, bicg_mat = osmosis.solveBatchParallel(df_stencils, bicg_mat, 1, save_batch = save_batch, verbose = False)
+                loss3, tts, max_k, df_stencils, bicg_mat = osmosis.solveBatchParallel(df_stencils, bicg_mat, solver, kmax=1, save_batch = save_batch, verbose = False)
                 
                 total_loss = loss3 + loss1 * alpha1 + loss2
 
@@ -500,7 +500,7 @@ class ModelTrainer():
 
         optimizer = getOptimizer(model, self.opt_config)
         scheduler = getScheduler(optimizer, self.scheduler)
-        offsetEvol = OffsetEvolve(init_offset=0.004, final_offset=offset, max_iter = offset_evl_steps)
+        offsetEvol = OffsetEvolve(init_offset=1, final_offset=offset, max_iter = offset_evl_steps)
         # scheduler = WarmupScheduler(optimizer, warmup_steps=5, final_lr=self.lr, base_lr=1e-5)
 
         print(f"optimizer , scheduler  loaded")
@@ -558,7 +558,7 @@ class ModelTrainer():
                 # offset annealing
                 offset = offsetEvol(iter)
                 iter += 1
-                X = X_crop.to(self.device, dtype=torch.float64) + offset
+                X = X.to(self.device, dtype=torch.float64) + offset
 
                 # mask model
                 mask  = model(X) # non-binary [0,1]
@@ -586,7 +586,7 @@ class ModelTrainer():
                 df_stencils["iter"].append(i)
                 loss3, tts, max_k, df_stencils, bicg_mat = osmosis.solveBatchParallel(df_stencils, bicg_mat, solver, kmax = 1, save_batch = save_batch, verbose = False)
                 
-                total_loss = loss3 + loss1 * alpha1 + loss2
+                total_loss = loss3 + loss1 * alpha1
                 bp_st = time.time()
                 total_loss.backward()
                 bp_et = time.time()
@@ -605,31 +605,31 @@ class ModelTrainer():
                     fname = f"ckp_epoch_{str(epoch+1)}_iter_{str(i-1)}.pt"
                     saveCheckpoint(model, optimizer, self.output_dir, fname)
 
-                # if total_norm < skip_norm :
-                #     m_max_norm = max_norm
-                # elif total_norm > skip_norm and total_norm < 2 * skip_norm :
-                #     m_max_norm = max_norm * 2
-                #     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = m_max_norm)
-                # # elif total_norm > 2 * skip_norm and total_norm < 10 * skip_norm :
-                # #     m_max_norm = max_norm * 3
-                # # elif total_norm > 10 * skip_norm and total_norm < 20 * skip_norm :
-                # #     m_max_norm = max_norm * 4
-                # else :
-                #     skipped_batches += 1
-                #     ttl_skipped_batches += 1
-                #     print(f"skipping batch due to higher gradient norm : {total_norm}, total skipped : {ttl_skipped_batches}")
-                #     optimizer.zero_grad()
-                #     continue
+                if total_norm < skip_norm :
+                    m_max_norm = max_norm
+                elif total_norm > skip_norm and total_norm < 2 * skip_norm :
+                    m_max_norm = max_norm * 2
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = m_max_norm)
+                # elif total_norm > 2 * skip_norm and total_norm < 10 * skip_norm :
+                #     m_max_norm = max_norm * 3
+                # elif total_norm > 10 * skip_norm and total_norm < 20 * skip_norm :
+                #     m_max_norm = max_norm * 4
+                else :
+                    skipped_batches += 1
+                    ttl_skipped_batches += 1
+                    print(f"skipping batch due to higher gradient norm : {total_norm}, total skipped : {ttl_skipped_batches}")
+                    optimizer.zero_grad()
+                    continue
                 
-                # try : 
-                #     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = max_norm)
-                # except Exception as e :
-                #     skipped_batches += 1
-                #     ttl_skipped_batches += 1
-                #     print(f"exception caused at gradient clipping for total_norm : {total_norm} and max norm: {m_max_norm}")
-                #     print("skipping batch")
-                #     print(e)
-                #     continue
+                try : 
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = max_norm)
+                except Exception as e :
+                    skipped_batches += 1
+                    ttl_skipped_batches += 1
+                    print(f"exception caused at gradient clipping for total_norm : {total_norm} and max norm: {m_max_norm}")
+                    print("skipping batch")
+                    print(e)
+                    continue
 
                 offset_list.append(offset)
                 lr_list.append(optimizer.param_groups[0]['lr'])
@@ -696,7 +696,7 @@ class ModelTrainer():
 
                 # validate
                 if (i) % val_every == 0:
-                    val_loss = self.validate(model, test_dataloader, mask_density, alpha1, alpha2, offset, tau, eps)
+                    val_loss = self.validate(model, solver, test_dataloader, mask_density, alpha1, alpha2, offset, tau, eps)
                     val_list.append(val_loss)
 
                 # update val csv file and save

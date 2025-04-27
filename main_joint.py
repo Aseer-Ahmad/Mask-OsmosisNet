@@ -3,8 +3,8 @@ import yaml
 from train import JointModelTrainer
 from CustomDataset import MaskDataset
 import torch
-from MaskModel.GCtx_UNet import GCViT_Unet as ViT_seg
-from MaskModel.config_GCtx import get_config
+# from MaskModel.GCtx_UNet import GCViT_Unet as ViT_seg
+# from MaskModel.config_GCtx import get_config
 from MaskModel.MaskNet import MaskNet
 from MaskModel.InpaintingNet import InpaintingNet
 from MaskModel.unet import UNet
