@@ -1585,8 +1585,10 @@ for(i=0; i<kmax; i++)
 /* subtract offset */
 for (i=1; i<=nx; i++)
  for (j=1; j<=ny; j++)
-     u[i][j] = u[i][j] - offset;
-
+ {
+   u[i][j] = u[i][j] - offset;
+   v[i][j] = v[i][j] - offset;
+   }
 
 free_double_matrix (d1,  nx+2, ny+2);
 free_double_matrix (d2,  nx+2, ny+2);
@@ -2064,7 +2066,7 @@ if (q<qmin+0.00005) {
 }
 tau = 16384;
 kmax = 1;
-offset = 0.001;
+offset = 1;
 strncpy(out1, "scarf128_loc_rec.pgm", 80);
 strncpy(out2, "scarf128_loc_mask.pgm", 80);
 
@@ -2209,67 +2211,6 @@ do {
             }
         error[k] = sqrt (error[k] / (double) nc);
         }
-
-   /* compute the error in neighborhood for each candidate mask point */
-   // k = 0;
-   // for (i=1; i<=nx; i++)
-   //  for (j=1; j<=ny; j++)
-   //   if (a_test[i][j] != a[i][j])
-   //      {
-   //      k = k + 1;
-   //      error[k] = 0.0;
-   //      for (m=0; m<=nc-1; m++)
-   //          {
-   //          //if (error_type == 0) {
-   //            help = pow((u[m][i][j] - v[m][i][j]), 2) +
-   //                   pow((u[m][i+1][j] - v[m][i+1][j]), 2) +
-   //                   pow((u[m][i-1][j] - v[m][i-1][j]), 2) +
-   //                   pow((u[m][i][j+1] - v[m][i][j+1]), 2) +
-   //                   pow((u[m][i][j-1] - v[m][i][j-1]), 2) +
-                      
-   //                   pow((u[m][i+1][j+1] - v[m][i+1][j+1]), 2) + 
-   //                   pow((u[m][i-1][j+1] - v[m][i-1][j+1]), 2) + 
-   //                   pow((u[m][i+1][j-1] - v[m][i+1][j-1]), 2) + 
-   //                   pow((u[m][i-1][j-1] - v[m][i-1][j-1]), 2) ;
-                     
-                     
-   //                   // pow((u[m][i-1][j] - v[m][i-1][j]), 2) + 
-   //                   // pow((u[m][i-2][j] - v[m][i-2][j]), 2) + 
-   //                   // pow((u[m][i-2][j+1] - v[m][i-2][j+1]), 2) + 
-   //                   // pow((u[m][i-2][j-1] - v[m][i-2][j-1]), 2) + 
-
-   //                   // pow((u[m][i+1][j] - v[m][i+1][j]), 2) + 
-   //                   // pow((u[m][i+2][j] - v[m][i+2][j]), 2) + 
-   //                   // pow((u[m][i+2][j+1] - v[m][i+2][j+1]), 2) + 
-   //                   // pow((u[m][i+2][j-1] - v[m][i+2][j-1]), 2) + 
-
-   //                   // pow((u[m][i][j+1] - v[m][i][j+1]), 2) + 
-   //                   // pow((u[m][i][j+2] - v[m][i][j+2]), 2) + 
-   //                   // pow((u[m][i-1][j+2] - v[m][i-1][j+2]), 2) + 
-   //                   // pow((u[m][i+1][j+2] - v[m][i+1][j+2]), 2) + 
-
-   //                   // pow((u[m][i][j-1] - v[m][i][j-1]), 2) + 
-   //                   // pow((u[m][i][j-2] - v[m][i][j-2]), 2) + 
-   //                   // pow((u[m][i-1][j-2] - v[m][i-1][j-2]), 2) + 
-   //                   // pow((u[m][i+1][j-2] - v[m][i+1][j-2]), 2) + 
-                     
-   //                   // pow((u[m][i-1][j-1] - v[m][i-1][j-1]), 2) + 
-   //                   // pow((u[m][i-2][j-2] - v[m][i-2][j-2]), 2) + 
-   //                   // pow((u[m][i+1][j-1] - v[m][i+1][j-1]), 2) + 
-   //                   // pow((u[m][i+2][j-2] - v[m][i+2][j-2]), 2) + 
-                     
-   //                   // pow((u[m][i-1][j+1] - v[m][i-1][j+1]), 2) + 
-   //                   // pow((u[m][i-2][j+2] - v[m][i-2][j+2]), 2) + 
-   //                   // pow((u[m][i+1][j+1] - v[m][i+1][j+1]), 2) +
-   //                   // pow((u[m][i+2][j+2] - v[m][i+2][j+2]), 2) ;
-
-   //            error[k] = error[k] + help;
-   //          /*} else {
-   //            error[k] = error[k] + fabs(u[m][i][j] - f[m][i][j])
-   //          }*/
-   //          }
-   //      error[k] = sqrt (error[k] / (double) (nc*9)); 
-   //      }   
 
 
    /* compute the global error for each candidate mask point */
