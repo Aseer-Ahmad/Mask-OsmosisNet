@@ -500,7 +500,7 @@ class ModelTrainer():
 
         optimizer = getOptimizer(model, self.opt_config)
         scheduler = getScheduler(optimizer, self.scheduler)
-        offsetEvol = OffsetEvolve(init_offset=1, final_offset=offset, max_iter = offset_evl_steps)
+        offsetEvol = OffsetEvolve(init_offset=0.004, final_offset=offset, max_iter = offset_evl_steps)
         # scheduler = WarmupScheduler(optimizer, warmup_steps=5, final_lr=self.lr, base_lr=1e-5)
 
         print(f"optimizer , scheduler  loaded")

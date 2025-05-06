@@ -186,7 +186,7 @@ class OsmosisInpainting:
 
         for i in range(kmax):
 
-            X, max_k = solver(x = U, b = X, kmax = 6000, eps = self.eps, verbose=verbose)
+            X, max_k = solver(x = U, b = X, kmax = 600000, eps = self.eps, verbose=verbose)
             U = X
             loss = mse( U, self.V)
             print(f"\rITERATION : {i+1}, loss : {loss.item()} ", end ='', flush=True)
@@ -545,7 +545,7 @@ class OsmosisInpainting:
 
 
             if verbose:
-                # print(f"RESTART REQUIRED :\n {RES1_COND}, shape : {RES1_COND.shape}")
+                print(f"RESTART REQUIRED :\n {RES1_COND}, shape : {RES1_COND.shape}")
                 # print(f"r_abs when restarted: {r_abs}")
                 # print(self.analyseImage(r_abs[:, :, None, None], "r_abs"))
                 self.bicg_mat["restart"].append(RES1_COND_EXP.item())
@@ -562,7 +562,7 @@ class OsmosisInpainting:
             s = torch.where(NOT_RES_COND[:, :, None, None], r - (alpha[:, :, None, None] * v), s)
             
             if verbose :
-                # print(f"RESTART NOT REQUIRED :\n {NOT_RES_COND}")
+                print(f"RESTART NOT REQUIRED :\n {NOT_RES_COND}")
                 # print(f"k : {k}, alpha : {alpha}")
                 # self.bicg_mat["no_restart"].append(NOT_RES_COND.item())
                 self.write_bicg_weights(alpha[:, :, None, None], "alpha_forward")
@@ -602,7 +602,7 @@ class OsmosisInpainting:
 
 
             if verbose:
-                # print(f"RESTART NOT REQUIRED and ELSE CONV :\n {CONV4_COND}")
+                print(f"RESTART NOT REQUIRED and ELSE CONV :\n {CONV4_COND}")
                 # print(f"k : {k} , omega : {omega}, beta : {beta}")
                 # self.bicg_mat["no_restart_2f"].append(CONV4_COND.item())
                 self.write_bicg_weights(t, "t_forward")
@@ -623,7 +623,7 @@ class OsmosisInpainting:
             if verbose:
                 pass
                 print(f"ss : {reslosss(x[:, :, 1:-1,1:-1], self.V[:, :, 1:-1,1:-1], self.mask1)} ")
-                # print(f"k : {k}, RESIDUAL : {r_abs}")
+                print(f"k : {k}, RESIDUAL : {r_abs}")
 
             ## register backward hook
         #     v_abs.register_hook(self.create_backward_hook2("v_abs"))

@@ -25,8 +25,8 @@ OPT            :
     momentum   : 0.009  
 
 SCHEDL         : 
-TRAIN_BATCH    : 4
-TEST_BATCH     : 4
+TRAIN_BATCH    : 1
+TEST_BATCH     : 1
 ALPHA1         : 0.01
 ALPHA2         : 1
 MASK_DEN       : 0.1
@@ -36,9 +36,9 @@ SKIP_NORM      : 500
 
 #solver params
 SOLVER_TYPE    : Stab_BiCGSTAB
-R_ABS_EPS      : 1e-4
+R_ABS_EPS      : 1e-5
 OFFSET         : 0.004
-TAU            : 16000
+TAU            : 16384
 ITERATIONS     : 
 OFFSET_EVL     : constant
 OFFSET_EVL_STEPS : 5000
