@@ -205,17 +205,17 @@ class OsmosisInpainting:
         if save_batch[0]:
             fname = save_batch[1]
 
-            out = torch.cat(( 
-                            ((self.V - self.offset) * 255.).reshape(self.batch*(self.nx+2), self.ny+2) , 
-                            (self.mask1 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
-                            # (self.mask2 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
-                            # (self.canny_mask * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
-                            # (init-self.offset).reshape(self.batch*(self.nx+2), self.ny+2),
-                            (U  * 255. - self.offset).reshape(self.batch*(self.nx+2), self.ny+2)
-                            ),
-                            dim = 1)
+            # out = torch.cat(( 
+            #                 ((self.V - self.offset) * 255.).reshape(self.batch*(self.nx+2), self.ny+2) , 
+            #                 (self.mask1 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
+            #                 # (self.mask2 * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
+            #                 # (self.canny_mask * 255.).reshape(self.batch*(self.nx+2), self.ny+2), 
+            #                 # (init-self.offset).reshape(self.batch*(self.nx+2), self.ny+2),
+            #                 (U  * 255. - self.offset).reshape(self.batch*(self.nx+2), self.ny+2)
+            #                 ),
+            #                 dim = 1)
 
-            # out = ((U - self.offset) * 255.).reshape(self.batch*(self.nx+2), self.ny+2)
+            out = ((U - self.offset) * 255.).reshape(self.batch*(self.nx+2), self.ny+2)
   
             # self.writePGMImage((self.normalize(U, 255).reshape(self.batch*(self.nx+2), self.ny+2) - self.offset).cpu().detach().numpy().T, fname)
             self.writePGMImage(out.cpu().detach().numpy().T, fname) 

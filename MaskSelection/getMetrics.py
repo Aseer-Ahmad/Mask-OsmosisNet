@@ -52,8 +52,8 @@ if __name__ == "__main__":
 
     # PTH1 = args.img1_pth
     # PTH2 = args.img2_pth
-    PTH1 = "../InpaintingSolver/ch5/5.7/single/12074_.png"
-    PTH2 = "../InpaintingSolver/ch5/5.7/single/12074_rec.png"
+    PTH1 = "../InpaintingSolver/ch5/5.7/sparsification/mushroom.png"
+    PTH2 = "../InpaintingSolver/ch5/5.7/sparsification/mushroom_ges_0.1_rec.pgm"
     main(PTH1, PTH2)
 
     # calculateMetricsForDirectory("ch3/3.4/global/scarf/scarf128.pgm", 

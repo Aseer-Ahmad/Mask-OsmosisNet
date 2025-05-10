@@ -4,7 +4,7 @@ import cv2
 import glob
 import shutil
 
-DIR_PTH = 'ch2/2.4'
+DIR_PTH = '../InpaintingSolver/ch5/5.7/sparsification'
 
 # copy paste same path and files
 DIR_PNG_PTH = DIR_PTH + "_PNG"

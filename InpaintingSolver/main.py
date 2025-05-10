@@ -55,9 +55,9 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     offset = 0.004
 
-    V1 = readPGMImage("ch5/5.7/single/302003_.png")
+    V1 = readPGMImage("mushroom.png")
     V1 = V1.to(device) + offset
-    mask1 = readPGMImage('ch5/5.7/single/302003_mask1_bin.png').to(device)
+    mask1 = readPGMImage('mushroom_ges_0.1.pgm').to(device)
 
 
     # mask1 = readPGMImage('ch5/5.7/double/56028_mask1_bin.png').to(device)
@@ -77,7 +77,7 @@ if __name__ == '__main__':
     # Osmosis
     osmosis = OsmosisInpainting(None, V1, mask1, mask1, offset=offset, tau=16384, eps = 1e-9, device = device, apply_canny=False)
     osmosis.calculateWeights(False, False, False)
-    loss, tt, max_k, _, U = osmosis.solveBatchParallel(df_stencils, bicg_mat, "Stab_BiCGSTAB", 1, save_batch = [True, "solved_b.pgm"], verbose = False)
+    loss, tt, max_k, _, U = osmosis.solveBatchParallel(df_stencils, bicg_mat, "Stab_BiCGSTAB", 1, save_batch = [True, "mushroom_ges_0.1_rec.pgm"], verbose = False)
 
     # Diffusion
     # U    = readPGMImage("klein.pgm").to(device)
