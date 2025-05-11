@@ -44,4 +44,4 @@ def calculate_and_append_density(image_dir):
         print(f"Renamed {file_name} to {new_file_name}")
 
 
-calculate_and_append_density("../InpaintingSolver/ch5/5.7/double/masks")
+calculate_and_append_density("../InpaintingSolver/ch4/4.7/masks")
