@@ -22,7 +22,7 @@ pip install -r req.txt
 
 The [text](config.yaml) file contains all the configurable paramters for surrogate and numerical network models. 
 
-EPOCHS : 100
+EPOCHS : 100 <br>
 MODEL_TYPE : unet_standard <SETS THE MODEL ARCHITECTURE>
 RESUME_CHECKPOINT : <MODEL CHECKPOINT FILE TO RESUME TRAINING FROM>
 SAVE_EVERY_ITER : 25 <ITERATION TO SAVE MODEL CHECKPOINT >
