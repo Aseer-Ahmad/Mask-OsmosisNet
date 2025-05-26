@@ -83,10 +83,10 @@ For inference, with trained model, follow the directory structure of folder name
 The following folders contain : 
 
 ```
-[masknet_wts](Inference/masknet_wts)     : weights for mask network of the joint surrogate network. 
-[unet_double_wts](Inference/unet_double_wts) : weights for mask network of double mask numerical solver  network.
-[unet_single_wts](Inference/unet_single_wts) : weights for mask network of single mask numerical solver  network.
-[outputs](Inference/outputs)  : results for BSDS300 dataset by model type. folder name can be understood as 
+Inference/masknet_wts     : weights for mask network of the joint surrogate network. 
+Inference/unet_double_wts : weights for mask network of double mask numerical solver  network.
+Inference/unet_single_wts : weights for mask network of single mask numerical solver  network.
+Inference/outputs         : results for BSDS300 dataset by model type. folder name can be understood as 
     - single : single mask joint surrogate solver model
     - double : double mask joint surrogate solver model
     - masknet : mask network for numerical solver model
