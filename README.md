@@ -20,7 +20,7 @@ pip install -r req.txt
 
 # Configuration file
 
-The [text](config.yaml) file contains all the configurable paramters for surrogate and numerical network models. 
+The [config.yaml](config.yaml) file contains all the configurable paramters for surrogate and numerical network models. 
 
 ```
 EPOCHS : 100 
@@ -82,6 +82,7 @@ For inference, with trained model, follow the directory structure of folder name
 
 The following folders contain : 
 
+```
 [text](Inference/masknet_wts)     : weights for mask network of the joint surrogate network. 
 [text](Inference/unet_double_wts) : weights for mask network of double mask numerical solver  network.
 [text](Inference/unet_single_wts) : weights for mask network of single mask numerical solver  network.
@@ -89,9 +90,9 @@ The following folders contain :
     - single : single mask joint surrogate solver model
     - double : double mask joint surrogate solver model
     - masknet : mask network for numerical solver model
-   
+```
 
-For inference dataset, data need to put inside [text](dataset/BSDS_extras/images/test) with a file [text](dataset/BSDS_extras/images/iids_test.txt) that contains names of all the images. 
+For inference dataset, data need to put inside [dataset/BSDS_extras/images/test](dataset/BSDS_extras/images/test) with a file [dataset/BSDS_extras/images/iids_test.txt](dataset/BSDS_extras/images/iids_test.txt) that contains names of all the images. 
 
 Finally to run the inference code, run 
 
