@@ -22,7 +22,8 @@ pip install -r req.txt
 
 The [text](config.yaml) file contains all the configurable paramters for surrogate and numerical network models. 
 
-EPOCHS : 100 <br>
+```
+EPOCHS : 100 
 MODEL_TYPE : unet_standard <SETS THE MODEL ARCHITECTURE>
 RESUME_CHECKPOINT : <MODEL CHECKPOINT FILE TO RESUME TRAINING FROM>
 SAVE_EVERY_ITER : 25 <ITERATION TO SAVE MODEL CHECKPOINT >
@@ -51,6 +52,7 @@ MAX_NORM       : 1      <MAX NORM TO SET FOR GRADIENT CLIPPING>
 SKIP_NORM      : 500    <MAX NORM ABOVE WHICH TO SKIP AND RESCALE GRADIENTS>
 
 SOLVER_TYPE      : Stab_BiCGSTAB <TYPE OF OSMOSIS SOLVER. Options : Stab_BiCGSTAB, Jacobi>
+```
 
 # Running neural network training
 
