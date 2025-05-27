@@ -113,13 +113,18 @@ MaskSelection/osmosis_guidance_image_im.c : contains code for osmosis with drift
 
 The compiled filed for the codes are the following : 
 
+```
 MaskSelection/belhachmi.out
 MaskSelection/ps_global.out
 MaskSelection/ps_local.out
 MaskSelection/osmosis.out
+```
 
 MaskSelection/belhachmi.out requires command line paramaters. Example : 
+
+```
 /belhachmi.out -i <INPUT_FILE> -m <MASK_FILE> -d 0.1 -I
+```
 
 To recompile the code use, 
 ```
