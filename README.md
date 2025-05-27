@@ -106,10 +106,12 @@ This generates results based on the tasks listed in [infer.yaml](Inference/infer
 
 Before running the code, make sure to have a directory named [outputs](MaskSelection/outputs) in the code folder. Intermediate results for sparsification will be written to this. 
 
+```
 MaskSelection/belhachmi.c            : contains code for analytic approach of belhachmi
 MaskSelection/prob-spars-os-global.c : contains code for probabalistic sparsification with global error criteria for osmosis
 MaskSelection/prob-spars-os-local.c  : contains code for probabalistic sparsification with local error criteria for osmosis
 MaskSelection/osmosis_guidance_image_im.c : contains code for osmosis with drift vector modification
+```
 
 The compiled filed for the codes are the following : 
 
